@@ -220,26 +220,22 @@ struct vector3
 struct Planet
 {
 	static real FR(real m, real d);
-	static real GR(real m, real d);
 	static real NW(real m, real d);
 
-	char const * n;
-	QColor c;
-	real m;
-	vector3 p;
-	vector3 v;
-	vector3 a;
-	vector3 o;
-	real t[2];
-	bool updated;
-	//vector3 i;
-	vector3 s;
-	real pd;
-	vector3 pp[2];
-	vector3 ps[2];
-	real (* f)(real, real);	
-	
-	enum Type {PP, LB} eType;
+	char const * n;						// name
+	QColor c;							// color
+	real m;								// mass
+	vector3 p;							// position
+	vector3 v;							// velocity
+	vector3 o;							// old position
+	real t[2];							// current & old time intervals according to Newton or FT
+	bool updated;						// the cycle of the planet or the photon arrival line has been completed
+ 	real pd;							// perihelion of the planet
+	vector3 pp[2];						// current & old saved positions on the perihelion
+	vector3 ps[2];						// current & old polar coordinates of pp
+	real (* f)(real, real);				// function pointer to Newton time formula or FT time formula
+
+	enum Type {PP, LB} eType;			// is for the perihelion precession disparity or the gravitational light bending
 
 	Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real) = NW, Type eType = PP)
 	: n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType)

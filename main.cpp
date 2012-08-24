@@ -71,30 +71,38 @@ using namespace std;
 const real scale = 1e9L;
 const real upper = 30.L;
 
+// FT time formula
 inline real Planet::FR(real m, real d)
 {
 	return 1.L / ((m / d + h) / h);
 }
 
-inline real Planet::GR(real m, real d)
-{
-	return 1.L / ((m / d + h) / h);
-}
-
+// Newton time formula
 inline real Planet::NW(real, real)
 {
 	return 1.L;
 }
 
+
+/** 
+	@brief			Calculates the next position of the planet or photon
+	@param planet	Planets that will affect the movement of the planet that is moving (this)
+	@param upper	Time interval
+*/
+
 inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
 {
+	// net acceleration vector (with all planets)
 	vector3 va(0.L, 0.L, 0.L);
 	
+	// iterate through all planets
 	for (size_t i = 0; i < planet.size(); i ++)
 	{
+		// if same planet or photon then skip
 		if (planet[i].m == m || planet[i].m == 0.0L)
 			continue;
 		
+		// vector and norm between the moving planet and the other one
 		const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
 		const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
 		const real norm = sqrt(norm2);
@@ -104,12 +112,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		va[1] += - G * planet[i].m / norm2 * normal[1] / norm;
 		va[2] += - G * planet[i].m / norm2 * normal[2] / norm;
 
-		if (i == 0 && pd > norm)
-		{
-			pd = norm;
-
-			pp[0] = p;
-		}
+		// save position of the planet when perihelion is found
+ 		if (i == 0 && pd > norm)
+ 		{
+ 			pd = norm;
+ 
+ 			pp[0] = p;
+ 		}
 	}
 	
 	// save
@@ -119,47 +128,57 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	const real nnorm_p = p.norm();
 	vector3 vnn = p / nnorm_p;
 
+	// if this not the first time
 	if (t[1] != 0.L)
 	{
+		// save old time value
 		t[1] = t[0];
+
+		// Newton: t = upper
+		// FT: t = upper / ((m / d + h) / h)
 		t[0] = upper * f(planet[0].m, nnorm_p);
 	}
 	else
 	{
+		// Newton: t = upper
+		// FT: t = upper / ((m / d + h) / h)
 		t[0] = upper * f(planet[0].m, nnorm_p);
+
+		// copy time value
 		t[1] = t[0];
 	}
 
 	vector3 vi(v * t[0] + va * (t[0] * t[0] / 2.));
 
+	// p = p + v*t + (a*t^2)/2
 	p += vi;
+
+	// v = v + a*t
 	v += va * t[0];
 
 	switch (eType)
 	{
+	// perihelion precession disparity
 	case PP:
+		// if the planet crossed the x axis (y = 0)
 		if (q[1] < 0 && p[1] >= 0)
 		{
-			//const real mu = - q[1] / (p[1] - q[1]);
-		
-			//i = q + (p - q) * mu;
 			pp[1] = pp[0];
 			
-			pd = std::numeric_limits<real>::max();
+ 			pd = std::numeric_limits<real>::max();
 
 			updated = true;
 		}
 		break;
 
+	// gravitational light bending
 	case LB:
+		// if the photon crossed x = -200000000000
 		if (q[0] >= -200000000000.L && p[0] < -200000000000.L)
 		{
-			//const real mu = - q[0] / (p[0] - q[0]);
-		
-			//i = q + (p - q) * mu;
 			pp[1] = pp[0];
 			
-			pd = std::numeric_limits<real>::max();
+ 			pd = std::numeric_limits<real>::max();
 
 			updated = true;
 		}
@@ -178,9 +197,11 @@ void Dual::run()
 	
 	while (true)
 	{
+		// stop the processing until the tab becomes visible
 		while (! p->isVisible())
 			QThread::msleep(100);
-			
+		
+		// move the same planet or photon according to Newton & FT
 		for (size_t j = 0; j < p->planet.size(); j ++)
 			p->planet[j][i](p->planet[j], q->pTime->value());
 	}
@@ -196,6 +217,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
+	// initial position of each planet and photon
 	static const real pos[12][3] =
 	{
 		{0.L, 0.L, 0.L},
@@ -213,6 +235,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{250000000000.L, -40000000000.L, 0.L}
 	};
 	
+	// initial velocity of each planet and photon
 	static const real vel[12][3] =
 	{
 		{0.L, 0.L, 0.L},
@@ -230,7 +253,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{-300000.L, 0.L, 0.L}
 	};
 
-	static const Planet Sun 	  ("Sun", 		Qt::yellow, 1.98911e30L, pos[0], vel[0]);
+	// name, color, mass, position and velocity of each moving object
+	static const Planet Sun 	  ("Sun", 		Qt::yellow, 1.98911E+30L, pos[0], vel[0]);
 	static const Planet Mercury   ("Mercury", 	Qt::red, 3.302E+23L, pos[1], vel[1]);
 	static const Planet Venus 	  ("Venus", 	Qt::cyan, 4.8685E+24L, pos[2], vel[2]);
 	static const Planet Earth 	  ("Earth", 	Qt::blue, 5.9736E+24L, pos[3], vel[3]);
@@ -246,8 +270,11 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
 	switch (eType)
 	{
+	// perihelion precession disparity
 	case PP:
 		planet.resize(2);
+
+		// store each planet using the Newton time formula
 		planet[0].reserve(10);
 		planet[0].push_back(Sun);
 		planet[0].push_back(Mercury);
@@ -260,9 +287,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		planet[0].push_back(Neptune);
 		planet[0].push_back(Pluto);
 		
-		//for (int i = 0; i < 9 - 2 /*get_nprocs()*/ * 4; i ++)
-		//	planet[0].pop_back();
-
+		// copy & change each planet for the FT time formula
 		planet[1] = planet[0];
 		for (size_t i = 0; i < planet[1].size(); i ++)
 		{
@@ -272,6 +297,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
 		stats.resize(planet[0].size());
 
+		// prepare the UI
 		for (size_t i = 1; i < planet[0].size(); i ++)
 		{
 			QPixmap p(12, 8);
@@ -282,11 +308,17 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		connect(q->pPlanet, SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 		break;
 	
+	// gravitational light bending
 	case LB:
 		planet.resize(2);
-		planet[0].reserve(10);
+
+		// store the Sun & the photon using the Newton time formula
+		planet[0].reserve(2);
 		planet[0].push_back(Sun);
 		planet[0].push_back(Photon1);
+
+		// store the Sun & the photon using the FT time formula
+		planet[1].reserve(2);
 		planet[1].push_back(Sun);
 		planet[1].push_back(Photon2);
 
@@ -302,8 +334,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 #endif
 
 	startTimer(100);
-	//QApplication::postEvent(this, new QTimerEvent(0));
 
+	// launch a thread for each planet or photon
 	for (size_t i = 1; i < planet[0].size(); i ++)
 		new Dual(this, i);
 }
