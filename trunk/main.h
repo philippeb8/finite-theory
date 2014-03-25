@@ -25,17 +25,17 @@
 #include <vector>
 
 #include <qcolor.h>
-#include <q3mainwindow.h>
+#include <QtWidgets/QMainWindow>
 #include <qpen.h>
 #include <qpoint.h>
-#include <qlabel.h>
+#include <QtWidgets/QLabel>
 #include <qpixmap.h>
-#include <qwidget.h>
+#include <QtWidgets/QWidget>
 #include <qstring.h>
-#include <q3pointarray.h>
+#include <QPolygon>
 #include <qthread.h>
-#include <qcombobox.h>
-#include <qtabwidget.h>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QTabWidget>
 //Added by qt3to4:
 #include <QResizeEvent>
 #include <QMouseEvent>
@@ -283,7 +283,7 @@ protected:
 	void timerEvent( QTimerEvent *e );
 
     QPen pen;
-    Q3PointArray polyline;
+    QPolygon polyline;
 
     bool mousePressed;
 
@@ -308,7 +308,7 @@ protected:
 	std::vector<Stats> stats;
 };
 
-class Scribble : public Q3MainWindow
+class Scribble : public QMainWindow
 {
     Q_OBJECT
 	friend class Canvas;
@@ -321,7 +321,7 @@ protected slots:
     void slotPlanet(int);
 	void slotPP();
 	void slotLB();
-	void slotChanged(QWidget * p);
+    void slotChanged(int);
 	void slotAbout();
 	
 public:
