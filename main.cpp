@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.0"
+#define EDITION "4.1"
 
 #include "main.h"
 
@@ -68,16 +68,16 @@
 using namespace std;
 
 const real scale = 1e9L;
-const real upper = 30.L;
+const real upper = 1.L;
 
 // FT time formula
-inline real Planet::FR(real m, real d)
+inline real Planet::FR(real m, real d, real h)
 {
 	return 1.L / ((m / d + h) / h);
 }
 
 // Newton time formula
-inline real Planet::NW(real, real)
+inline real Planet::NW(real, real, real)
 {
 	return 1.L;
 }
@@ -142,13 +142,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 
 		// Newton: t = upper
 		// FT: t = upper / ((m / d + h) / h)
-		t[0] = upper * f(planet[0].m, nnorm_p);
+        t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
 	}
 	else
 	{
 		// Newton: t = upper
 		// FT: t = upper / ((m / d + h) / h)
-		t[0] = upper * f(planet[0].m, nnorm_p);
+        t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
 
 		// copy time value
 		t[1] = t[0];
@@ -224,7 +224,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
 	// initial position of each planet and photon
-	static const real pos[12][3] =
+    static const real pos[][3] =
 	{
 		{0.L, 0.L, 0.L},
 		{-57025548112.2453L, 3197006916.08582L, 5283916036.50742L},
@@ -238,11 +238,20 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{-4043923627184.17L, 3575690969311.01L, 795204553555.504L}, 
 		
 		{250000000000.L, -40000000000.L, 0.L}, 
-		{250000000000.L, -40000000000.L, 0.L}
-	};
+        {250000000000.L, -40000000000.L, 0.L},
+
+        {-50000000000.L, 50000000000.L, 0.L},
+        {0.L, 50000000000.L, 0.L},
+        {50000000000.L, 50000000000.L, 0.L},
+        {-50000000000.L, 0.L, 0.L},
+        {50000000000.L, 0.L, 0.L},
+        {-50000000000.L, -50000000000.L, 0.L},
+        {0.L, -50000000000.L, 0.L},
+        {50000000000.L, -50000000000.L, 0.L},
+    };
 	
 	// initial velocity of each planet and photon
-	static const real vel[12][3] =
+    static const real vel[][3] =
 	{
 		{0.L, 0.L, 0.L},
 		{-13058.0445420602L, -46493.5791091285L, -2772.42900405547L},
@@ -256,8 +265,17 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{-2122.7269723267L, -4538.25658137665L, 1101.51599904528L},
 		
 		{-300000.L, 0.L, 0.L}, 
-		{-300000.L, 0.L, 0.L}
-	};
+        {-300000.L, 0.L, 0.L},
+
+        {-50000.L, 50000.L, 0.L},
+        {0.L, 50000.L, 0.L},
+        {50000.L, 50000.L, 0.L},
+        {-50000.L, 0.L, 0.L},
+        {50000.L, 0.L, 0.L},
+        {-50000.L, -50000.L, 0.L},
+        {0.L, -50000.L, 0.L},
+        {50000.L, -50000.L, 0.L},
+    };
 
 	// name, color, mass, position and velocity of each moving object
 	static const Planet Sun 	  ("Sun", 		Qt::yellow, 1.98911E+30L, pos[0], vel[0]);
@@ -273,6 +291,15 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
 	static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR, Planet::LB);
 	static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
+
+    static const Planet Planet1   ("Planet1", 	Qt::darkRed, 0.0L, pos[12], vel[12], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet2   ("Planet2", 	Qt::darkRed, 0.0L, pos[13], vel[13], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet3   ("Planet3", 	Qt::darkRed, 0.0L, pos[14], vel[14], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet4   ("Planet4", 	Qt::darkRed, 0.0L, pos[15], vel[15], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet5   ("Planet5", 	Qt::darkRed, 0.0L, pos[16], vel[16], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet6   ("Planet6", 	Qt::darkRed, 0.0L, pos[17], vel[17], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet7   ("Planet7", 	Qt::darkRed, 0.0L, pos[18], vel[18], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet8   ("Planet8", 	Qt::darkRed, 0.0L, pos[19], vel[19], Planet::FR, Planet::BB, H[1]);
 
 	switch (eType)
 	{
@@ -330,7 +357,26 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
 		stats.resize(planet[0].size());
 		break;
-	}
+
+    // big bang
+    case BB:
+        planet.resize(1);
+
+        // store the Sun & the planets using FT time formula
+        planet[0].reserve(9);
+        planet[0].push_back(Sun);
+        planet[0].push_back(Planet1);
+        planet[0].push_back(Planet2);
+        planet[0].push_back(Planet3);
+        planet[0].push_back(Planet4);
+        planet[0].push_back(Planet5);
+        planet[0].push_back(Planet6);
+        planet[0].push_back(Planet7);
+        planet[0].push_back(Planet8);
+
+        stats.resize(planet[0].size());
+        break;
+    }
 	
 //    if ((qApp->argc() > 0) && !buffer.load(qApp->argv()[1]))
 //        buffer.fill( palette().base().color() );
@@ -643,7 +689,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
     setCentralWidget(pTabWidget);
 
-	for (unsigned i = 0; i < 2; ++ i)
+    for (unsigned i = 0; i < 3; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
 
@@ -743,7 +789,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	
 	pTabWidget->addTab(pTab[0], "Perihelion Precession");
 	pTabWidget->addTab(pTab[1], "Light Bending");
-	//pTab[1]->hide();
+    pTabWidget->addTab(pTab[2], "Big Bang");
+    //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
 }

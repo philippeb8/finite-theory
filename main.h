@@ -51,7 +51,7 @@ class QSpinBox;
 typedef long double real;
 
 const real G = 6.67428e-11;
-const real h = 1.3450632e27/2;
+const real H[] = {1.3450632e27/2, std::numeric_limits<real>::min()};
 
 struct vector3
 {
@@ -219,8 +219,8 @@ struct vector3
 
 struct Planet
 {
-	static real FR(real m, real d);
-	static real NW(real m, real d);
+    static real FR(real m, real d, real h);
+    static real NW(real m, real d, real h);
 
 	char const * n;						// name
 	QColor c;							// color
@@ -233,12 +233,13 @@ struct Planet
  	real pd;							// perihelion of the planet
 	vector3 pp[2];						// current & old saved positions on the perihelion
 	vector3 ps[2];						// current & old polar coordinates of pp
-	real (* f)(real, real);				// function pointer to Newton time formula or FT time formula
+    real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
+    real h;                             // fudge factor
 
-	enum Type {PP, LB} eType;			// is for the perihelion precession disparity or the gravitational light bending
+    enum Type {PP, LB, BB} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
-	Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real) = NW, Type eType = PP)
-	: n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType)
+    Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
+    : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
 	{
 	}
 	
@@ -265,7 +266,7 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-	enum Type {PP, LB} eType;
+    enum Type {PP, LB, BB} eType;
 
     Canvas( Type eType, QWidget *parent = 0, const char *name = 0 );
     ~Canvas();
@@ -328,9 +329,9 @@ public:
 	unsigned nc, ntime[2];
 
 	QTabWidget *pTabWidget;
-    Canvas* canvas[2];
-	QWidget * pTab[2];
-	QLabel *pLabel[2][7][3];
+    Canvas* canvas[3];
+    QWidget * pTab[3];
+    QLabel *pLabel[3][7][3];
     QSpinBox *pTime;
     QComboBox *pPlanet;
     QToolButton *bPColor, *bSave, *bClear;
