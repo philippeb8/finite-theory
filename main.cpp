@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "3.3"
+#define EDITION "4.0"
 
 #include "main.h"
 
@@ -31,40 +31,39 @@
 #include <iostream>
 #include <typeinfo>
 
-#include <qapplication.h>
+#include <QtWidgets/QApplication>
 #include <qevent.h>
 #include <qpainter.h>
-#include <q3toolbar.h>
-#include <qtoolbutton.h>
-#include <qspinbox.h>
-#include <qtooltip.h>
+#include <QtWidgets/QToolBar>
+#include <QtWidgets/QToolButton>
+#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QToolTip>
 #include <qrect.h>
 #include <qpoint.h>
-#include <qcolordialog.h>
-#include <q3filedialog.h>
+#include <QtWidgets/QColorDialog>
+#include <QtWidgets/QFileDialog>
 #include <qcursor.h>
 #include <qimage.h>
-#include <q3strlist.h>
-#include <q3popupmenu.h>
-#include <q3intdict.h>
-#include <qlayout.h>
+#include <QStringList>
+#include <QtWidgets/QMenu>
+#include <QHash>
+#include <QtWidgets/QLayout>
 #include <qobject.h>
-#include <qmenubar.h>
-#include <qmessagebox.h>
-#include <qstylefactory.h>
-#include <qapplication.h>
+#include <QtWidgets/QMenuBar>
+#include <QtWidgets/QMessageBox>
+#include <QtWidgets/QStyleFactory>
 //Added by qt3to4:
-#include <Q3HBoxLayout>
+#include <QtWidgets/QHBoxLayout>
 #include <QTimerEvent>
-#include <QLabel>
+#include <QtWidgets/QLabel>
 #include <QPixmap>
 #include <QResizeEvent>
 #include <QMouseEvent>
-#include <Q3VBoxLayout>
+#include <QtWidgets/QVBoxLayout>
 #include <QPaintEvent>
-#include <Q3MemArray>
-#include <Q3Painter>
-#include <QDesktopWidget>
+#include <QVector>
+#include <QtGui/QPainter>
+#include <QtWidgets/QDesktopWidget>
 
 using namespace std;
 
@@ -81,6 +80,13 @@ inline real Planet::FR(real m, real d)
 inline real Planet::NW(real, real)
 {
 	return 1.L;
+}
+
+
+void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int sy, int sw, int sh )
+{
+    QPainter p( dst );
+    p.drawPixmap( x, y, *src, sx, sy, sw, sh );
 }
 
 
@@ -167,7 +173,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 			
  			pd = std::numeric_limits<real>::max();
 
-			updated = true;
+            updated = true;
 		}
 		break;
 
@@ -180,7 +186,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 			
  			pd = std::numeric_limits<real>::max();
 
-			updated = true;
+            updated = true;
 		}
 		break;
 	}
@@ -195,7 +201,7 @@ void Dual::run()
 {
 	Scribble * q = static_cast<Scribble *>(p->topLevelWidget());
 	
-	while (true)
+    while (true)
 	{
 		// stop the processing until the tab becomes visible
 		while (! p->isVisible())
@@ -207,13 +213,13 @@ void Dual::run()
 	}
 }
 
-const bool no_writing = FALSE;
+const bool no_writing = false;
 
 Canvas::Canvas( Type eType, QWidget *parent, const char *name )
-    : QWidget( parent, name, Qt::WStaticContents ), 
-      eType(eType), pen( Qt::red, 3 ), polyline(3), mousePressed( FALSE ), buffer( width(), height() )
+    : QWidget( parent/*, name, Qt::WStaticContents*/ ),
+      eType(eType), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() )
 {
-	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
+//	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
 	
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
@@ -302,7 +308,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{
 			QPixmap p(12, 8);
 			p.fill(planet[0][i].c);
-			q->pPlanet->insertItem(p, planet[0][i].n);
+            q->pPlanet->addItem(p, planet[0][i].n);
 		}
 
 		connect(q->pPlanet, SIGNAL(activated(int)), SLOT(slotPlanet(int)));
@@ -326,11 +332,11 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		break;
 	}
 	
-    if ((qApp->argc() > 0) && !buffer.load(qApp->argv()[1]))
-        buffer.fill( colorGroup().base() );
-    setBackgroundMode( Qt::PaletteBase );
+//    if ((qApp->argc() > 0) && !buffer.load(qApp->argv()[1]))
+//        buffer.fill( palette().base().color() );
+//    setBackgroundMode( Qt::PaletteBase );
 #ifndef QT_NO_CURSOR
-    setCursor( Qt::crossCursor );
+    setCursor( Qt::CrossCursor );
 #endif
 
 	startTimer(100);
@@ -438,7 +444,7 @@ void Canvas::slotPlanet(int i)
 			}
 		}
 
-		p->pLabel[eType][3][x]->setText(s[0].str().c_str());
+        p->pLabel[eType][3][x]->setText(s[0].str().c_str());
 		p->pLabel[eType][4][x]->setText(s[1].str().c_str());
 		p->pLabel[eType][5][x]->setText(s[2].str().c_str());
 		p->pLabel[eType][6][x]->setText(s[3].str().c_str());
@@ -449,12 +455,12 @@ void Canvas::timerEvent(QTimerEvent *)
 {
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 
-	if (! isVisible())
-		return;
+    if (! isVisible())
+        return;
 
 	{
 		QRect r(planet[0][0].p[0] / scale - 5 + width()/2, planet[0][0].p[1] / scale - 5 + height()/2, 10, 10);
-		Q3Painter painter;
+        QPainter painter;
 		painter.begin( &buffer );
 		painter.setBrush(Qt::yellow);
 		painter.drawEllipse(r);
@@ -486,23 +492,23 @@ void Canvas::timerEvent(QTimerEvent *)
 			for (int x = 0; x < 3; ++ x)
 				stats[i].mean[x].insert(stats[i].precession[1][x] - stats[i].precession[0][x]);
 			
-			if (size_t(q->pPlanet->currentItem() + 1) == i)
+            if (size_t(q->pPlanet->currentIndex() + 1) == i)
 				slotPlanet(i - 1);
 
-			planet[0][i].updated = false;
-			planet[1][i].updated = false;
+            planet[0][i].updated = false;
+            planet[1][i].updated = false;
 		}
 
 		for (size_t j = 0; j < planet.size(); ++ j)
 		{
-			QRect e(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4, 4);
+            QRect e(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4+1, 4+1);
 
 			planet[j][i].o[0] = planet[j][i].p[0];
 			planet[j][i].o[1] = planet[j][i].p[1];
 			planet[j][i].o[2] = planet[j][i].p[2];
 			
 			QRect r(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4, 4);
-			Q3Painter painter;
+            QPainter painter;
 			painter.begin( &buffer );
 			painter.setPen(planet[j][i].c);
 			painter.setBrush(planet[j][i].c);
@@ -519,25 +525,25 @@ void Canvas::timerEvent(QTimerEvent *)
 
 void Canvas::clearScreen()
 {
-    buffer.fill( colorGroup().base() );
-    repaint( FALSE );
+    buffer.fill( palette().base().color() );
+    repaint();
 }
 
 void Canvas::mousePressEvent( QMouseEvent *e )
 {
-    mousePressed = TRUE;
+    mousePressed = true;
     polyline[2] = polyline[1] = polyline[0] = e->pos();
 }
 
 void Canvas::mouseReleaseEvent( QMouseEvent * )
 {
-    mousePressed = FALSE;
+    mousePressed = false;
 }
 
 void Canvas::mouseMoveEvent( QMouseEvent *e )
 {
     if ( mousePressed ) {
-        Q3Painter painter;
+        QPainter painter;
         painter.begin( &buffer );
         painter.setPen( Qt::gray );
         polyline[2] = polyline[1];
@@ -547,7 +553,7 @@ void Canvas::mouseMoveEvent( QMouseEvent *e )
         painter.end();
 
         QRect r = polyline.boundingRect();
-        r = r.normalize();
+        r = r.normalized();
         r.setLeft( r.left() - pen.width() );
         r.setTop( r.top() - pen.width() );
         r.setRight( r.right() + pen.width() );
@@ -566,17 +572,17 @@ void Canvas::resizeEvent( QResizeEvent *e )
     int h = height() > buffer.height() ?
             height() : buffer.height();
 
-    QPixmap tmp( buffer );
-    buffer.resize( w, h );
-    buffer.fill( colorGroup().base() );
-    bitBlt( &buffer, 0, 0, &tmp, 0, 0, tmp.width(), tmp.height() );
+    buffer = QPixmap(w, h);
+
+    buffer.fill( palette().base().color() );
+//    bitBlt( &buffer, 0, 0, &tmp, 0, 0, tmp.width(), tmp.height() );
 }
 
 void Canvas::paintEvent( QPaintEvent *e )
 {
     QWidget::paintEvent( e );
 
-    Q3MemArray<QRect> rects = e->region().rects();
+    QVector<QRect> rects = e->region().rects();
     for ( uint i = 0; i < rects.count(); ++ i ) 
 	{
         QRect r = rects[(int)i];
@@ -587,133 +593,152 @@ void Canvas::paintEvent( QPaintEvent *e )
 //------------------------------------------------------
 
 Scribble::Scribble( QWidget *parent, const char *name )
-    : Q3MainWindow( parent, name ), nc(0)
+    : QMainWindow( parent ), nc(0)
 {
 	ntime[0] = upper;
 	ntime[1] = 1;
 	
-	Q3PopupMenu *file = new Q3PopupMenu( this );
-	file->insertItem( "E&xit", qApp, SLOT(quit()), Qt::CTRL+Qt::Key_Q );
+    QMenu *file = new QMenu( "&File", this );
+    file->addAction( "E&xit", qApp, SLOT(quit()), Qt::CTRL+Qt::Key_Q );
 
-	Q3PopupMenu *view = new Q3PopupMenu( this );
-	view->insertItem( "&Perihelion Precession", this, SLOT(slotPP()));
-	view->insertItem( "&Bending of Light", this, SLOT(slotLB()));
+    QMenu *view = new QMenu( "&View", this );
+    view->addAction( "&Perihelion Precession", this, SLOT(slotPP()));
+    view->addAction( "&Bending of Light", this, SLOT(slotLB()));
 
-	Q3PopupMenu *help = new Q3PopupMenu( this );
-	help->insertItem( "&About", this, SLOT(slotAbout()));
+    QMenu *help = new QMenu( "&Help", this );
+    help->addAction( "&About", this, SLOT(slotAbout()));
 
 	QMenuBar * menu = new QMenuBar( this );
-	menu->insertItem( "&File", file );
-	menu->insertItem( "&View", view );
-	menu->insertSeparator();
-	menu->insertItem( "&Help", help );
-	menu->setSeparator( QMenuBar::InWindowsStyle );
+    menu->addMenu( file );
+    menu->addMenu( view );
+    menu->addSeparator();
+    menu->addMenu( help );
+//	menu->setSeparator( QMenuBar::InWindowsStyle );
+    setMenuBar(menu);
 
-    Q3ToolBar *tools = new Q3ToolBar( this );
+    QToolBar *tools = new QToolBar( this );
 
-    bClear = new QToolButton( QIcon(), "Clear Screen", "Clear Screen", this, SLOT( slotClear() ), tools );
-    bClear->setText( "Clear Screen" );
+//    bClear = new QToolButton( QIcon(), "Clear Screen", "Clear Screen", this, SLOT( slotClear() ), tools );
+//    bClear->setText( "Clear Screen" );
 
     tools->addSeparator();
 
-    pTime = new QSpinBox( 1, 36000, 10, tools );
-    QToolTip::add( pTime, "Time Interval (s)" );
+    pTime = new QSpinBox( tools );
+    pTime->setRange(1, 36000);
+    pTime->setSingleStep(10);
+    pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
 
+    tools->addWidget(pTime);
     tools->addSeparator();
 
 	pPlanet = new QComboBox(tools);
-    QToolTip::add( pPlanet, "Planet" );
+    pPlanet->setToolTip("Planet" );
 	connect(pPlanet, SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 
+    tools->addWidget(pPlanet);
+    addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
-	connect(pTabWidget, SIGNAL(currentChanged(QWidget *)), SLOT(slotChanged(QWidget *)));
+    connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
+    setCentralWidget(pTabWidget);
 
 	for (unsigned i = 0; i < 2; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
 
-		pLabel[i][0][0] = new QLabel(pTab[i]);
-		pLabel[i][0][1] = new QLabel(pTab[i]);
-		pLabel[i][0][2] = new QLabel(pTab[i]);
-		pLabel[i][1][0] = new QLabel(pTab[i]);
-		pLabel[i][1][1] = new QLabel(pTab[i]);
-		pLabel[i][1][2] = new QLabel(pTab[i]);
-		pLabel[i][2][0] = new QLabel(pTab[i]);
-		pLabel[i][2][1] = new QLabel(pTab[i]);
-		pLabel[i][2][2] = new QLabel(pTab[i]);
-		pLabel[i][3][0] = new QLabel(pTab[i]);
-		pLabel[i][3][1] = new QLabel(pTab[i]);
-		pLabel[i][3][2] = new QLabel(pTab[i]);
-		pLabel[i][4][0] = new QLabel(pTab[i]);
-		pLabel[i][4][1] = new QLabel(pTab[i]);
-		pLabel[i][4][2] = new QLabel(pTab[i]);
-		pLabel[i][5][0] = new QLabel(pTab[i]);
-		pLabel[i][5][1] = new QLabel(pTab[i]);
-		pLabel[i][5][2] = new QLabel(pTab[i]);
-		pLabel[i][6][0] = new QLabel(pTab[i]);
-		pLabel[i][6][1] = new QLabel(pTab[i]);
-		pLabel[i][6][2] = new QLabel(pTab[i]);
+        pLabel[i][0][0] = new QLabel(pTab[i]);
+        pLabel[i][0][1] = new QLabel(pTab[i]);
+        pLabel[i][0][2] = new QLabel(pTab[i]);
+        pLabel[i][1][0] = new QLabel(pTab[i]);
+        pLabel[i][1][1] = new QLabel(pTab[i]);
+        pLabel[i][1][2] = new QLabel(pTab[i]);
+        pLabel[i][2][0] = new QLabel(pTab[i]);
+        pLabel[i][2][1] = new QLabel(pTab[i]);
+        pLabel[i][2][2] = new QLabel(pTab[i]);
+        pLabel[i][3][0] = new QLabel(pTab[i]);
+        pLabel[i][3][1] = new QLabel(pTab[i]);
+        pLabel[i][3][2] = new QLabel(pTab[i]);
+        pLabel[i][4][0] = new QLabel(pTab[i]);
+        pLabel[i][4][1] = new QLabel(pTab[i]);
+        pLabel[i][4][2] = new QLabel(pTab[i]);
+        pLabel[i][5][0] = new QLabel(pTab[i]);
+        pLabel[i][5][1] = new QLabel(pTab[i]);
+        pLabel[i][5][2] = new QLabel(pTab[i]);
+        pLabel[i][6][0] = new QLabel(pTab[i]);
+        pLabel[i][6][1] = new QLabel(pTab[i]);
+        pLabel[i][6][2] = new QLabel(pTab[i]);
 		
-	    QToolTip::add(pLabel[i][0][0], QString("Newton ") + QChar(0x0394) + QChar(0x03C1));
-	    QToolTip::add(pLabel[i][0][1], QString("Newton ") + QChar(0x0394) + QChar(0x03C6));
-	    QToolTip::add(pLabel[i][0][2], QString("Newton ") + QChar(0x0394) + QChar(0x03B8));
-	    QToolTip::add(pLabel[i][1][0], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1));
-	    QToolTip::add(pLabel[i][1][1], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6));
-	    QToolTip::add(pLabel[i][1][2], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8));
-	    QToolTip::add(pLabel[i][2][0], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1));
-	    QToolTip::add(pLabel[i][2][1], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6));
-	    QToolTip::add(pLabel[i][2][2], QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8));
-	    QToolTip::add(pLabel[i][3][0], QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-	    QToolTip::add(pLabel[i][3][1], QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-	    QToolTip::add(pLabel[i][3][2], QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-	    QToolTip::add(pLabel[i][4][0], QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-	    QToolTip::add(pLabel[i][4][1], QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-	    QToolTip::add(pLabel[i][4][2], QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-	    QToolTip::add(pLabel[i][5][0], QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-	    QToolTip::add(pLabel[i][5][1], QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-	    QToolTip::add(pLabel[i][5][2], QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-	    QToolTip::add(pLabel[i][6][0], QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-	    QToolTip::add(pLabel[i][6][1], QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-	    QToolTip::add(pLabel[i][6][2], QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+        pLabel[i][0][0]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C1));
+        pLabel[i][0][1]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C6));
+        pLabel[i][0][2]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03B8));
+        pLabel[i][1][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1));
+        pLabel[i][1][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6));
+        pLabel[i][1][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8));
+        pLabel[i][2][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1));
+        pLabel[i][2][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6));
+        pLabel[i][2][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8));
+        pLabel[i][3][0]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+        pLabel[i][3][1]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+        pLabel[i][3][2]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+        pLabel[i][4][0]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+        pLabel[i][4][1]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+        pLabel[i][4][2]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+        pLabel[i][5][0]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+        pLabel[i][5][1]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+        pLabel[i][5][2]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+        pLabel[i][6][0]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+        pLabel[i][6][1]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+        pLabel[i][6][2]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
 
-		canvas[i] = new Canvas((Canvas::Type) (i), pTab[i]);
+        canvas[i] = new Canvas((Canvas::Type) (i), pTab[i]);
 		canvas[i]->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
-		Q3BoxLayout * l = new Q3VBoxLayout(pTab[i]);
+        QBoxLayout * l = new QVBoxLayout(pTab[i]);
 	    l->addWidget( canvas[i] );
 
-		Q3BoxLayout * h1 = new Q3HBoxLayout(l);
+        QBoxLayout * h1 = new QHBoxLayout();
 		h1->addWidget(pLabel[i][0][0], 1);
 		h1->addWidget(pLabel[i][0][1], 1);
 		h1->addWidget(pLabel[i][0][2], 1);
-		Q3BoxLayout * h2 = new Q3HBoxLayout(l);
+        QBoxLayout * h2 = new QHBoxLayout();
 		h2->addWidget(pLabel[i][1][0], 1);
 		h2->addWidget(pLabel[i][1][1], 1);
 		h2->addWidget(pLabel[i][1][2], 1);
-		Q3BoxLayout * h3 = new Q3HBoxLayout(l);
+        QBoxLayout * h3 = new QHBoxLayout();
 		h3->addWidget(pLabel[i][2][0], 1);
 		h3->addWidget(pLabel[i][2][1], 1);
 		h3->addWidget(pLabel[i][2][2], 1);
-		Q3BoxLayout * h4 = new Q3HBoxLayout(l);
+        QBoxLayout * h4 = new QHBoxLayout();
 		h4->addWidget(pLabel[i][3][0], 1);
 		h4->addWidget(pLabel[i][3][1], 1);
 		h4->addWidget(pLabel[i][3][2], 1);
-		Q3BoxLayout * h5 = new Q3HBoxLayout(l);
+        QBoxLayout * h5 = new QHBoxLayout();
 		h5->addWidget(pLabel[i][4][0], 1);
 		h5->addWidget(pLabel[i][4][1], 1);
 		h5->addWidget(pLabel[i][4][2], 1);
-		Q3BoxLayout * h6 = new Q3HBoxLayout(l);
+        QBoxLayout * h6 = new QHBoxLayout();
 		h6->addWidget(pLabel[i][5][0], 1);
 		h6->addWidget(pLabel[i][5][1], 1);
 		h6->addWidget(pLabel[i][5][2], 1);
-		Q3BoxLayout * h7 = new Q3HBoxLayout(l);
+        QBoxLayout * h7 = new QHBoxLayout();
 		h7->addWidget(pLabel[i][6][0], 1);
 		h7->addWidget(pLabel[i][6][1], 1);
 		h7->addWidget(pLabel[i][6][2], 1);
 
-		pLabel[i][5][1]->setPaletteForegroundColor(Qt::darkRed);
+        l->addLayout(h1);
+        l->addLayout(h2);
+        l->addLayout(h3);
+        l->addLayout(h4);
+        l->addLayout(h5);
+        l->addLayout(h6);
+        l->addLayout(h7);
+        pTab[i]->setLayout(l);
+        pTab[i]->show();
+
+        QPalette* palette = new QPalette();
+        palette->setColor(QPalette::WindowText,Qt::darkRed);
+        pLabel[i][5][1]->setPalette(*palette);
 	}
 	
 	pTabWidget->addTab(pTab[0], "Perihelion Precession");
@@ -743,8 +768,8 @@ void Scribble::slotPP()
     ntime[nc] = pTime->value();
 
 	nc = 0;
-	pPlanet->setEnabled(true);
-	pTabWidget->showPage(pTab[nc]);
+    pPlanet->setEnabled(true);
+    pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
 
@@ -753,22 +778,23 @@ void Scribble::slotLB()
     ntime[nc] = pTime->value();
 
 	nc = 1;
-	pPlanet->setEnabled(false);
-	pTabWidget->showPage(pTab[nc]);
+    pPlanet->setEnabled(false);
+    pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
 
-void Scribble::slotChanged(QWidget * p)
+void Scribble::slotChanged(int i)
 {
-	if (p == pTab[0])
-		slotPP();
-	else
-		slotLB();
+    switch (i)
+    {
+    case 0: slotPP(); break;
+    case 1: slotLB(); break;
+    }
 }
 
 void Scribble::slotAbout()
 {
-    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011\n\nPhil Bouchard <philippeb8@gmail.com>\n");
+    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2014\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
 }
 	
 
@@ -779,9 +805,9 @@ int main( int argc, char **argv )
     Scribble scribble;
 
     scribble.resize( 500, 360 );
-    scribble.setCaption("Finite Theory of the Universe " EDITION);
+    scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
-    a.setMainWidget( &scribble );
+//    a.setMainWidget( &scribble );
 	
     if ( QApplication::desktop()->width() > 550 && QApplication::desktop()->height() > 366 )
         scribble.show();
