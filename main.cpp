@@ -73,7 +73,7 @@ const real upper = 1.L;
 // FT time formula
 inline real Planet::FR(real m, real d, real h)
 {
-	return 1.L / ((m / d + h) / h);
+    return 1.L / ((m / d + h) / h);
 }
 
 // Newton time formula
@@ -189,7 +189,12 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
             updated = true;
 		}
 		break;
-	}
+
+    // big bang
+    case BB:
+        updated = true;
+        break;
+    }
 }
 
 Dual::Dual(Canvas * pParent, int id) : p(pParent), i(id)
@@ -270,8 +275,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {-50000.L, 50000.L, 0.L},
         {0.L, 50000.L, 0.L},
         {50000.L, 50000.L, 0.L},
-        {-70000.L, 0.L, 0.L},
-        {70000.L, 0.L, 0.L},
+        {-80000.L, 0.L, 0.L},
+        {80000.L, 0.L, 0.L},
         {-50000.L, -50000.L, 0.L},
         {0.L, -50000.L, 0.L},
         {50000.L, -50000.L, 0.L},
@@ -292,14 +297,14 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR, Planet::LB);
 	static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Planet1   ("Planet1", 	Qt::darkRed, 0.0L, pos[12], vel[12], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet2   ("Planet2", 	Qt::darkRed, 0.0L, pos[13], vel[13], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet3   ("Planet3", 	Qt::darkRed, 0.0L, pos[14], vel[14], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet4   ("Planet4", 	Qt::darkRed, 0.0L, pos[15], vel[15], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet5   ("Planet5", 	Qt::darkRed, 0.0L, pos[16], vel[16], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet6   ("Planet6", 	Qt::darkRed, 0.0L, pos[17], vel[17], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet7   ("Planet7", 	Qt::darkRed, 0.0L, pos[18], vel[18], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet8   ("Planet8", 	Qt::darkRed, 0.0L, pos[19], vel[19], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet1   ("Planet1", 	Qt::darkRed, 3E+23L, pos[12], vel[12], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet2   ("Planet2", 	Qt::darkRed, 3E+23L, pos[13], vel[13], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet3   ("Planet3", 	Qt::darkRed, 3E+23L, pos[14], vel[14], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet4   ("Planet4", 	Qt::darkRed, 3E+23L, pos[15], vel[15], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet5   ("Planet5", 	Qt::darkRed, 3E+23L, pos[16], vel[16], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet6   ("Planet6", 	Qt::darkRed, 3E+23L, pos[17], vel[17], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet7   ("Planet7", 	Qt::darkRed, 3E+23L, pos[18], vel[18], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet8   ("Planet8", 	Qt::darkRed, 3E+23L, pos[19], vel[19], Planet::FR, Planet::BB, H[1]);
 
 	switch (eType)
 	{
@@ -360,7 +365,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
     // big bang
     case BB:
-        planet.resize(1);
+        planet.resize(2);
 
         // store the Sun & the planets using FT time formula
         planet[0].reserve(9);
@@ -373,6 +378,9 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         planet[0].push_back(Planet6);
         planet[0].push_back(Planet7);
         planet[0].push_back(Planet8);
+
+        // placeholder
+        planet[1] = planet[0];
 
         stats.resize(planet[0].size());
         break;
@@ -403,98 +411,119 @@ void Canvas::slotPlanet(int i)
 	
 	++ i;
 	
-	// precession
-	for (size_t j = 0; j < planet.size(); ++ j)
-		for (int x = 0; x < 3; ++ x)
-		{
-			ostringstream s;
-			
-			if (stats[i].mean[0].size() > 0)
-			{
-				s.setf(ios::scientific, ios::floatfield);
-				s << std::setprecision(numeric_limits<real>::digits10);
-				s << stats[i].precession[j][x];
-			}
+    switch (eType)
+    {
+    case PP:
+    case LB:
+        // precession
+        for (size_t j = 0; j < planet.size(); ++ j)
+            for (int x = 0; x < 3; ++ x)
+            {
+                ostringstream s;
 
-			p->pLabel[eType][j][x]->setText(s.str().c_str());
-		}
+                if (stats[i].mean[0].size() > 0)
+                {
+                    s.setf(ios::scientific, ios::floatfield);
+                    s << std::setprecision(numeric_limits<real>::digits10);
+                    s << stats[i].precession[j][x];
+                }
 
-	// anomaly
-	for (int x = 0; x < 3; ++ x)
-	{
-		ostringstream s;
-		
-		if (stats[i].mean[0].size() > 0)
-		{
-			s.setf(ios::scientific, ios::floatfield);
-			s << std::setprecision(numeric_limits<real>::digits10);
-			s << stats[i].precession[1][x] - stats[i].precession[0][x];
-		}
+                p->pLabel[eType][j][x]->setText(s.str().c_str());
+            }
 
-		p->pLabel[eType][2][x]->setText(s.str().c_str());
-	}
-	
-	// mean
-	for (int x = 0; x < 3; ++ x)
-	{
-		ostringstream s[4];
-		
-		// median
-		if (stats[i].mean[0].size() > 0)
-		{
-			s[0].setf(ios::scientific, ios::floatfield);
-			s[0] << std::setprecision(numeric_limits<real>::digits10);
-			
-			set<real>::iterator k = stats[i].mean[x].begin();
-			set<real>::reverse_iterator l = stats[i].mean[x].rbegin();
-			advance(k, stats[i].mean[x].size() / 2);
-			advance(l, stats[i].mean[x].size() / 2);
-			
-			const real median = (* k + * l) / 2;
-			
-			s[0] << median;
+        // anomaly
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
 
-			// median absolute deviation
-			if (stats[i].mean[0].size() > 1)
-			{
-				s[1].setf(ios::scientific, ios::floatfield);
-				s[1] << std::setprecision(numeric_limits<real>::digits10);
-				
-				set<real> dev;
-				for (set<real>::iterator m = stats[i].mean[x].begin(); m != stats[i].mean[x].end(); ++ m)
-					dev.insert(abs(* m - median));
-					
-				set<real>::iterator m = dev.begin();
-				set<real>::reverse_iterator n = dev.rbegin();
-				advance(m, dev.size() / 2);
-				advance(n, dev.size() / 2);
-				
-				const real mad = (* m + * n) / 2;
-				
-				s[1] << mad;
-				
-				if (stats[i].best[1][x] > mad)
-				{
-					stats[i].best[0][x] = median;
-					stats[i].best[1][x] = mad;
-				}
-				
-				s[2].setf(ios::scientific, ios::floatfield);
-				s[2] << std::setprecision(numeric_limits<real>::digits10);
-				
-				s[3].setf(ios::scientific, ios::floatfield);
-				s[3] << std::setprecision(numeric_limits<real>::digits10);
-					
-				s[2] << stats[i].best[0][x];
-				s[3] << stats[i].best[1][x];
-			}
-		}
+            if (stats[i].mean[0].size() > 0)
+            {
+                s.setf(ios::scientific, ios::floatfield);
+                s << std::setprecision(numeric_limits<real>::digits10);
+                s << stats[i].precession[1][x] - stats[i].precession[0][x];
+            }
 
-        p->pLabel[eType][3][x]->setText(s[0].str().c_str());
-		p->pLabel[eType][4][x]->setText(s[1].str().c_str());
-		p->pLabel[eType][5][x]->setText(s[2].str().c_str());
-		p->pLabel[eType][6][x]->setText(s[3].str().c_str());
-	}
+            p->pLabel[eType][2][x]->setText(s.str().c_str());
+        }
+
+        // mean
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s[4];
+
+            // median
+            if (stats[i].mean[0].size() > 0)
+            {
+                s[0].setf(ios::scientific, ios::floatfield);
+                s[0] << std::setprecision(numeric_limits<real>::digits10);
+
+                set<real>::iterator k = stats[i].mean[x].begin();
+                set<real>::reverse_iterator l = stats[i].mean[x].rbegin();
+                advance(k, stats[i].mean[x].size() / 2);
+                advance(l, stats[i].mean[x].size() / 2);
+
+                const real median = (* k + * l) / 2;
+
+                s[0] << median;
+
+                // median absolute deviation
+                if (stats[i].mean[0].size() > 1)
+                {
+                    s[1].setf(ios::scientific, ios::floatfield);
+                    s[1] << std::setprecision(numeric_limits<real>::digits10);
+
+                    set<real> dev;
+                    for (set<real>::iterator m = stats[i].mean[x].begin(); m != stats[i].mean[x].end(); ++ m)
+                        dev.insert(abs(* m - median));
+
+                    set<real>::iterator m = dev.begin();
+                    set<real>::reverse_iterator n = dev.rbegin();
+                    advance(m, dev.size() / 2);
+                    advance(n, dev.size() / 2);
+
+                    const real mad = (* m + * n) / 2;
+
+                    s[1] << mad;
+
+                    if (stats[i].best[1][x] > mad)
+                    {
+                        stats[i].best[0][x] = median;
+                        stats[i].best[1][x] = mad;
+                    }
+
+                    s[2].setf(ios::scientific, ios::floatfield);
+                    s[2] << std::setprecision(numeric_limits<real>::digits10);
+
+                    s[3].setf(ios::scientific, ios::floatfield);
+                    s[3] << std::setprecision(numeric_limits<real>::digits10);
+
+                    s[2] << stats[i].best[0][x];
+                    s[3] << stats[i].best[1][x];
+                }
+            }
+
+            p->pLabel[eType][3][x]->setText(s[0].str().c_str());
+            p->pLabel[eType][4][x]->setText(s[1].str().c_str());
+            p->pLabel[eType][5][x]->setText(s[2].str().c_str());
+            p->pLabel[eType][6][x]->setText(s[3].str().c_str());
+        }
+        break;
+
+    case BB:
+        for (size_t i = 1; i < planet[0].size(); ++ i)
+            for (size_t j = 0; j < 1; ++ j)
+                if (planet[j][i].updated)
+                {
+                    ostringstream s;
+
+                    s.setf(ios::scientific, ios::floatfield);
+                    s << std::setprecision(numeric_limits<real>::digits10);
+                    s << planet[j][i].t[0];
+
+                    p->pLabel[eType][j][1]->setText(s.str().c_str());
+                }
+        break;
+    }
 }
 
 void Canvas::timerEvent(QTimerEvent *)
@@ -715,27 +744,37 @@ Scribble::Scribble( QWidget *parent, const char *name )
         pLabel[i][6][1] = new QLabel(pTab[i]);
         pLabel[i][6][2] = new QLabel(pTab[i]);
 		
-        pLabel[i][0][0]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C1));
-        pLabel[i][0][1]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C6));
-        pLabel[i][0][2]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03B8));
-        pLabel[i][1][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1));
-        pLabel[i][1][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6));
-        pLabel[i][1][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8));
-        pLabel[i][2][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1));
-        pLabel[i][2][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6));
-        pLabel[i][2][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8));
-        pLabel[i][3][0]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-        pLabel[i][3][1]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-        pLabel[i][3][2]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-        pLabel[i][4][0]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-        pLabel[i][4][1]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-        pLabel[i][4][2]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-        pLabel[i][5][0]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-        pLabel[i][5][1]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-        pLabel[i][5][2]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
-        pLabel[i][6][0]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
-        pLabel[i][6][1]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
-        pLabel[i][6][2]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+        switch ((Canvas::Type) (i))
+        {
+        case Canvas::PP:
+        case Canvas::LB:
+            pLabel[i][0][0]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C1));
+            pLabel[i][0][1]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03C6));
+            pLabel[i][0][2]->setToolTip(QString("Newton ") + QChar(0x0394) + QChar(0x03B8));
+            pLabel[i][1][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1));
+            pLabel[i][1][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6));
+            pLabel[i][1][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8));
+            pLabel[i][2][0]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1));
+            pLabel[i][2][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6));
+            pLabel[i][2][2]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8));
+            pLabel[i][3][0]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+            pLabel[i][3][1]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+            pLabel[i][3][2]->setToolTip(QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+            pLabel[i][4][0]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+            pLabel[i][4][1]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+            pLabel[i][4][2]->setToolTip(QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+            pLabel[i][5][0]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+            pLabel[i][5][1]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+            pLabel[i][5][2]->setToolTip(QString("Best of ") + QChar(0x03BC) + QString("(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+            pLabel[i][6][0]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
+            pLabel[i][6][1]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
+            pLabel[i][6][2]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+            break;
+
+        case Canvas::BB:
+            pLabel[i][0][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QString("t"));
+            break;
+        }
 
         canvas[i] = new Canvas((Canvas::Type) (i), pTab[i]);
 		canvas[i]->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
