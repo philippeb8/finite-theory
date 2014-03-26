@@ -331,7 +331,7 @@ public:
 	QTabWidget *pTabWidget;
     Canvas* canvas[3];
     QWidget * pTab[3];
-    QLabel *pLabel[3][7][3];
+    QLabel *pLabel[3][8][3];
     QSpinBox *pTime;
     QComboBox *pPlanet;
     QToolButton *bPColor, *bSave, *bClear;
