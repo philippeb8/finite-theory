@@ -696,8 +696,6 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear = new QToolButton( QIcon(), "Clear Screen", "Clear Screen", this, SLOT( slotClear() ), tools );
 //    bClear->setText( "Clear Screen" );
 
-    tools->addSeparator();
-
     pTime = new QSpinBox( tools );
     pTime->setRange(1, 36000);
     pTime->setSingleStep(10);
