@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.3"
+#define EDITION "4.4"
 
 #include "main.h"
 
@@ -275,8 +275,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {-50000.L, 50000.L, 0.L},
         {0.L, 50000.L, 0.L},
         {50000.L, 50000.L, 0.L},
-        {-80000.L, 0.L, 0.L},
-        {80000.L, 0.L, 0.L},
+        {-80000L, 0.L, 0.L},
+        {80000L, 0.L, 0.L},
         {-50000.L, -50000.L, 0.L},
         {0.L, -50000.L, 0.L},
         {50000.L, -50000.L, 0.L},
@@ -297,14 +297,14 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR, Planet::LB);
 	static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Planet1   ("Planet1", 	Qt::red, 2E+11L, pos[12], vel[12], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet2   ("Planet2", 	Qt::red, 2E+11L, pos[13], vel[13], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet3   ("Planet3", 	Qt::red, 2E+11L, pos[14], vel[14], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet4   ("Planet4", 	Qt::red, 2E+11L, pos[15], vel[15], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet5   ("Planet5", 	Qt::red, 2E+11L, pos[16], vel[16], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet6   ("Planet6", 	Qt::red, 2E+11L, pos[17], vel[17], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet7   ("Planet7", 	Qt::red, 2E+11L, pos[18], vel[18], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet8   ("Planet8", 	Qt::red, 2E+11L, pos[19], vel[19], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet1   ("Galaxy1", 	Qt::red, 2E+11L, pos[12], vel[12], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet2   ("Galaxy2", 	Qt::red, 2E+11L, pos[13], vel[13], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet3   ("Galaxy3", 	Qt::red, 2E+11L, pos[14], vel[14], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet4   ("Galaxy4", 	Qt::red, 2E+11L, pos[15], vel[15], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet5   ("Galaxy5", 	Qt::red, 2E+11L, pos[16], vel[16], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet6   ("Galaxy6", 	Qt::red, 2E+11L, pos[17], vel[17], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet7   ("Galaxy7", 	Qt::red, 2E+11L, pos[18], vel[18], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet8   ("Galaxy8", 	Qt::red, 2E+11L, pos[19], vel[19], Planet::NW, Planet::BB, H[1]);
 
 	switch (eType)
 	{
@@ -388,6 +388,16 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         }
 
         stats.resize(planet[0].size());
+
+        // prepare the UI
+        for (size_t i = 1; i < planet[0].size(); i ++)
+        {
+            QPixmap p(12, 8);
+            p.fill(planet[0][i].c);
+            q->pPlanet[1]->addItem(p, planet[0][i].n);
+        }
+
+        connect(q->pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
         break;
     }
 	
@@ -513,8 +523,30 @@ void Canvas::slotPlanet(int i)
             p->pLabel[eType][6][x]->setText(s[3].str().c_str());
         }
         break;
+    }
+}
 
+void Canvas::slotGalaxy(int i)
+{
+    Scribble * p = static_cast<Scribble *>(topLevelWidget());
+
+    ++ i;
+
+    switch (eType)
+    {
     case BB:
+        for (size_t j = 0; j < planet.size(); ++ j)
+            for (int x = 0; x < 3; ++ x)
+            {
+                ostringstream s;
+
+                s.setf(ios::scientific, ios::floatfield);
+                s << std::setprecision(numeric_limits<real>::digits10);
+                s << planet[j][i].p[x];
+
+                p->pLabel[eType][j][x]->setText(s.str().c_str());
+            }
+
         for (size_t j = 0; j < planet.size(); ++ j)
             for (int x = 0; x < 3; ++ x)
             {
@@ -524,7 +556,7 @@ void Canvas::slotPlanet(int i)
                 s << std::setprecision(numeric_limits<real>::digits10);
                 s << planet[j][i].v[x];
 
-                p->pLabel[eType][j][x]->setText(s.str().c_str());
+                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
             }
 
         for (int x = 0; x < 3; ++ x)
@@ -535,7 +567,7 @@ void Canvas::slotPlanet(int i)
             s << std::setprecision(numeric_limits<real>::digits10);
             s << planet[1][i].v[x] - planet[0][i].v[x];
 
-            p->pLabel[eType][2][x]->setText(s.str().c_str());
+            p->pLabel[eType][4][x]->setText(s.str().c_str());
         }
         break;
     }
@@ -618,6 +650,9 @@ void Canvas::timerEvent(QTimerEvent *)
         {
             if (size_t(q->pPlanet[0]->currentIndex() + 1) == i)
                 slotPlanet(i - 1);
+
+            if (size_t(q->pPlanet[1]->currentIndex() + 1) == i)
+                slotGalaxy(i - 1);
 
             planet[0][i].updated = false;
             planet[1][i].updated = false;
@@ -732,7 +767,12 @@ Scribble::Scribble( QWidget *parent, const char *name )
     pPlanet[0]->setToolTip("Planet" );
     connect(pPlanet[0], SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 
+    pPlanet[1] = new QComboBox(tools);
+    pPlanet[1]->setToolTip("Galaxy" );
+    connect(pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
+
     tools->addWidget(pPlanet[0]);
+    tools->addWidget(pPlanet[1]);
     addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
@@ -793,15 +833,21 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
 
         case Canvas::BB:
-            pLabel[i][0][0]->setToolTip(QString("Finite Theory vx"));
-            pLabel[i][0][1]->setToolTip(QString("Finite Theory vy"));
-            pLabel[i][0][2]->setToolTip(QString("Finite Theory vz"));
-            pLabel[i][1][0]->setToolTip(QString("Newton vx"));
-            pLabel[i][1][1]->setToolTip(QString("Newton vy"));
-            pLabel[i][1][2]->setToolTip(QString("Newton vz"));
-            pLabel[i][2][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
-            pLabel[i][2][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
-            pLabel[i][2][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
+            pLabel[i][0][0]->setToolTip(QString("Newton x"));
+            pLabel[i][0][1]->setToolTip(QString("Newton y"));
+            pLabel[i][0][2]->setToolTip(QString("Newton z"));
+            pLabel[i][1][0]->setToolTip(QString("Finite Theory x"));
+            pLabel[i][1][1]->setToolTip(QString("Finite Theory y"));
+            pLabel[i][1][2]->setToolTip(QString("Finite Theory z"));
+            pLabel[i][2][0]->setToolTip(QString("Newton vx"));
+            pLabel[i][2][1]->setToolTip(QString("Newton vy"));
+            pLabel[i][2][2]->setToolTip(QString("Newton vz"));
+            pLabel[i][3][0]->setToolTip(QString("Finite Theory vx"));
+            pLabel[i][3][1]->setToolTip(QString("Finite Theory vy"));
+            pLabel[i][3][2]->setToolTip(QString("Finite Theory vz"));
+            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
+            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
+            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
             break;
         }
 
@@ -884,6 +930,7 @@ void Scribble::slotPP()
 
 	nc = 0;
     pPlanet[0]->setEnabled(true);
+    pPlanet[1]->setEnabled(false);
     pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
@@ -894,6 +941,7 @@ void Scribble::slotLB()
 
 	nc = 1;
     pPlanet[0]->setEnabled(false);
+    pPlanet[1]->setEnabled(false);
     pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
@@ -904,6 +952,7 @@ void Scribble::slotBB()
 
     nc = 2;
     pPlanet[0]->setEnabled(false);
+    pPlanet[1]->setEnabled(true);
     pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }

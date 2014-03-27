@@ -274,7 +274,8 @@ public:
 	
 protected slots:
 	void slotPlanet(int);
-	
+    void slotGalaxy(int);
+
 protected:
     void mousePressEvent( QMouseEvent *e );
     void mouseReleaseEvent( QMouseEvent *e );
