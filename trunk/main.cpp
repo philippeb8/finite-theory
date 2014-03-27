@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.2"
+#define EDITION "4.3"
 
 #include "main.h"
 
@@ -68,7 +68,7 @@
 using namespace std;
 
 const real scale = 1e9L;
-const real upper = 1.L;
+const real upper = 10.L;
 
 // FT time formula
 inline real Planet::FR(real m, real d, real h)
@@ -297,14 +297,14 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR, Planet::LB);
 	static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Planet1   ("Planet1", 	Qt::darkRed, 3E+23L, pos[12], vel[12], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet2   ("Planet2", 	Qt::darkRed, 3E+23L, pos[13], vel[13], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet3   ("Planet3", 	Qt::darkRed, 3E+23L, pos[14], vel[14], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet4   ("Planet4", 	Qt::darkRed, 3E+23L, pos[15], vel[15], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet5   ("Planet5", 	Qt::darkRed, 3E+23L, pos[16], vel[16], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet6   ("Planet6", 	Qt::darkRed, 3E+23L, pos[17], vel[17], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet7   ("Planet7", 	Qt::darkRed, 3E+23L, pos[18], vel[18], Planet::FR, Planet::BB, H[1]);
-    static const Planet Planet8   ("Planet8", 	Qt::darkRed, 3E+23L, pos[19], vel[19], Planet::FR, Planet::BB, H[1]);
+    static const Planet Planet1   ("Planet1", 	Qt::red, 2E+11L, pos[12], vel[12], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet2   ("Planet2", 	Qt::red, 2E+11L, pos[13], vel[13], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet3   ("Planet3", 	Qt::red, 2E+11L, pos[14], vel[14], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet4   ("Planet4", 	Qt::red, 2E+11L, pos[15], vel[15], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet5   ("Planet5", 	Qt::red, 2E+11L, pos[16], vel[16], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet6   ("Planet6", 	Qt::red, 2E+11L, pos[17], vel[17], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet7   ("Planet7", 	Qt::red, 2E+11L, pos[18], vel[18], Planet::NW, Planet::BB, H[1]);
+    static const Planet Planet8   ("Planet8", 	Qt::red, 2E+11L, pos[19], vel[19], Planet::NW, Planet::BB, H[1]);
 
 	switch (eType)
 	{
@@ -340,10 +340,10 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		{
 			QPixmap p(12, 8);
 			p.fill(planet[0][i].c);
-            q->pPlanet->addItem(p, planet[0][i].n);
+            q->pPlanet[0]->addItem(p, planet[0][i].n);
 		}
 
-		connect(q->pPlanet, SIGNAL(activated(int)), SLOT(slotPlanet(int)));
+        connect(q->pPlanet[0], SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 		break;
 	
 	// gravitational light bending
@@ -379,8 +379,13 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         planet[0].push_back(Planet7);
         planet[0].push_back(Planet8);
 
-        // placeholder
+        // copy & change each planet for the FT time formula
         planet[1] = planet[0];
+        for (size_t i = 0; i < planet[1].size(); i ++)
+        {
+            planet[1][i].f = Planet::FR;
+            planet[1][i].c = planet[1][i].c.dark();
+        }
 
         stats.resize(planet[0].size());
         break;
@@ -510,18 +515,28 @@ void Canvas::slotPlanet(int i)
         break;
 
     case BB:
-        for (size_t i = 1; i < planet[0].size(); ++ i)
-            for (size_t j = 0; j < 1; ++ j)
-                if (planet[j][i].updated)
-                {
-                    ostringstream s;
+        for (size_t j = 0; j < planet.size(); ++ j)
+            for (int x = 0; x < 3; ++ x)
+            {
+                ostringstream s;
 
-                    s.setf(ios::scientific, ios::floatfield);
-                    s << std::setprecision(numeric_limits<real>::digits10);
-                    s << planet[j][i].t[0];
+                s.setf(ios::scientific, ios::floatfield);
+                s << std::setprecision(numeric_limits<real>::digits10);
+                s << planet[j][i].v[x];
 
-                    p->pLabel[eType][j][1]->setText(s.str().c_str());
-                }
+                p->pLabel[eType][j][x]->setText(s.str().c_str());
+            }
+
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
+
+            s.setf(ios::scientific, ios::floatfield);
+            s << std::setprecision(numeric_limits<real>::digits10);
+            s << planet[1][i].v[x] - planet[0][i].v[x];
+
+            p->pLabel[eType][2][x]->setText(s.str().c_str());
+        }
         break;
     }
 }
@@ -545,36 +560,39 @@ void Canvas::timerEvent(QTimerEvent *)
 		update(r);
 	}
 
-	for (size_t i = 1; i < planet[0].size(); ++ i)
-	{
-		for (size_t j = 0; j < planet.size(); ++ j)
-			if (planet[j][i].updated)
-			{
-				planet[j][i].ps[1][0] = planet[j][i].ps[0][0];
-				planet[j][i].ps[1][1] = planet[j][i].ps[0][1];
-				planet[j][i].ps[1][2] = planet[j][i].ps[0][2];
+    switch (eType)
+    {
+    case PP:
+    case LB:
+        for (size_t i = 1; i < planet[0].size(); ++ i)
+        {
+            for (size_t j = 0; j < planet.size(); ++ j)
+                if (planet[j][i].updated)
+                {
+                    planet[j][i].ps[1][0] = planet[j][i].ps[0][0];
+                    planet[j][i].ps[1][1] = planet[j][i].ps[0][1];
+                    planet[j][i].ps[1][2] = planet[j][i].ps[0][2];
 
-				planet[j][i].ps[0][0] = sqrt(pow(planet[j][i].pp[1][0], 2) + pow(planet[j][i].pp[1][1], 2) + pow(planet[j][i].pp[1][2], 2));
-				planet[j][i].ps[0][1] = atan2(planet[j][i].pp[1][1], planet[j][i].pp[1][0]);
-				planet[j][i].ps[0][2] = acos(planet[j][i].pp[1][2] / planet[j][i].ps[0][0]);
-				
-				for (int x = 0; x < 3; ++ x)
-					stats[i].precession[j][x] = planet[j][i].ps[1][x] - planet[j][i].ps[0][x];
-			}
+                    planet[j][i].ps[0][0] = sqrt(pow(planet[j][i].pp[1][0], 2) + pow(planet[j][i].pp[1][1], 2) + pow(planet[j][i].pp[1][2], 2));
+                    planet[j][i].ps[0][1] = atan2(planet[j][i].pp[1][1], planet[j][i].pp[1][0]);
+                    planet[j][i].ps[0][2] = acos(planet[j][i].pp[1][2] / planet[j][i].ps[0][0]);
 
-		if (planet[0][i].updated && planet[1][i].updated)
-		{
-			for (int x = 0; x < 3; ++ x)
-				stats[i].mean[x].insert(stats[i].precession[1][x] - stats[i].precession[0][x]);
-			
-            if (size_t(q->pPlanet->currentIndex() + 1) == i)
-				slotPlanet(i - 1);
+                    for (int x = 0; x < 3; ++ x)
+                        stats[i].precession[j][x] = planet[j][i].ps[1][x] - planet[j][i].ps[0][x];
+                }
 
-            planet[0][i].updated = false;
-            planet[1][i].updated = false;
-		}
+            if (planet[0][i].updated && planet[1][i].updated)
+            {
+                for (int x = 0; x < 3; ++ x)
+                    stats[i].mean[x].insert(stats[i].precession[1][x] - stats[i].precession[0][x]);
+            }
+        }
+        break;
+    }
 
-		for (size_t j = 0; j < planet.size(); ++ j)
+    for (size_t i = 1; i < planet[0].size(); ++ i)
+    {
+        for (size_t j = 0; j < planet.size(); ++ j)
 		{
             QRect e(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4+1, 4+1);
 
@@ -595,7 +613,16 @@ void Canvas::timerEvent(QTimerEvent *)
 
 			update(r);
 		}
-	}
+
+        if (planet[0][i].updated && planet[1][i].updated)
+        {
+            if (size_t(q->pPlanet[0]->currentIndex() + 1) == i)
+                slotPlanet(i - 1);
+
+            planet[0][i].updated = false;
+            planet[1][i].updated = false;
+        }
+    }
 }
 
 void Canvas::clearScreen()
@@ -672,20 +699,16 @@ Scribble::Scribble( QWidget *parent, const char *name )
 {
 	ntime[0] = upper;
 	ntime[1] = 1;
-	
+    ntime[2] = 1;
+
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "E&xit", qApp, SLOT(quit()), Qt::CTRL+Qt::Key_Q );
-
-    QMenu *view = new QMenu( "&View", this );
-    view->addAction( "&Perihelion Precession", this, SLOT(slotPP()));
-    view->addAction( "&Bending of Light", this, SLOT(slotLB()));
 
     QMenu *help = new QMenu( "&Help", this );
     help->addAction( "&About", this, SLOT(slotAbout()));
 
 	QMenuBar * menu = new QMenuBar( this );
     menu->addMenu( file );
-    menu->addMenu( view );
     menu->addSeparator();
     menu->addMenu( help );
 //	menu->setSeparator( QMenuBar::InWindowsStyle );
@@ -705,11 +728,11 @@ Scribble::Scribble( QWidget *parent, const char *name )
     tools->addWidget(pTime);
     tools->addSeparator();
 
-	pPlanet = new QComboBox(tools);
-    pPlanet->setToolTip("Planet" );
-	connect(pPlanet, SIGNAL(activated(int)), SLOT(slotPlanet(int)));
+    pPlanet[0] = new QComboBox(tools);
+    pPlanet[0]->setToolTip("Planet" );
+    connect(pPlanet[0], SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 
-    tools->addWidget(pPlanet);
+    tools->addWidget(pPlanet[0]);
     addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
@@ -770,7 +793,15 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
 
         case Canvas::BB:
-            pLabel[i][0][1]->setToolTip(QString("Finite Theory ") + QChar(0x0394) + QString("t"));
+            pLabel[i][0][0]->setToolTip(QString("Finite Theory vx"));
+            pLabel[i][0][1]->setToolTip(QString("Finite Theory vy"));
+            pLabel[i][0][2]->setToolTip(QString("Finite Theory vz"));
+            pLabel[i][1][0]->setToolTip(QString("Newton vx"));
+            pLabel[i][1][1]->setToolTip(QString("Newton vy"));
+            pLabel[i][1][2]->setToolTip(QString("Newton vz"));
+            pLabel[i][2][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
+            pLabel[i][2][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
+            pLabel[i][2][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
             break;
         }
 
@@ -852,7 +883,7 @@ void Scribble::slotPP()
     ntime[nc] = pTime->value();
 
 	nc = 0;
-    pPlanet->setEnabled(true);
+    pPlanet[0]->setEnabled(true);
     pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
@@ -862,7 +893,17 @@ void Scribble::slotLB()
     ntime[nc] = pTime->value();
 
 	nc = 1;
-    pPlanet->setEnabled(false);
+    pPlanet[0]->setEnabled(false);
+    pTabWidget->setCurrentWidget(pTab[nc]);
+    pTime->setValue( ntime[nc] );
+}
+
+void Scribble::slotBB()
+{
+    ntime[nc] = pTime->value();
+
+    nc = 2;
+    pPlanet[0]->setEnabled(false);
     pTabWidget->setCurrentWidget(pTab[nc]);
     pTime->setValue( ntime[nc] );
 }
@@ -873,6 +914,7 @@ void Scribble::slotChanged(int i)
     {
     case 0: slotPP(); break;
     case 1: slotLB(); break;
+    case 2: slotBB(); break;
     }
 }
 

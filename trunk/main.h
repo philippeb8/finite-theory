@@ -322,18 +322,19 @@ protected slots:
     void slotPlanet(int);
 	void slotPP();
 	void slotLB();
+    void slotBB();
     void slotChanged(int);
 	void slotAbout();
 	
 public:
-	unsigned nc, ntime[2];
+    unsigned nc, ntime[3];
 
 	QTabWidget *pTabWidget;
     Canvas* canvas[3];
     QWidget * pTab[3];
     QLabel *pLabel[3][8][3];
     QSpinBox *pTime;
-    QComboBox *pPlanet;
+    QComboBox *pPlanet[2];
     QToolButton *bPColor, *bSave, *bClear;
 };
 
