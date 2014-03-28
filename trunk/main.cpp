@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.4"
+#define EDITION "4.5"
 
 #include "main.h"
 
@@ -71,13 +71,20 @@ const real scale = 1e9L;
 const real upper = 10.L;
 
 // FT time formula
-inline real Planet::FR(real m, real d, real h)
+// observer is infinitly far away
+real Planet::FR1(real m, real d, real h)
 {
-    return 1.L / ((m / d + h) / h);
+    return (h) / (m / d + h);
+}
+
+// observer is in a null environment
+real Planet::FR2(real m, real d, real h)
+{
+    return (h + 1.L) / (m / d + h);
 }
 
 // Newton time formula
-inline real Planet::NW(real, real, real)
+real Planet::NW(real, real, real)
 {
 	return 1.L;
 }
@@ -294,17 +301,18 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 	static const Planet Neptune   ("Neptune", 	Qt::darkBlue, 1.0243E+26L, pos[8], vel[8]);
 	static const Planet Pluto 	  ("Pluto", 	Qt::darkGray, 1.27E+22L, pos[9], vel[9]);
 
-	static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR, Planet::LB);
-	static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
+    static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR1, Planet::LB);
+    static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Planet1   ("Galaxy1", 	Qt::red, 2E+11L, pos[12], vel[12], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet2   ("Galaxy2", 	Qt::cyan, 2E+11L, pos[13], vel[13], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet3   ("Galaxy3", 	Qt::blue, 2E+11L, pos[14], vel[14], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet4   ("Galaxy4", 	Qt::yellow, 2E+11L, pos[15], vel[15], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet5   ("Galaxy5", 	Qt::magenta, 2E+11L, pos[16], vel[16], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet6   ("Galaxy6", 	Qt::darkRed, 2E+11L, pos[17], vel[17], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet7   ("Galaxy7", 	Qt::green, 2E+11L, pos[18], vel[18], Planet::NW, Planet::BB, H[1]);
-    static const Planet Planet8   ("Galaxy8", 	Qt::darkBlue, 2E+11L, pos[19], vel[19], Planet::NW, Planet::BB, H[1]);
+    static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB, H[1]);
+    static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, pos[12], vel[12], Planet::NW, Planet::BB);
+    static const Planet Galaxy2   ("Galaxy2", 	Qt::cyan, 50000L, pos[13], vel[13], Planet::NW, Planet::BB);
+    static const Planet Galaxy3   ("Galaxy3", 	Qt::blue, 50000L, pos[14], vel[14], Planet::NW, Planet::BB);
+    static const Planet Galaxy4   ("Galaxy4", 	Qt::yellow, 50000L, pos[15], vel[15], Planet::NW, Planet::BB);
+    static const Planet Galaxy5   ("Galaxy5", 	Qt::magenta, 50000L, pos[16], vel[16], Planet::NW, Planet::BB);
+    static const Planet Galaxy6   ("Galaxy6", 	Qt::darkRed, 50000L, pos[17], vel[17], Planet::NW, Planet::BB);
+    static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, pos[18], vel[18], Planet::NW, Planet::BB);
+    static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, pos[19], vel[19], Planet::NW, Planet::BB);
 
 	switch (eType)
 	{
@@ -329,7 +337,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 		planet[1] = planet[0];
 		for (size_t i = 0; i < planet[1].size(); i ++)
 		{
-			planet[1][i].f = Planet::FR;
+            planet[1][i].f = Planet::FR1;
 			planet[1][i].c = planet[1][i].c.dark();
 		}
 
@@ -369,21 +377,22 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
         // store the Sun & the planets using FT time formula
         planet[0].reserve(9);
-        planet[0].push_back(Sun);
-        planet[0].push_back(Planet1);
-        planet[0].push_back(Planet2);
-        planet[0].push_back(Planet3);
-        planet[0].push_back(Planet4);
-        planet[0].push_back(Planet5);
-        planet[0].push_back(Planet6);
-        planet[0].push_back(Planet7);
-        planet[0].push_back(Planet8);
+        planet[0].push_back(Core);
+        planet[0].push_back(Galaxy1);
+        planet[0].push_back(Galaxy2);
+        planet[0].push_back(Galaxy3);
+        planet[0].push_back(Galaxy4);
+        planet[0].push_back(Galaxy5);
+        planet[0].push_back(Galaxy6);
+        planet[0].push_back(Galaxy7);
+        planet[0].push_back(Galaxy8);
 
         // copy & change each planet for the FT time formula
         planet[1] = planet[0];
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
-            planet[1][i].f = Planet::FR;
+            planet[1][i].f = Planet::Planet::FR2;
+            planet[1][i].h = H[1];
             planet[1][i].c = planet[1][i].c.dark();
         }
 
@@ -547,28 +556,29 @@ void Canvas::slotGalaxy(int i)
                 p->pLabel[eType][j][x]->setText(s.str().c_str());
             }
 
-        for (size_t j = 0; j < planet.size(); ++ j)
-            for (int x = 0; x < 3; ++ x)
-            {
-                ostringstream s;
+//        for (size_t j = 0; j < planet.size(); ++ j)
+//            for (int x = 0; x < 3; ++ x)
+//            {
+//                ostringstream s;
 
-                s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<real>::digits10);
-                s << planet[j][i].v[x];
+//                s.setf(ios::scientific, ios::floatfield);
+//                s << std::setprecision(numeric_limits<real>::digits10);
+//                s << planet[j][i].v[x];
 
-                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
-            }
+//                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
+//            }
 
-        for (int x = 0; x < 3; ++ x)
-        {
-            ostringstream s;
+//        for (int x = 0; x < 3; ++ x)
+//        {
+//            ostringstream s;
 
-            s.setf(ios::scientific, ios::floatfield);
-            s << std::setprecision(numeric_limits<real>::digits10);
-            s << planet[1][i].v[x] - planet[0][i].v[x];
+//            s.setf(ios::scientific, ios::floatfield);
+//            s << std::setprecision(numeric_limits<real>::digits10);
+//            s << planet[1][i].v[x] - planet[0][i].v[x];
 
-            p->pLabel[eType][4][x]->setText(s.str().c_str());
-        }
+//            p->pLabel[eType][4][x]->setText(s.str().c_str());
+//        }
+
         break;
     }
 }
@@ -746,7 +756,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     menu->addMenu( file );
     menu->addSeparator();
     menu->addMenu( help );
-//	menu->setSeparator( QMenuBar::InWindowsStyle );
+//	menu->setSeparator( QMenuBar::IPlanet::NWindowsStyle );
     setMenuBar(menu);
 
     QToolBar *tools = new QToolBar( this );
@@ -839,15 +849,15 @@ Scribble::Scribble( QWidget *parent, const char *name )
             pLabel[i][1][0]->setToolTip(QString("Finite Theory x"));
             pLabel[i][1][1]->setToolTip(QString("Finite Theory y"));
             pLabel[i][1][2]->setToolTip(QString("Finite Theory z"));
-            pLabel[i][2][0]->setToolTip(QString("Newton vx"));
-            pLabel[i][2][1]->setToolTip(QString("Newton vy"));
-            pLabel[i][2][2]->setToolTip(QString("Newton vz"));
-            pLabel[i][3][0]->setToolTip(QString("Finite Theory vx"));
-            pLabel[i][3][1]->setToolTip(QString("Finite Theory vy"));
-            pLabel[i][3][2]->setToolTip(QString("Finite Theory vz"));
-            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
-            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
-            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
+//            pLabel[i][2][0]->setToolTip(QString("Newton vx"));
+//            pLabel[i][2][1]->setToolTip(QString("Newton vy"));
+//            pLabel[i][2][2]->setToolTip(QString("Newton vz"));
+//            pLabel[i][3][0]->setToolTip(QString("Finite Theory vx"));
+//            pLabel[i][3][1]->setToolTip(QString("Finite Theory vy"));
+//            pLabel[i][3][2]->setToolTip(QString("Finite Theory vz"));
+//            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
+//            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
+//            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
             break;
         }
 
@@ -982,7 +992,7 @@ int main( int argc, char **argv )
     scribble.resize( 500, 360 );
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
-//    a.setMainWidget( &scribble );
+//    a.setMaiPlanet::NWidget( &scribble );
 	
     if ( QApplication::desktop()->width() > 550 && QApplication::desktop()->height() > 366 )
         scribble.show();

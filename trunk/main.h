@@ -51,7 +51,7 @@ class QSpinBox;
 typedef long double real;
 
 const real G = 6.67428e-11;
-const real H[] = {1.3450632e27/2, std::numeric_limits<real>::min()};
+const real H[] = {1.3450632e27/2, 0.};
 
 struct vector3
 {
@@ -219,16 +219,17 @@ struct vector3
 
 struct Planet
 {
-    static real FR(real m, real d, real h);
+    static real FR1(real m, real d, real h);
+    static real FR2(real m, real d, real h);
     static real NW(real m, real d, real h);
 
-	char const * n;						// name
+    char const * n;						// name
 	QColor c;							// color
 	real m;								// mass
 	vector3 p;							// position
 	vector3 v;							// velocity
 	vector3 o;							// old position
-	real t[2];							// current & old time intervals according to Newton or FT
+    real t[2];							// current & old time intervals according to Newton or FT
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
  	real pd;							// perihelion of the planet
 	vector3 pp[2];						// current & old saved positions on the perihelion
