@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.6"
+#define EDITION "4.7"
 
 #include "main.h"
 
@@ -68,7 +68,7 @@
 
 using namespace std;
 
-const real scale = 1e9L;
+const real scale = 1e10L;
 const real upper = 10.L;
 
 // FT time formula
