@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.5"
+#define EDITION "4.6"
 
 #include "main.h"
 
@@ -64,6 +64,7 @@
 #include <QVector>
 #include <QtGui/QPainter>
 #include <QtWidgets/QDesktopWidget>
+#include <QtCore/QProcess>
 
 using namespace std;
 
@@ -747,6 +748,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
 
     QMenu *file = new QMenu( "&File", this );
+    file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
+    file->addSeparator();
     file->addAction( "E&xit", qApp, SLOT(quit()), Qt::CTRL+Qt::Key_Q );
 
     QMenu *help = new QMenu( "&Help", this );
@@ -917,6 +920,12 @@ Scribble::Scribble( QWidget *parent, const char *name )
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
+}
+
+void Scribble::slotRestart()
+{
+    qApp->quit();
+    QProcess::startDetached(qApp->arguments()[0], qApp->arguments());
 }
 
 void Scribble::slotClear()
