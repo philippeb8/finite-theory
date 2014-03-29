@@ -320,6 +320,7 @@ public:
     Scribble( QWidget *parent = 0, const char *name = 0 );
 
 protected slots:
+    void slotRestart();
     void slotClear();
     void slotPlanet(int);
 	void slotPP();
