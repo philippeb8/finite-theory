@@ -51,7 +51,7 @@ class QSpinBox;
 typedef long double real;
 
 const real G = 6.67428e-11;
-const real H[] = {1.3450632e27/2, 0.};
+const real H[] = {1.3450632e27/2, 0., 1e20};
 
 struct vector3
 {
@@ -237,7 +237,7 @@ struct Planet
     real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
     real h;                             // fudge factor
 
-    enum Type {PP, LB, BB} eType;		// is for the perihelion precession disparity or the gravitational light bending
+    enum Type {PP, LB, BB, GR} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
     : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
@@ -267,7 +267,7 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-    enum Type {PP, LB, BB} eType;
+    enum Type {PP, LB, BB, GR} eType;
 
     Canvas( Type eType, QWidget *parent = 0, const char *name = 0 );
     ~Canvas();
@@ -326,16 +326,19 @@ protected slots:
 	void slotPP();
 	void slotLB();
     void slotBB();
+    void slotGR();
     void slotChanged(int);
 	void slotAbout();
 	
 public:
-    unsigned nc, ntime[3];
+    static const int ntabs = 4;
+
+    unsigned nc, ntime[ntabs];
 
 	QTabWidget *pTabWidget;
-    Canvas* canvas[3];
-    QWidget * pTab[3];
-    QLabel *pLabel[3][8][3];
+    Canvas* canvas[ntabs];
+    QWidget * pTab[ntabs];
+    QLabel *pLabel[ntabs][8][3];
     QSpinBox *pTime;
     QComboBox *pPlanet[2];
     QToolButton *bPColor, *bSave, *bClear;
