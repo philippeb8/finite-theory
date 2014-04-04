@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.7"
+#define EDITION "4.8"
 
 #include "main.h"
 
@@ -68,7 +68,7 @@
 
 using namespace std;
 
-const real scale = 1e10L;
+const real scale = 5e9L;
 const real upper = 10.L;
 
 // FT time formula
@@ -261,6 +261,15 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {-50000000000.L, -50000000000.L, 0.L},
         {0.L, -50000000000.L, 0.L},
         {50000000000.L, -50000000000.L, 0.L},
+
+        {-2000000000000.L, 0.L, 0.L},
+        {-400000000000.L, 0.L, 0.L},
+        {-300000000000.L, 0.L, 0.L},
+        {-100000000000.L, 0.L, 0.L},
+        {100000000000.L, 0.L, 0.L},
+        {300000000000.L, 0.L, 0.L},
+        {400000000000.L, 0.L, 0.L},
+        {2000000000000.L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -288,6 +297,15 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {-50000.L, -50000.L, 0.L},
         {0.L, -50000.L, 0.L},
         {50000.L, -50000.L, 0.L},
+
+        {0.L, 8167.0068L, 0.L},
+        {0.L, 18261.9824L, 0.L},
+        {0.L, 21087.1209L, 0.L},
+        {0.L, 36523.9647L, 0.L},
+        {0.L, -36523.9647L, 0.L},
+        {0.L, -21087.1209L, 0.L},
+        {0.L, -18261.9824L, 0.L},
+        {0.L, -8167.0068L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -315,7 +333,17 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
     static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, pos[18], vel[18], Planet::NW, Planet::BB);
     static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, pos[19], vel[19], Planet::NW, Planet::BB);
 
-	switch (eType)
+    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+30L, pos[0], vel[0], Planet::NW, Planet::GR, H[1]);
+    static const Planet Star1     ("Star1", 	Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR);
+    static const Planet Star2     ("Star2", 	Qt::red, 50000L, pos[21], vel[21], Planet::NW, Planet::GR);
+    static const Planet Star3     ("Star3", 	Qt::red, 50000L, pos[22], vel[22], Planet::NW, Planet::GR);
+    static const Planet Star4     ("Star4", 	Qt::red, 50000L, pos[23], vel[23], Planet::NW, Planet::GR);
+    static const Planet Star5     ("Star5", 	Qt::red, 50000L, pos[24], vel[24], Planet::NW, Planet::GR);
+    static const Planet Star6     ("Star6", 	Qt::red, 50000L, pos[25], vel[25], Planet::NW, Planet::GR);
+    static const Planet Star7     ("Star7", 	Qt::red, 50000L, pos[26], vel[26], Planet::NW, Planet::GR);
+    static const Planet Star8     ("Star8", 	Qt::red, 50000L, pos[27], vel[27], Planet::NW, Planet::GR);
+
+    switch (eType)
 	{
 	// perihelion precession disparity
 	case PP:
@@ -408,6 +436,34 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         }
 
         connect(q->pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
+        break;
+
+        // galactic rotation
+    case GR:
+        planet.resize(2);
+
+        // store the Sun & the planets using FT time formula
+        planet[0].reserve(9);
+        planet[0].push_back(Nucleus);
+        planet[0].push_back(Star1);
+        planet[0].push_back(Star2);
+        planet[0].push_back(Star3);
+        planet[0].push_back(Star4);
+        planet[0].push_back(Star5);
+        planet[0].push_back(Star6);
+        planet[0].push_back(Star7);
+        planet[0].push_back(Star8);
+
+        // copy & change each planet for the FT time formula
+        planet[1] = planet[0];
+        for (size_t i = 0; i < planet[1].size(); i ++)
+        {
+            planet[1][i].f = Planet::Planet::FR2;
+            planet[1][i].h = H[2];
+            planet[1][i].c = planet[1][i].c.dark();
+        }
+
+        stats.resize(planet[0].size());
         break;
     }
 	
@@ -746,6 +802,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	ntime[0] = upper;
 	ntime[1] = 1;
     ntime[2] = 1;
+    ntime[3] = 1;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -792,7 +849,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
     setCentralWidget(pTabWidget);
 
-    for (unsigned i = 0; i < 3; ++ i)
+    for (unsigned i = 0; i < ntabs; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
 
@@ -917,6 +974,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	pTabWidget->addTab(pTab[0], "Perihelion Precession");
 	pTabWidget->addTab(pTab[1], "Light Bending");
     pTabWidget->addTab(pTab[2], "Big Bang");
+    pTabWidget->addTab(pTab[3], "Galactic Rotation");
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
@@ -976,6 +1034,17 @@ void Scribble::slotBB()
     pTime->setValue( ntime[nc] );
 }
 
+void Scribble::slotGR()
+{
+    ntime[nc] = pTime->value();
+
+    nc = 3;
+    pPlanet[0]->setEnabled(false);
+    pPlanet[1]->setEnabled(false);
+    pTabWidget->setCurrentWidget(pTab[nc]);
+    pTime->setValue( ntime[nc] );
+}
+
 void Scribble::slotChanged(int i)
 {
     switch (i)
@@ -983,6 +1052,7 @@ void Scribble::slotChanged(int i)
     case 0: slotPP(); break;
     case 1: slotLB(); break;
     case 2: slotBB(); break;
+    case 3: slotGR(); break;
     }
 }
 
