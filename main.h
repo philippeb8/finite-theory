@@ -46,7 +46,7 @@ class QMouseEvent;
 class QResizeEvent;
 class QPaintEvent;
 class QToolButton;
-class QSpinBox;
+class QDoubleSpinBox;
 
 typedef long double real;
 
@@ -339,7 +339,7 @@ public:
     Canvas* canvas[ntabs];
     QWidget * pTab[ntabs];
     QLabel *pLabel[ntabs][8][3];
-    QSpinBox *pTime;
+    QDoubleSpinBox *pTime;
     QComboBox *pPlanet[2];
     QToolButton *bPColor, *bSave, *bClear;
 };

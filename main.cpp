@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.8"
+#define EDITION "4.9"
 
 #include "main.h"
 
@@ -36,7 +36,7 @@
 #include <qpainter.h>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
-#include <QtWidgets/QSpinBox>
+#include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QToolTip>
 #include <qrect.h>
 #include <qpoint.h>
@@ -68,7 +68,7 @@
 
 using namespace std;
 
-const real scale = 5e9L;
+const real scale = 8e9L;
 const real upper = 10.L;
 
 // FT time formula
@@ -262,14 +262,14 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {0.L, -50000000000.L, 0.L},
         {50000000000.L, -50000000000.L, 0.L},
 
-        {-2000000000000.L, 0.L, 0.L},
-        {-400000000000.L, 0.L, 0.L},
+        {-4000000000000.L, 0.L, 0.L},
+        {-3800000000000.L, 0.L, 0.L},
         {-300000000000.L, 0.L, 0.L},
         {-100000000000.L, 0.L, 0.L},
         {100000000000.L, 0.L, 0.L},
         {300000000000.L, 0.L, 0.L},
-        {400000000000.L, 0.L, 0.L},
-        {2000000000000.L, 0.L, 0.L},
+        {3800000000000.L, 0.L, 0.L},
+        {4000000000000.L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -298,14 +298,14 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {0.L, -50000.L, 0.L},
         {50000.L, -50000.L, 0.L},
 
-        {0.L, 8167.0068L, 0.L},
-        {0.L, 18261.9824L, 0.L},
-        {0.L, 21087.1209L, 0.L},
-        {0.L, 36523.9647L, 0.L},
-        {0.L, -36523.9647L, 0.L},
-        {0.L, -21087.1209L, 0.L},
-        {0.L, -18261.9824L, 0.L},
-        {0.L, -8167.0068L, 0.L},
+        {0.L, 5.7749e-6L, 0.L},
+        {0.L, 5.9249e-6L, 0.L},
+        {0.L, 2.1087e-5L, 0.L},
+        {0.L, 3.6523e-5L, 0.L},
+        {0.L, -3.6523e-5L, 0.L},
+        {0.L, -2.1087e-5L, 0.L},
+        {0.L, -5.9249e-6L, 0.L},
+        {0.L, -5.7749e-6L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -333,7 +333,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
     static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, pos[18], vel[18], Planet::NW, Planet::BB);
     static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, pos[19], vel[19], Planet::NW, Planet::BB);
 
-    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+30L, pos[0], vel[0], Planet::NW, Planet::GR);
+    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+12L, pos[0], vel[0], Planet::NW, Planet::GR);
     static const Planet Star1     ("Star1", 	Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR);
     static const Planet Star2     ("Star2", 	Qt::red, 50000L, pos[21], vel[21], Planet::NW, Planet::GR);
     static const Planet Star3     ("Star3", 	Qt::red, 50000L, pos[22], vel[22], Planet::NW, Planet::GR);
@@ -459,7 +459,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
             planet[1][i].f = Planet::Planet::FR2;
-            planet[1][i].h = H[2];
+            planet[1][i].h = H[1];
             planet[1][i].c = planet[1][i].c.dark();
         }
 
@@ -802,7 +802,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	ntime[0] = upper;
 	ntime[1] = 1;
     ntime[2] = 1;
-    ntime[3] = 1;
+    ntime[3] = 50000000000;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -824,8 +824,9 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear = new QToolButton( QIcon(), "Clear Screen", "Clear Screen", this, SLOT( slotClear() ), tools );
 //    bClear->setText( "Clear Screen" );
 
-    pTime = new QSpinBox( tools );
-    pTime->setRange(1, 36000);
+    pTime = new QDoubleSpinBox( tools );
+    pTime->setRange(1, 50000000000);
+    pTime->setDecimals(0);
     pTime->setSingleStep(10);
     pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
@@ -1071,12 +1072,8 @@ int main( int argc, char **argv )
     scribble.resize( 500, 360 );
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
-//    a.setMaiPlanet::NWidget( &scribble );
 	
-    if ( QApplication::desktop()->width() > 550 && QApplication::desktop()->height() > 366 )
-        scribble.show();
-    else
-        scribble.showMaximized();
+    scribble.showMaximized();
 	
     return a.exec();
 }
