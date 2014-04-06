@@ -323,7 +323,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
     static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR1, Planet::LB);
     static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB, H[1]);
+    static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, pos[12], vel[12], Planet::NW, Planet::BB);
     static const Planet Galaxy2   ("Galaxy2", 	Qt::cyan, 50000L, pos[13], vel[13], Planet::NW, Planet::BB);
     static const Planet Galaxy3   ("Galaxy3", 	Qt::blue, 50000L, pos[14], vel[14], Planet::NW, Planet::BB);
@@ -333,7 +333,7 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
     static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, pos[18], vel[18], Planet::NW, Planet::BB);
     static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, pos[19], vel[19], Planet::NW, Planet::BB);
 
-    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+30L, pos[0], vel[0], Planet::NW, Planet::GR, H[1]);
+    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+30L, pos[0], vel[0], Planet::NW, Planet::GR);
     static const Planet Star1     ("Star1", 	Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR);
     static const Planet Star2     ("Star2", 	Qt::red, 50000L, pos[21], vel[21], Planet::NW, Planet::GR);
     static const Planet Star3     ("Star3", 	Qt::red, 50000L, pos[22], vel[22], Planet::NW, Planet::GR);
