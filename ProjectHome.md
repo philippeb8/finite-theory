@@ -1,0 +1,1 @@
+I prove a new theory by showing the results I get for the perihelion precession disparity for all planets and the gravitational light bending.  The new theory just alters the time constant of Newtonian mechanics.
