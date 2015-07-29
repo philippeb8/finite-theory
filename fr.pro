@@ -1,8 +1,7 @@
 TEMPLATE  = app
 LANGUAGE  = C++
 CONFIG	 += windows thread static release no-exceptions
-QT       += core gui
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT       += core gui widgets
 
 #QMAKE_CC              = i686-pc-mingw32-gcc
 #QMAKE_CXX             = i686-pc-mingw32-g++

@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.9"
+#define EDITION "4.10"
 
 #include "main.h"
 
@@ -198,8 +198,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		}
 		break;
 
-    // big bang
+    // big bang & voyager 1
     case BB:
+    case V1:
         updated = true;
         break;
     }
@@ -270,6 +271,9 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {300000000000.L, 0.L, 0.L},
         {3800000000000.L, 0.L, 0.L},
         {4000000000000.L, 0.L, 0.L},
+
+        {19763008767000.L, 0.L, 0.L},
+        {19763008767000.L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -306,6 +310,9 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {0.L, -2.1087e-5L, 0.L},
         {0.L, -5.9249e-6L, 0.L},
         {0.L, -5.7749e-6L, 0.L},
+
+        {17000.L, 0.L, 0.L},
+        {17000.L, 0.L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -322,6 +329,9 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
     static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR1, Planet::LB);
     static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
+
+    static const Planet Voyager1   ("Voyager1", 	Qt::darkGreen, 0.0L, pos[28], vel[28], Planet::FR1, Planet::V1);
+    static const Planet Voyager2   ("Voyager2", 	Qt::darkRed, 0.0L, pos[29], vel[29], Planet::NW, Planet::V1);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -465,6 +475,23 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
 
         stats.resize(planet[0].size());
         break;
+
+    // voyager 1
+    case V1:
+        planet.resize(2);
+
+        // store the Sun & the photon using the Newton time formula
+        planet[0].reserve(2);
+        planet[0].push_back(Sun);
+        planet[0].push_back(Voyager1);
+
+        // store the Sun & the photon using the FT time formula
+        planet[1].reserve(2);
+        planet[1].push_back(Sun);
+        planet[1].push_back(Voyager2);
+
+        stats.resize(planet[0].size());
+        break;
     }
 	
 //    if ((qApp->argc() > 0) && !buffer.load(qApp->argv()[1]))
@@ -601,6 +628,7 @@ void Canvas::slotGalaxy(int i)
     switch (eType)
     {
     case BB:
+    case V1:
         for (size_t j = 0; j < planet.size(); ++ j)
             for (int x = 0; x < 3; ++ x)
             {
@@ -613,29 +641,28 @@ void Canvas::slotGalaxy(int i)
                 p->pLabel[eType][j][x]->setText(s.str().c_str());
             }
 
-//        for (size_t j = 0; j < planet.size(); ++ j)
-//            for (int x = 0; x < 3; ++ x)
-//            {
-//                ostringstream s;
+        for (size_t j = 0; j < planet.size(); ++ j)
+            for (int x = 0; x < 3; ++ x)
+            {
+                ostringstream s;
 
-//                s.setf(ios::scientific, ios::floatfield);
-//                s << std::setprecision(numeric_limits<real>::digits10);
-//                s << planet[j][i].v[x];
+                s.setf(ios::scientific, ios::floatfield);
+                s << std::setprecision(numeric_limits<real>::digits10);
+                s << planet[j][i].v[x];
 
-//                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
-//            }
+                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
+            }
 
-//        for (int x = 0; x < 3; ++ x)
-//        {
-//            ostringstream s;
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
 
-//            s.setf(ios::scientific, ios::floatfield);
-//            s << std::setprecision(numeric_limits<real>::digits10);
-//            s << planet[1][i].v[x] - planet[0][i].v[x];
+            s.setf(ios::scientific, ios::floatfield);
+            s << std::setprecision(numeric_limits<real>::digits10);
+            s << planet[1][i].v[x] - planet[0][i].v[x];
 
-//            p->pLabel[eType][4][x]->setText(s.str().c_str());
-//        }
-
+            p->pLabel[eType][4][x]->setText(s.str().c_str());
+        }
         break;
     }
 }
@@ -976,6 +1003,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	pTabWidget->addTab(pTab[1], "Light Bending");
     pTabWidget->addTab(pTab[2], "Big Bang");
     pTabWidget->addTab(pTab[3], "Galactic Rotation");
+    pTabWidget->addTab(pTab[4], "Voyager 1");
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
@@ -1059,7 +1087,7 @@ void Scribble::slotChanged(int i)
 
 void Scribble::slotAbout()
 {
-    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2014\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
+    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2015\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
 }
 	
 

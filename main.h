@@ -237,7 +237,7 @@ struct Planet
     real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
     real h;                             // fudge factor
 
-    enum Type {PP, LB, BB, GR} eType;		// is for the perihelion precession disparity or the gravitational light bending
+    enum Type {PP, LB, BB, GR, V1} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
     : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
@@ -267,7 +267,7 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-    enum Type {PP, LB, BB, GR} eType;
+    enum Type {PP, LB, BB, GR, V1} eType;
 
     Canvas( Type eType, QWidget *parent = 0, const char *name = 0 );
     ~Canvas();
@@ -331,7 +331,7 @@ protected slots:
 	void slotAbout();
 	
 public:
-    static const int ntabs = 4;
+    static const int ntabs = 5;
 
     unsigned nc, ntime[ntabs];
 
