@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.12"
+#define EDITION "4.13"
 
 #include "main.h"
 
@@ -669,7 +669,7 @@ void Canvas::slotGalaxy(int i)
 
             s.setf(ios::scientific, ios::floatfield);
             s << std::setprecision(numeric_limits<real>::digits10);
-            s << planet[1][i].a[x];
+            s << planet[1][i].a[x] - planet[0][i].a[x];
 
             p->pLabel[eType][5][x]->setText(s.str().c_str());
         }
