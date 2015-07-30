@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.14"
+#define EDITION "4.15"
 
 #include "main.h"
 
@@ -167,12 +167,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
 
-	// v = v + a*t
-    v += va * t[0];
-	
-	// store a
-	a = va;
+    // a = delta v / delta t
+    vector3 vb = va * t[0];
+    a = (vb - v) / t[0];
 
+    // v = v + a*t
+    v += vb;
+	
 	switch (eType)
 	{
 	// perihelion precession disparity
