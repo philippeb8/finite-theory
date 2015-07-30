@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.13"
+#define EDITION "4.14"
 
 #include "main.h"
 
@@ -107,7 +107,7 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
 {
 	// net acceleration vector (with all planets)
-    a = vector3(0.L, 0.L, 0.L);
+    vector3 va(0.L, 0.L, 0.L);
 	
 	// iterate through all planets
 	for (size_t i = 0; i < planet.size(); i ++)
@@ -122,9 +122,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		const real norm = sqrt(norm2);
 		
 		// a = Gm/r^2 decomposed in scalar
-        a[0] += - G * planet[i].m / norm2 * normal[0] / norm;
-        a[1] += - G * planet[i].m / norm2 * normal[1] / norm;
-        a[2] += - G * planet[i].m / norm2 * normal[2] / norm;
+        va[0] += - G * planet[i].m / norm2 * normal[0] / norm;
+        va[1] += - G * planet[i].m / norm2 * normal[1] / norm;
+        va[2] += - G * planet[i].m / norm2 * normal[2] / norm;
 
 		// save position of the planet when perihelion is found
  		if (i == 0 && pd > norm)
@@ -168,7 +168,10 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	p += vi;
 
 	// v = v + a*t
-    v += a * t[0];
+    v += va * t[0];
+	
+	// store a
+	a = va;
 
 	switch (eType)
 	{
