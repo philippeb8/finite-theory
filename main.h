@@ -228,7 +228,8 @@ struct Planet
 	real m;								// mass
 	vector3 p;							// position
 	vector3 v;							// velocity
-	vector3 o;							// old position
+    vector3 a;							// acceleration
+    vector3 o;							// old position
     real t[2];							// current & old time intervals according to Newton or FT
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
  	real pd;							// perihelion of the planet

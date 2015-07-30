@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.10"
+#define EDITION "4.12"
 
 #include "main.h"
 
@@ -107,7 +107,7 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
 {
 	// net acceleration vector (with all planets)
-	vector3 va(0.L, 0.L, 0.L);
+    a = vector3(0.L, 0.L, 0.L);
 	
 	// iterate through all planets
 	for (size_t i = 0; i < planet.size(); i ++)
@@ -122,9 +122,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		const real norm = sqrt(norm2);
 		
 		// a = Gm/r^2 decomposed in scalar
-		va[0] += - G * planet[i].m / norm2 * normal[0] / norm;
-		va[1] += - G * planet[i].m / norm2 * normal[1] / norm;
-		va[2] += - G * planet[i].m / norm2 * normal[2] / norm;
+        a[0] += - G * planet[i].m / norm2 * normal[0] / norm;
+        a[1] += - G * planet[i].m / norm2 * normal[1] / norm;
+        a[2] += - G * planet[i].m / norm2 * normal[2] / norm;
 
 		// save position of the planet when perihelion is found
  		if (i == 0 && pd > norm)
@@ -162,13 +162,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		t[1] = t[0];
 	}
 
-	vector3 vi(v * t[0] + va * (t[0] * t[0] / 2.));
+    vector3 vi(v * t[0] + a * (t[0] * t[0] / 2.));
 
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
 
 	// v = v + a*t
-	v += va * t[0];
+    v += a * t[0];
 
 	switch (eType)
 	{
@@ -330,8 +330,8 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR1, Planet::LB);
     static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Voyager1   ("Voyager1", 	Qt::darkGreen, 0.0L, pos[28], vel[28], Planet::FR1, Planet::V1);
-    static const Planet Voyager2   ("Voyager2", 	Qt::darkRed, 0.0L, pos[29], vel[29], Planet::NW, Planet::V1);
+    static const Planet Voyager1   ("Voyager1", 	Qt::darkGreen, 258.8L, pos[28], vel[28], Planet::FR1, Planet::V1);
+    static const Planet Voyager2   ("Voyager2", 	Qt::darkRed, 258.8L, pos[29], vel[29], Planet::NW, Planet::V1);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -662,6 +662,16 @@ void Canvas::slotGalaxy(int i)
             s << planet[1][i].v[x] - planet[0][i].v[x];
 
             p->pLabel[eType][4][x]->setText(s.str().c_str());
+        }
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
+
+            s.setf(ios::scientific, ios::floatfield);
+            s << std::setprecision(numeric_limits<real>::digits10);
+            s << planet[1][i].a[x];
+
+            p->pLabel[eType][5][x]->setText(s.str().c_str());
         }
         break;
     }
