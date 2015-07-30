@@ -269,7 +269,7 @@ class Canvas : public QWidget
 public:
     enum Type {PP, LB, BB, GR, V1} eType;
 
-    Canvas( Type eType, QWidget *parent = 0, const char *name = 0 );
+    Canvas( Type eType, QWidget *parent = 0, real scale = 8e9L );
     ~Canvas();
     void clearScreen();
 	
@@ -294,7 +294,9 @@ protected:
 
 	std::vector< std::vector<Planet> > planet;
 	
-	struct Stats
+    real scale;
+
+    struct Stats
 	{
 		vector3 precession[2];
 		std::set<real> mean[3];

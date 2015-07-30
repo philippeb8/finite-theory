@@ -68,7 +68,7 @@
 
 using namespace std;
 
-const real scale = 8e9L;
+const real scale[] = {8e8, 8e9L, 8e9L, 8e9L, 8e10L};
 const real upper = 10.L;
 
 // FT time formula
@@ -229,9 +229,9 @@ void Dual::run()
 
 const bool no_writing = false;
 
-Canvas::Canvas( Type eType, QWidget *parent, const char *name )
+Canvas::Canvas( Type eType, QWidget *parent, real scale )
     : QWidget( parent/*, name, Qt::WStaticContents*/ ),
-      eType(eType), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() )
+      eType(eType), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() ), scale(scale)
 {
 //	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
 	
@@ -272,8 +272,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {3800000000000.L, 0.L, 0.L},
         {4000000000000.L, 0.L, 0.L},
 
-        {19763008767000.L, 0.L, 0.L},
-        {19763008767000.L, 0.L, 0.L},
+        {17048116800000.L, 0.L, 0.L},
+        {17048116800000.L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -311,8 +311,8 @@ Canvas::Canvas( Type eType, QWidget *parent, const char *name )
         {0.L, -5.9249e-6L, 0.L},
         {0.L, -5.7749e-6L, 0.L},
 
-        {17000.L, 0.L, 0.L},
-        {17000.L, 0.L, 0.L},
+        {11992.L, 0.L, 0.L},
+        {11992.L, 0.L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -949,7 +949,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
         }
 
-        canvas[i] = new Canvas((Canvas::Type) (i), pTab[i]);
+        canvas[i] = new Canvas((Canvas::Type) (i), pTab[i], scale[i]);
 		canvas[i]->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
         QBoxLayout * l = new QVBoxLayout(pTab[i]);
@@ -1003,7 +1003,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	pTabWidget->addTab(pTab[1], "Light Bending");
     pTabWidget->addTab(pTab[2], "Big Bang");
     pTabWidget->addTab(pTab[3], "Galactic Rotation");
-    pTabWidget->addTab(pTab[4], "Voyager 1");
+    pTabWidget->addTab(pTab[4], "Pioneer 10");
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
