@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.15"
+#define EDITION "4.16"
 
 #include "main.h"
 
@@ -162,7 +162,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		t[1] = t[0];
 	}
 
-    vector3 vi(v * t[0] + a * (t[0] * t[0] / 2.));
+    vector3 vi(v * t[0] + va * (t[0] * t[0] / 2.));
 
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
@@ -891,6 +891,9 @@ Scribble::Scribble( QWidget *parent, const char *name )
     connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
     setCentralWidget(pTabWidget);
 
+    QPalette* palette = new QPalette();
+    palette->setColor(QPalette::WindowText,Qt::darkRed);
+
     for (unsigned i = 0; i < ntabs; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
@@ -942,6 +945,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
             pLabel[i][6][0]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C1) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C1) + QString(")"));
             pLabel[i][6][1]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03C6) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03C6) + QString(")"));
             pLabel[i][6][2]->setToolTip(QString("Best of ") + QString("MAD(Finite Theory ") + QChar(0x0394) + QChar(0x03B8) + QString(" - Newton ") + QChar(0x0394) + QChar(0x03B8) + QString(")"));
+            pLabel[i][5][1]->setPalette(*palette);
             break;
 
         case Canvas::BB:
@@ -960,6 +964,10 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
 //            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
 //            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
+            break;
+
+        case Canvas::V1:
+            pLabel[i][5][0]->setPalette(*palette);
             break;
         }
 
@@ -1007,10 +1015,6 @@ Scribble::Scribble( QWidget *parent, const char *name )
         l->addLayout(h7);
         pTab[i]->setLayout(l);
         pTab[i]->show();
-
-        QPalette* palette = new QPalette();
-        palette->setColor(QPalette::WindowText,Qt::darkRed);
-        pLabel[i][5][1]->setPalette(*palette);
 	}
 	
 	pTabWidget->addTab(pTab[0], "Perihelion Precession");
