@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.17"
+#define EDITION "4.18"
 
 #include "main.h"
 
@@ -167,12 +167,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
 
-    // apparent a = delta v / delta t
-    vector3 vb = va * t[0];
-    a = (vb - v) / t[0];
-
     // v = v + a*t
-    v += vb;
+    v += va * t[0];
 	
 	switch (eType)
 	{
@@ -202,7 +198,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		}
 		break;
 
-    // big bang & pioneer 1
+    // big bang & pioneer 10
     case BB:
     case V1:
         updated = true;
@@ -480,7 +476,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         stats.resize(planet[0].size());
         break;
 
-    // pioneer 1
+    // pioneer 10
     case V1:
         planet.resize(2);
 
@@ -666,16 +662,6 @@ void Canvas::slotGalaxy(int i)
             s << planet[1][i].v[x] - planet[0][i].v[x];
 
             p->pLabel[eType][4][x]->setText(s.str().c_str());
-        }
-        for (int x = 0; x < 3; ++ x)
-        {
-            ostringstream s;
-
-            s.setf(ios::scientific, ios::floatfield);
-            s << std::setprecision(numeric_limits<real>::digits10);
-            s << planet[1][i].a[x] - planet[0][i].a[x];
-
-            p->pLabel[eType][5][x]->setText(s.str().c_str());
         }
         break;
     }
@@ -968,7 +954,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
 
         case Canvas::V1:
-            pLabel[i][5][0]->setPalette(*palette);
+            pLabel[i][4][0]->setPalette(*palette);
             break;
         }
 
