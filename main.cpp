@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.16"
+#define EDITION "4.17"
 
 #include "main.h"
 
@@ -844,6 +844,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	ntime[1] = 1;
     ntime[2] = 1;
     ntime[3] = 50000000000;
+    ntime[4] = 1;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1092,6 +1093,17 @@ void Scribble::slotGR()
     pTime->setValue( ntime[nc] );
 }
 
+void Scribble::slotV1()
+{
+    ntime[nc] = pTime->value();
+
+    nc = 4;
+    pPlanet[0]->setEnabled(false);
+    pPlanet[1]->setEnabled(false);
+    pTabWidget->setCurrentWidget(pTab[nc]);
+    pTime->setValue( ntime[nc] );
+}
+
 void Scribble::slotChanged(int i)
 {
     switch (i)
@@ -1100,6 +1112,7 @@ void Scribble::slotChanged(int i)
     case 1: slotLB(); break;
     case 2: slotBB(); break;
     case 3: slotGR(); break;
+    case 4: slotV1(); break;
     }
 }
 

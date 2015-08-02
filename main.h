@@ -330,6 +330,7 @@ protected slots:
 	void slotLB();
     void slotBB();
     void slotGR();
+    void slotV1();
     void slotChanged(int);
 	void slotAbout();
 	
