@@ -169,7 +169,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 
     // apparent a = delta v / delta t
     vector3 vb = va * t[0];
-    a = (vb - v) / upper;
+    a = (vb - v) / t[0];
 
     // v = v + a*t
     v += vb;
