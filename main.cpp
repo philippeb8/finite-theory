@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.18"
+#define EDITION "4.19"
 
 #include "main.h"
 
@@ -936,24 +936,22 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
 
         case Canvas::BB:
+        case Canvas::V1:
             pLabel[i][0][0]->setToolTip(QString("Newton x"));
             pLabel[i][0][1]->setToolTip(QString("Newton y"));
             pLabel[i][0][2]->setToolTip(QString("Newton z"));
             pLabel[i][1][0]->setToolTip(QString("Finite Theory x"));
             pLabel[i][1][1]->setToolTip(QString("Finite Theory y"));
             pLabel[i][1][2]->setToolTip(QString("Finite Theory z"));
-//            pLabel[i][2][0]->setToolTip(QString("Newton vx"));
-//            pLabel[i][2][1]->setToolTip(QString("Newton vy"));
-//            pLabel[i][2][2]->setToolTip(QString("Newton vz"));
-//            pLabel[i][3][0]->setToolTip(QString("Finite Theory vx"));
-//            pLabel[i][3][1]->setToolTip(QString("Finite Theory vy"));
-//            pLabel[i][3][2]->setToolTip(QString("Finite Theory vz"));
-//            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
-//            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
-//            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
-            break;
-
-        case Canvas::V1:
+            pLabel[i][2][0]->setToolTip(QString("Newton vx"));
+            pLabel[i][2][1]->setToolTip(QString("Newton vy"));
+            pLabel[i][2][2]->setToolTip(QString("Newton vz"));
+            pLabel[i][3][0]->setToolTip(QString("Finite Theory vx"));
+            pLabel[i][3][1]->setToolTip(QString("Finite Theory vy"));
+            pLabel[i][3][2]->setToolTip(QString("Finite Theory vz"));
+            pLabel[i][4][0]->setToolTip(QString("Finite Theory vx - Newton vx"));
+            pLabel[i][4][1]->setToolTip(QString("Finite Theory vy - Newton vy"));
+            pLabel[i][4][2]->setToolTip(QString("Finite Theory vz - Newton vz"));
             pLabel[i][4][0]->setPalette(*palette);
             break;
         }
