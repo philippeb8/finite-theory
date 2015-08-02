@@ -167,9 +167,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
 
-    // a = delta v / delta t
+    // apparent a = delta v / delta t
     vector3 vb = va * t[0];
-    a = (vb - v) / t[0];
+    a = (vb - v) / upper;
 
     // v = v + a*t
     v += vb;
@@ -202,7 +202,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		}
 		break;
 
-    // big bang & voyager 1
+    // big bang & pioneer 1
     case BB:
     case V1:
         updated = true;
@@ -334,8 +334,8 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, pos[10], vel[10], Planet::FR1, Planet::LB);
     static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, pos[11], vel[11], Planet::NW, Planet::LB);
 
-    static const Planet Voyager1   ("Voyager1", 	Qt::darkGreen, 258.8L, pos[28], vel[28], Planet::FR1, Planet::V1);
-    static const Planet Voyager2   ("Voyager2", 	Qt::darkRed, 258.8L, pos[29], vel[29], Planet::NW, Planet::V1);
+    static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, pos[28], vel[28], Planet::FR1, Planet::V1);
+    static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, pos[29], vel[29], Planet::NW, Planet::V1);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -480,19 +480,19 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         stats.resize(planet[0].size());
         break;
 
-    // voyager 1
+    // pioneer 1
     case V1:
         planet.resize(2);
 
         // store the Sun & the photon using the Newton time formula
         planet[0].reserve(2);
         planet[0].push_back(Sun);
-        planet[0].push_back(Voyager1);
+        planet[0].push_back(Pioneer1);
 
         // store the Sun & the photon using the FT time formula
         planet[1].reserve(2);
         planet[1].push_back(Sun);
-        planet[1].push_back(Voyager2);
+        planet[1].push_back(Pioneer2);
 
         stats.resize(planet[0].size());
         break;
