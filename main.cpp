@@ -201,7 +201,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     // big bang & pioneer 10
     case BB:
     case V1:
-        if (floor(q[0] / 1e9) != floor(p[0] / 1e9))
+        if (floor(q[0] / 1e10) != floor(p[0] / 1e10))
         {
             v[1] = v[0];
 
