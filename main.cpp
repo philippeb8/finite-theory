@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.19"
+#define EDITION "4.20"
 
 #include "main.h"
 
@@ -162,13 +162,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		t[1] = t[0];
 	}
 
-    vector3 vi(v * t[0] + va * (t[0] * t[0] / 2.));
+    vector3 vi(v[0] * t[0] + va * (t[0] * t[0] / 2.));
 
 	// p = p + v*t + (a*t^2)/2
 	p += vi;
 
     // v = v + a*t
-    v += va * t[0];
+    v[0] += va * t[0];
 	
 	switch (eType)
 	{
@@ -201,7 +201,12 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     // big bang & pioneer 10
     case BB:
     case V1:
-        updated = true;
+        if (floor(q[0] / 1e9) != floor(p[0] / 1e9))
+        {
+            v[1] = v[0];
+
+            updated = true;
+        }
         break;
     }
 }
@@ -648,7 +653,7 @@ void Canvas::slotGalaxy(int i)
 
                 s.setf(ios::scientific, ios::floatfield);
                 s << std::setprecision(numeric_limits<real>::digits10);
-                s << planet[j][i].v[x];
+                s << planet[j][i].v[1][x];
 
                 p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
             }
@@ -659,7 +664,7 @@ void Canvas::slotGalaxy(int i)
 
             s.setf(ios::scientific, ios::floatfield);
             s << std::setprecision(numeric_limits<real>::digits10);
-            s << planet[1][i].v[x] - planet[0][i].v[x];
+            s << planet[1][i].v[1][x] - planet[0][i].v[1][x];
 
             p->pLabel[eType][4][x]->setText(s.str().c_str());
         }

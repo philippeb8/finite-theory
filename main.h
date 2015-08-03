@@ -227,7 +227,7 @@ struct Planet
 	QColor c;							// color
 	real m;								// mass
 	vector3 p;							// position
-	vector3 v;							// velocity
+    vector3 v[2];						// current & saved velocity
     vector3 o;							// old position
     real t[2];							// current & old time intervals according to Newton or FT
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
@@ -240,7 +240,7 @@ struct Planet
     enum Type {PP, LB, BB, GR, V1} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
-    : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v(pv[0], pv[1], pv[2]), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
+        : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v({vector3(pv[0], pv[1], pv[2])}), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
 	{
 	}
 	
