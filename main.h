@@ -336,7 +336,8 @@ protected slots:
 public:
     static const int ntabs = 5;
 
-    unsigned nc, ntime[ntabs];
+    unsigned nc;
+    real ntime[ntabs];
 
 	QTabWidget *pTabWidget;
     Canvas* canvas[ntabs];

@@ -69,7 +69,7 @@
 using namespace std;
 
 const real scale[] = {8e8, 8e9L, 8e9L, 8e9L, 8e10L};
-const real upper = 10.L;
+const real upper = 0.1L;
 
 // FT time formula
 // observer is infinitly far away
@@ -365,17 +365,17 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 		planet.resize(2);
 
 		// store each planet using the Newton time formula
-		planet[0].reserve(10);
+        planet[0].reserve(2);
 		planet[0].push_back(Sun);
 		planet[0].push_back(Mercury);
-		planet[0].push_back(Venus);
-		planet[0].push_back(Earth);
-		planet[0].push_back(Mars);
-		planet[0].push_back(Jupiter);
-		planet[0].push_back(Saturn);
-		planet[0].push_back(Uranus);
-		planet[0].push_back(Neptune);
-		planet[0].push_back(Pluto);
+        //planet[0].push_back(Venus);
+        //planet[0].push_back(Earth);
+        //planet[0].push_back(Mars);
+        //planet[0].push_back(Jupiter);
+        //planet[0].push_back(Saturn);
+        //planet[0].push_back(Uranus);
+        //planet[0].push_back(Neptune);
+        //planet[0].push_back(Pluto);
 		
 		// copy & change each planet for the FT time formula
 		planet[1] = planet[0];
@@ -858,8 +858,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear->setText( "Clear Screen" );
 
     pTime = new QDoubleSpinBox( tools );
-    pTime->setRange(1, 50000000000);
-    pTime->setDecimals(0);
+    pTime->setRange(0.01, 50000000000);
+    pTime->setDecimals(2);
     pTime->setSingleStep(10);
     pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
