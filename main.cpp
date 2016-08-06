@@ -109,13 +109,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	// net acceleration vector (with all planets)
     vector3 va(0.L, 0.L, 0.L);
 
-    ps[2][0] = ps[1][0];
-    ps[2][1] = ps[1][1];
-    ps[2][2] = ps[1][2];
-
-    ps[1][0] = ps[0][0];
-    ps[1][1] = ps[0][1];
-    ps[1][2] = ps[0][2];
+    ps[2] = ps[1];
+    ps[1] = ps[0];
 
     ps[0][0] = sqrt(pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2));
     ps[0][1] = atan2(p[1], p[0]);
