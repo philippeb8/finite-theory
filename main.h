@@ -50,8 +50,9 @@ class QDoubleSpinBox;
 
 typedef long double real;
 
-const real G = 6.67428e-11;
-const real H[] = {1.3450632e27/2, 0., 1e20};
+const real C = 300000000.L;
+const real G = 6.67428e-11L;
+const real H[] = {C*C/(2*G), 0., 1e20};
 
 struct vector3
 {
@@ -231,16 +232,15 @@ struct Planet
     vector3 o;							// old position
     real t[2];							// current & old time intervals according to Newton or FT
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
- 	real pd;							// perihelion of the planet
-	vector3 pp[2];						// current & old saved positions on the perihelion
-	vector3 ps[2];						// current & old polar coordinates of pp
+    vector3 pp[2];						// current & old saved positions on the perihelion
+    vector3 ps[5];						// current & old polar coordinates of pp
     real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
     real h;                             // fudge factor
 
     enum Type {PP, LB, BB, GR, V1} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
-        : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v({vector3(pv[0], pv[1], pv[2])}), updated(false), pd(std::numeric_limits<real>::max()), f(f), eType(eType), h(h)
+        : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v({vector3(pv[0], pv[1], pv[2])}), updated(false), f(f), eType(eType), h(h)
 	{
 	}
 	

@@ -9,6 +9,7 @@ QT       += core gui widgets
 #QMAKE_LIB             = i686-pc-mingw32-ar -ru
 #QMAKE_RC              = i686-pc-mingw32-windres
 
+QMAKE_RPATHDIR           += /opt/V-PlaySDK/5.6/gcc_64/lib/
 #QMAKE_LIBDIR             += /usr/lib
 #QMAKE_LFLAGS             += -static-libgcc -static-libg++
 #QMAKE_CXXFLAGS           += -ffast-math

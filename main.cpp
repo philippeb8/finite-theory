@@ -108,8 +108,34 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 {
 	// net acceleration vector (with all planets)
     vector3 va(0.L, 0.L, 0.L);
+
+    ps[2][0] = ps[1][0];
+    ps[2][1] = ps[1][1];
+    ps[2][2] = ps[1][2];
+
+    ps[1][0] = ps[0][0];
+    ps[1][1] = ps[0][1];
+    ps[1][2] = ps[0][2];
+
+    ps[0][0] = sqrt(pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2));
+    ps[0][1] = atan2(p[1], p[0]);
+    ps[0][2] = acos(p[2] / ps[0][0]);
 	
-	// iterate through all planets
+    // save position of the planet when perihelion is found
+    if (ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
+    {
+        ps[4][0] = ps[3][0];
+        ps[4][1] = ps[3][1];
+        ps[4][2] = ps[3][2];
+
+        ps[3][0] = ps[1][0];
+        ps[3][1] = ps[1][1];
+        ps[3][2] = ps[1][2];
+
+        updated = true;
+    }
+
+    // iterate through all planets
 	for (size_t i = 0; i < planet.size(); i ++)
 	{
 		// if same planet or photon then skip
@@ -125,14 +151,6 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         va[0] += - G * planet[i].m / norm2 * normal[0] / norm;
         va[1] += - G * planet[i].m / norm2 * normal[1] / norm;
         va[2] += - G * planet[i].m / norm2 * normal[2] / norm;
-
-		// save position of the planet when perihelion is found
- 		if (i == 0 && pd > norm)
- 		{
- 			pd = norm;
- 
- 			pp[0] = p;
- 		}
 	}
 	
 	// save
@@ -172,19 +190,6 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	
 	switch (eType)
 	{
-	// perihelion precession disparity
-	case PP:
-		// if the planet crossed the x axis (y = 0)
-		if (q[1] < 0 && p[1] >= 0)
-		{
-			pp[1] = pp[0];
-			
- 			pd = std::numeric_limits<real>::max();
-
-            updated = true;
-		}
-		break;
-
 	// gravitational light bending
 	case LB:
 		// if the photon crossed x = -200000000000
@@ -192,8 +197,6 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 		{
 			pp[1] = pp[0];
 			
- 			pd = std::numeric_limits<real>::max();
-
             updated = true;
 		}
 		break;
@@ -247,7 +250,8 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 	{
 		{0.L, 0.L, 0.L},
         //{-57025548112.2453L, 3197006916.08582L, 5283916036.50742L},
-        {-57358990223.0187831L, 0.L, 0.L},
+        //{-57358990223.0187831L, 0.L, 0.L},
+        {-46001272000.L, 0.L, 0.L},
 		{26317771130.7392L, 105373484164.43L, 481049442.321637L}, 
 		{-40584904469.4072L, -146162841483.741L, 582517208.913105L}, 
 		{192608888576.284L, -72078449728.0548L, -5537406864.12226L}, 
@@ -287,8 +291,9 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 	{
 		{0.L, 0.L, 0.L},
         //{-13058.0445420602L, -46493.5791091285L, -2772.42900405547L},
-        {0.L, -48372.0145148178242L, 0.L},
-		{-33720.199494784L, 8727.97495192353L, 2044.70922687897L},
+        //{0.L, -48372.0145148178242L, 0.L},
+        {0.L, -58980L, 0.L},
+        {-33720.199494784L, 8727.97495192353L, 2044.70922687897L},
 		{28173.5639447033L, -8286.58463896112L, 13.3258392757908L},
 		{9453.24519302534L, 24875.9047777036L, 333.149595901334L},
 		{12310.4853583322L, -3126.10777330552L, -250.842129088533L},
@@ -702,16 +707,8 @@ void Canvas::timerEvent(QTimerEvent *)
             for (size_t j = 0; j < planet.size(); ++ j)
                 if (planet[j][i].updated)
                 {
-                    planet[j][i].ps[1][0] = planet[j][i].ps[0][0];
-                    planet[j][i].ps[1][1] = planet[j][i].ps[0][1];
-                    planet[j][i].ps[1][2] = planet[j][i].ps[0][2];
-
-                    planet[j][i].ps[0][0] = sqrt(pow(planet[j][i].pp[1][0], 2) + pow(planet[j][i].pp[1][1], 2) + pow(planet[j][i].pp[1][2], 2));
-                    planet[j][i].ps[0][1] = atan2(planet[j][i].pp[1][1], planet[j][i].pp[1][0]);
-                    planet[j][i].ps[0][2] = acos(planet[j][i].pp[1][2] / planet[j][i].ps[0][0]);
-
                     for (int x = 0; x < 3; ++ x)
-                        stats[i].precession[j][x] = planet[j][i].ps[1][x] - planet[j][i].ps[0][x];
+                        stats[i].precession[j][x] = planet[j][i].ps[3][x] - planet[j][i].ps[4][x];
                 }
 
             if (planet[0][i].updated && planet[1][i].updated)
@@ -739,8 +736,8 @@ void Canvas::timerEvent(QTimerEvent *)
 			painter.setPen(planet[j][i].c);
 			painter.setBrush(planet[j][i].c);
 			painter.eraseRect(e);
-			painter.drawEllipse(r);
-			painter.end();
+            painter.drawEllipse(r);
+            painter.end();
 			r |= e;
 			bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
@@ -1123,7 +1120,8 @@ int main( int argc, char **argv )
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
 	
-    scribble.showMaximized();
+    //scribble.showMaximized();
+    scribble.show();
 	
     return a.exec();
 }
