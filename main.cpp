@@ -160,25 +160,12 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	const real nnorm_p = p.norm();
 	vector3 vnn = p / nnorm_p;
 
-	// if this not the first time
-	if (t[1] != 0.L)
-	{
-		// save old time value
-		t[1] = t[0];
+    // save old time value
+    t[1] = t[0];
 
-		// Newton: t = upper
-		// FT: t = upper / ((m / d + h) / h)
-        t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
-	}
-	else
-	{
-		// Newton: t = upper
-		// FT: t = upper / ((m / d + h) / h)
-        t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
-
-		// copy time value
-		t[1] = t[0];
-	}
+    // Newton: t = upper
+    // FT: t = upper / ((m / d + h) / h)
+    t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
 
     vector3 vi(v[0] * t[0] + va * (t[0] * t[0] / 2.));
 
