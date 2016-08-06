@@ -167,7 +167,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     }
 
     // p = p + v*t + (a*t^2)/2
-    p += vector3(v[0] * t[0] + va * (t[0] * t[0] / 2.));
+    p += v[0] * t[0] + va * (t[0] * t[0] / 2.);
 
     // v = v + a*t
     v[0] += va * t[0];
