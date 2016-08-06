@@ -135,6 +135,12 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     ps[0][1] = atan2(p[1], p[0]);
     ps[0][2] = acos(p[2] / ps[0][0]);
 
+    if (first)
+    {
+        ps[2] = ps[1];
+        ps[1] = ps[0];
+    }
+
     // save
 	const vector3 q(p[0], p[1], p[2]);
 	
@@ -149,6 +155,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     // FT: t = upper / ((m / d + h) / h)
     t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
 
+    if (first)
+    {
+        t[1] = t[0];
+    }
+
     vector3 vi(v[0] * t[0] + va * (t[0] * t[0] / 2.));
 
 	// p = p + v*t + (a*t^2)/2
@@ -161,10 +172,15 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	{
     // perihelion precession
     case PP:
-        if (ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
+        if (first || ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
         {
             ps[4] = ps[3];
             ps[3] = ps[1];
+
+            if (first)
+            {
+                ps[4] = ps[3];
+            }
 
             updated = true;
         }
@@ -191,6 +207,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         }
         break;
     }
+
+    first = false;
 }
 
 Dual::Dual(Canvas * pParent, int id) : p(pParent), i(id)
@@ -228,9 +246,9 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     static const real pos[][3] =
 	{
 		{0.L, 0.L, 0.L},
-        {-57025548112.2453L, 3197006916.08582L, 5283916036.50742L},
+        //{-57025548112.2453L, 3197006916.08582L, 5283916036.50742L},
         //{-57358990223.0187831L, 0.L, 0.L},
-        //{-46001272000.L, 0.L, 0.L},
+        {-46001272000.L, 0.L, 0.L},
 		{26317771130.7392L, 105373484164.43L, 481049442.321637L}, 
 		{-40584904469.4072L, -146162841483.741L, 582517208.913105L}, 
 		{192608888576.284L, -72078449728.0548L, -5537406864.12226L}, 
@@ -269,9 +287,9 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     static const real vel[][3] =
 	{
 		{0.L, 0.L, 0.L},
-        {-13058.0445420602L, -46493.5791091285L, -2772.42900405547L},
+        //{-13058.0445420602L, -46493.5791091285L, -2772.42900405547L},
         //{0.L, -48372.0145148178242L, 0.L},
-        //{0.L, -58980L, 0.L},
+        {0.L, -58980L, 0.L},
         {-33720.199494784L, 8727.97495192353L, 2044.70922687897L},
 		{28173.5639447033L, -8286.58463896112L, 13.3258392757908L},
 		{9453.24519302534L, 24875.9047777036L, 333.149595901334L},
