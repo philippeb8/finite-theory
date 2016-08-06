@@ -124,13 +124,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     // save position of the planet when perihelion is found
     if (ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
     {
-        ps[4][0] = ps[3][0];
-        ps[4][1] = ps[3][1];
-        ps[4][2] = ps[3][2];
-
-        ps[3][0] = ps[1][0];
-        ps[3][1] = ps[1][1];
-        ps[3][2] = ps[1][2];
+        ps[4] = ps[3];
+        ps[3] = ps[1];
 
         updated = true;
     }
