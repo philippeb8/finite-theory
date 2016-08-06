@@ -128,8 +128,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	}
 
     // spherical coordinates
-    ps[2] = ps[1];
-    ps[1] = ps[0];
+    if (! first)
+    {
+        ps[2] = ps[1];
+        ps[1] = ps[0];
+    }
 
     ps[0][0] = sqrt(pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2));
     ps[0][1] = atan2(p[1], p[0]);
@@ -149,7 +152,10 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	vector3 vnn = p / nnorm_p;
 
     // save old time value
-    t[1] = t[0];
+    if (! first)
+    {
+        t[1] = t[0];
+    }
 
     // Newton: t = upper
     // FT: t = upper / ((m / d + h) / h)
@@ -174,7 +180,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     case PP:
         if (first || ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
         {
-            ps[4] = ps[3];
+            if (! first)
+            {
+                ps[4] = ps[3];
+            }
+
             ps[3] = ps[1];
 
             if (first)
