@@ -109,22 +109,6 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 	// net acceleration vector (with all planets)
     vector3 va(0.L, 0.L, 0.L);
 
-    ps[2] = ps[1];
-    ps[1] = ps[0];
-
-    ps[0][0] = sqrt(pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2));
-    ps[0][1] = atan2(p[1], p[0]);
-    ps[0][2] = acos(p[2] / ps[0][0]);
-	
-    // save position of the planet when perihelion is found
-    if (ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
-    {
-        ps[4] = ps[3];
-        ps[3] = ps[1];
-
-        updated = true;
-    }
-
     // iterate through all planets
 	for (size_t i = 0; i < planet.size(); i ++)
 	{
@@ -142,8 +126,16 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         va[1] += - G * planet[i].m / norm2 * normal[1] / norm;
         va[2] += - G * planet[i].m / norm2 * normal[2] / norm;
 	}
-	
-	// save
+
+    // spherical coordinates
+    ps[2] = ps[1];
+    ps[1] = ps[0];
+
+    ps[0][0] = sqrt(pow(p[0], 2) + pow(p[1], 2) + pow(p[2], 2));
+    ps[0][1] = atan2(p[1], p[0]);
+    ps[0][2] = acos(p[2] / ps[0][0]);
+
+    // save
 	const vector3 q(p[0], p[1], p[2]);
 	
 	// sun - planet
@@ -165,11 +157,21 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     // v = v + a*t
     v[0] += va * t[0];
 	
-	switch (eType)
+    switch (eType)
 	{
+    // perihelion precession
+    case PP:
+        if (ps[1][0] < ps[2][0] && ps[1][0] < ps[0][0])
+        {
+            ps[4] = ps[3];
+            ps[3] = ps[1];
+
+            updated = true;
+        }
+        break;
+
 	// gravitational light bending
 	case LB:
-		// if the photon crossed x = -200000000000
 		if (q[0] >= -200000000000.L && p[0] < -200000000000.L)
 		{
 			pp[1] = pp[0];
