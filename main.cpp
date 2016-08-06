@@ -140,7 +140,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 
     if (first)
     {
-        ps[2] = ps[1];
+        ps[2] = ps[0];
         ps[1] = ps[0];
     }
 
