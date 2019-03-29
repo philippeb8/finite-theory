@@ -117,7 +117,7 @@ inline void Planet::operator () (size_t i, const vector<Planet> &planet, const r
     yvis = r * sin(alphavis);
     xtot = r * cos(alphatot);
     ytot = r * sin(alphatot);
-
+/*
     real massf = 1.0;
     real totalmass = pow(planet.back().vel, 2) * planet.back().r;
     real starmass = totalmass / (8.0 * planet.size()); // here Mtot/Mvisible=8 as example
@@ -133,7 +133,7 @@ inline void Planet::operator () (size_t i, const vector<Planet> &planet, const r
 
     vdark = sqrt(mdk * (r / rdm0 - atan(r / rdm0)) / r );
     massdk = vdark * vdark * r;
-
+*/
     p[0] = xtot * 1e12;
     p[1] = ytot * 1e12;
     p[2] = 0;
@@ -922,7 +922,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[0] = dt;
 	ntime[1] = 1;
     ntime[2] = 1;
-    ntime[3] = 0.000005;
+    ntime[3] = 0.0000005;
     ntime[4] = 1;
 
     QMenu *file = new QMenu( "&File", this );
@@ -946,8 +946,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear->setText( "Clear Screen" );
 
     pTime = new QDoubleSpinBox( tools );
-    pTime->setRange(0.000005, 50000000000);
-    pTime->setDecimals(6);
+    pTime->setRange(0.0000005, 50000000000);
+    pTime->setDecimals(7);
     pTime->setSingleStep(10);
     pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
