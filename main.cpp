@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.21"
+#define EDITION "5.0"
 
 #include "main.h"
 
@@ -31,6 +31,7 @@
 #include <iostream>
 #include <typeinfo>
 
+#include <QDebug>
 #include <QtWidgets/QApplication>
 #include <qevent.h>
 #include <qpainter.h>
@@ -69,7 +70,7 @@
 using namespace std;
 
 const real scale[] = {8e8, 8e9L, 8e9L, 8e9L, 8e10L};
-const real upper = 0.1L;
+const real dt = 0.1L;
 
 // FT time formula
 // observer is infinitly far away
@@ -101,11 +102,43 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 /** 
 	@brief			Calculates the next position of the planet or photon
 	@param planet	Planets that will affect the movement of the planet that is moving (this)
-	@param upper	Time interval
+    @param dt       Time interval
 */
 
-inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
+inline void Planet::operator () (size_t i, const vector<Planet> &planet, const real & dt)
 {
+    alpha = alpha + omega * dt;
+    alphavis = alphavis + omegavis * dt;
+    alphatot = alphatot + omegatot * dt;
+
+    x = r * cos(alpha);
+    y = r * sin(alpha);
+    xvis = r * cos(alphavis);
+    yvis = r * sin(alphavis);
+    xtot = r * cos(alphatot);
+    ytot = r * sin(alphatot);
+
+    real massf = 1.0;
+    real totalmass = pow(planet.back().vel, 2) * planet.back().r;
+    real starmass = totalmass / (8.0 * planet.size()); // here Mtot/Mvisible=8 as example
+
+    vvis = sqrt(i * starmass * massf / r);
+    omegavis = vvis / r ;
+    massvis = vvis * vvis * r ;
+
+    real rdm0 = 1.0;
+    real dmf = 1.0;
+    real md = totalmass - starmass * massf * planet.size();
+    real mdk = md * dmf / (planet.back().r / rdm0 - atan(planet.back().r / rdm0));
+
+    vdark = sqrt(mdk * (r / rdm0 - atan(r / rdm0)) / r );
+    massdk = vdark * vdark * r;
+
+    p[0] = xtot * 1e12;
+    p[1] = ytot * 1e12;
+    p[2] = 0;
+
+#if 0
 	// net acceleration vector (with all planets)
     vector3 va(0.L, 0.L, 0.L);
 
@@ -157,9 +190,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         t[1] = t[0];
     }
 
-    // Newton: t = upper
-    // FT: t = upper / ((m / d + h) / h)
-    t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
+    // Newton: t = dt
+    // FT: t = dt / ((m / d + h) / h)
+    t[0] = dt * f(planet[0].m, nnorm_p, planet[0].h);
 
     if (first)
     {
@@ -217,13 +250,14 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         }
         break;
     }
+#endif
 
     first = false;
 }
 
-Dual::Dual(Canvas * pParent, int id) : p(pParent), i(id)
+Dual::Dual(Canvas * pParent) : p(pParent)
 {
-	start();
+    start();
 }
 
 void Dual::run()
@@ -237,8 +271,9 @@ void Dual::run()
 			QThread::msleep(100);
 		
 		// move the same planet or photon according to Newton & FT
-		for (size_t j = 0; j < p->planet.size(); j ++)
-			p->planet[j][i](p->planet[j], q->pTime->value());
+        for (size_t j = 0; j < p->planet.size(); ++ j)
+            for (size_t i = 1; i < p->planet[0].size(); ++ i)
+                p->planet[j][i](i, p->planet[j], q->pTime->value());
 	}
 }
 
@@ -372,6 +407,10 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     static const Planet Star7     ("Star7", 	Qt::red, 50000L, pos[26], vel[26], Planet::NW, Planet::GR);
     static const Planet Star8     ("Star8", 	Qt::red, 50000L, pos[27], vel[27], Planet::NW, Planet::GR);
 
+    random_device rd;  //Will be used to obtain a seed for the random number engine
+    mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    uniform_real_distribution<real> dis(0.0, 1.0);
+
     switch (eType)
 	{
 	// perihelion precession disparity
@@ -472,16 +511,55 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         planet.resize(2);
 
         // store the Sun & the planets using FT time formula
-        planet[0].reserve(9);
-        planet[0].push_back(Nucleus);
-        planet[0].push_back(Star1);
-        planet[0].push_back(Star2);
-        planet[0].push_back(Star3);
-        planet[0].push_back(Star4);
-        planet[0].push_back(Star5);
-        planet[0].push_back(Star6);
-        planet[0].push_back(Star7);
-        planet[0].push_back(Star8);
+        planet[0].reserve(np + 1);
+        planet[0].push_back(Planet("Nucleus", Qt::black, 2E+12L, pos[0], vel[0], Planet::NW, Planet::GR));
+
+        for (int i = 0; i < np; ++ i)
+        {
+            planet[0].push_back(Planet("Star1", Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR));
+        }
+
+        //
+        //  set up the stars' initial angular and radial positions, plus velocities
+        //
+        emax = 2.0 / PI * atan(pow((rmax/h), 2));
+
+        for (int i = 0; i < np; ++ i)
+        {
+            planet[0][i].alpha = PI * ceil(dis(gen) / 0.5);
+            planet[0][i].r = h * sqrt(tan(PI * 0.5 * emax * i / np));
+            planet[0][i].vel = v0 * 2.0 / PI * atan(planet[0][i].r / r0);
+            planet[0][i].omega = planet[0][i].vel / planet[0][i].r;
+            planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
+        }
+
+        totalmass = pow(planet[0][np - 1].vel,2) * planet[0][np - 1].r;
+        starmass = totalmass / (8.0 * np);
+
+        for (int i = 0; i < np; ++ i)
+        {
+            planet[0][i].alphavis = planet[0][i].alpha;
+            planet[0][i].vvis = sqrt(i * starmass * massf / planet[0][i].r);
+            planet[0][i].omegavis = planet[0][i].vvis / planet[0][i].r;
+            planet[0][i].massvis = planet[0][i].vvis * planet[0][i].vvis * planet[0][i].r;
+        }
+
+        md = totalmass - starmass * massf * np;
+        mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
+
+        for (int i=0; i < np; i++)
+        {
+            planet[0][i].vdark = sqrt(mdk * (planet[0][i].r / rdm0 - atan(planet[0][i].r / rdm0)) / planet[0][i].r);
+            planet[0][i].massdk = planet[0][i].vdark * planet[0][i].vdark * planet[0][i].r;
+        }
+
+        for (int i = 0; i < np; ++ i)
+        {
+            planet[0][i].alphatot = planet[0][i].alpha;
+            planet[0][i].vtot = sqrt(planet[0][i].vvis * planet[0][i].vvis + planet[0][i].vdark * planet[0][i].vdark);
+            planet[0][i].omegatot = planet[0][i].vtot / planet[0][i].r;
+            planet[0][i].masst = planet[0][i].massvis + planet[0][i].massdk;
+        }
 
         // copy & change each planet for the FT time formula
         planet[1] = planet[0];
@@ -520,11 +598,14 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     setCursor( Qt::CrossCursor );
 #endif
 
+    QPalette p = palette();
+    p.setColor(QPalette::Base, Qt::black);
+    setPalette(p);
+
 	startTimer(100);
 
-	// launch a thread for each planet or photon
-	for (size_t i = 1; i < planet[0].size(); i ++)
-		new Dual(this, i);
+    // launch a thread for each set of planets or photons
+    new Dual(this);
 }
 
 Canvas::~Canvas()
@@ -743,6 +824,7 @@ void Canvas::timerEvent(QTimerEvent *)
 			painter.setPen(planet[j][i].c);
 			painter.setBrush(planet[j][i].c);
 			painter.eraseRect(e);
+            painter.fillRect(e, palette().base());
             painter.drawEllipse(r);
             painter.end();
 			r |= e;
@@ -835,12 +917,12 @@ void Canvas::paintEvent( QPaintEvent *e )
 //------------------------------------------------------
 
 Scribble::Scribble( QWidget *parent, const char *name )
-    : QMainWindow( parent ), nc(0)
+    : QMainWindow( parent ), nc(3)
 {
-	ntime[0] = upper;
+    ntime[0] = dt;
 	ntime[1] = 1;
     ntime[2] = 1;
-    ntime[3] = 50000000000;
+    ntime[3] = 0.000005;
     ntime[4] = 1;
 
     QMenu *file = new QMenu( "&File", this );
@@ -864,8 +946,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear->setText( "Clear Screen" );
 
     pTime = new QDoubleSpinBox( tools );
-    pTime->setRange(0.01, 50000000000);
-    pTime->setDecimals(2);
+    pTime->setRange(0.000005, 50000000000);
+    pTime->setDecimals(6);
     pTime->setSingleStep(10);
     pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
@@ -886,38 +968,23 @@ Scribble::Scribble( QWidget *parent, const char *name )
     addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
-    connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
-    setCentralWidget(pTabWidget);
+    //connect(pTabWidget, SIGNAL(currentChanged(int)), SLOT(slotChanged(int)));
+    slotChanged(nc);
 
     QPalette* palette = new QPalette();
-    palette->setColor(QPalette::WindowText,Qt::darkRed);
+    palette->setColor(QPalette::WindowText, Qt::darkRed);
 
     for (unsigned i = 0; i < ntabs; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
 
-        pLabel[i][0][0] = new QLabel(pTab[i]);
-        pLabel[i][0][1] = new QLabel(pTab[i]);
-        pLabel[i][0][2] = new QLabel(pTab[i]);
-        pLabel[i][1][0] = new QLabel(pTab[i]);
-        pLabel[i][1][1] = new QLabel(pTab[i]);
-        pLabel[i][1][2] = new QLabel(pTab[i]);
-        pLabel[i][2][0] = new QLabel(pTab[i]);
-        pLabel[i][2][1] = new QLabel(pTab[i]);
-        pLabel[i][2][2] = new QLabel(pTab[i]);
-        pLabel[i][3][0] = new QLabel(pTab[i]);
-        pLabel[i][3][1] = new QLabel(pTab[i]);
-        pLabel[i][3][2] = new QLabel(pTab[i]);
-        pLabel[i][4][0] = new QLabel(pTab[i]);
-        pLabel[i][4][1] = new QLabel(pTab[i]);
-        pLabel[i][4][2] = new QLabel(pTab[i]);
-        pLabel[i][5][0] = new QLabel(pTab[i]);
-        pLabel[i][5][1] = new QLabel(pTab[i]);
-        pLabel[i][5][2] = new QLabel(pTab[i]);
-        pLabel[i][6][0] = new QLabel(pTab[i]);
-        pLabel[i][6][1] = new QLabel(pTab[i]);
-        pLabel[i][6][2] = new QLabel(pTab[i]);
-		
+        for (unsigned j = 0; j < 7; ++ j)
+            for (unsigned k = 0; k < 3; ++ k)
+            {
+                pLabel[i][j][k] = new QLabel(pTab[i]);
+                pLabel[i][j][k]->hide();
+            }
+
         switch ((Canvas::Type) (i))
         {
         case Canvas::PP:
@@ -973,6 +1040,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         QBoxLayout * l = new QVBoxLayout(pTab[i]);
 	    l->addWidget( canvas[i] );
 
+/*
         QBoxLayout * h1 = new QHBoxLayout();
 		h1->addWidget(pLabel[i][0][0], 1);
 		h1->addWidget(pLabel[i][0][1], 1);
@@ -1009,15 +1077,17 @@ Scribble::Scribble( QWidget *parent, const char *name )
         l->addLayout(h5);
         l->addLayout(h6);
         l->addLayout(h7);
+
         pTab[i]->setLayout(l);
         pTab[i]->show();
-	}
-	
-	pTabWidget->addTab(pTab[0], "Perihelion Precession");
-	pTabWidget->addTab(pTab[1], "Light Bending");
-    pTabWidget->addTab(pTab[2], "Big Bang");
+*/
+    }
+
+    //pTabWidget->addTab(pTab[0], "Perihelion Precession");
+    //pTabWidget->addTab(pTab[1], "Light Bending");
+    //pTabWidget->addTab(pTab[2], "Big Bang");
     pTabWidget->addTab(pTab[3], "Galactic Rotation");
-    pTabWidget->addTab(pTab[4], "Pioneer 10");
+    //pTabWidget->addTab(pTab[4], "Pioneer 10");
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
@@ -1113,7 +1183,7 @@ void Scribble::slotChanged(int i)
 
 void Scribble::slotAbout()
 {
-    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2015\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
+    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2019\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
 }
 	
 
@@ -1126,9 +1196,9 @@ int main( int argc, char **argv )
     scribble.resize( 500, 360 );
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
-	
-    //scribble.showMaximized();
-    scribble.show();
+
+    scribble.showMaximized();
+    //scribble.show();
 	
     return a.exec();
 }

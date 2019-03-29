@@ -23,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <random>
 
 #include <qcolor.h>
 #include <QtWidgets/QMainWindow>
@@ -50,6 +51,7 @@ class QDoubleSpinBox;
 
 typedef long double real;
 
+const real PI = std::acos(real(-1));
 const real C = 299792458.L;
 const real G = 6.67428e-11L;
 const real H[] = {C*C/(2*G), 0., 1e20};
@@ -238,6 +240,28 @@ struct Planet
     real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
     real h;                             // fudge factor
 
+    real alpha;
+    real alphavis;
+    real alphatot;
+    real r;
+    real x;
+    real y;
+    real xvis;
+    real yvis;
+    real xtot;
+    real ytot;
+    real vel;
+    real omega;
+    real omegavis;
+    real omegatot;
+    real vvis;
+    real vdark;
+    real vtot;
+    real mass;
+    real massvis;
+    real massdk;
+    real masst;
+
     enum Type {PP, LB, BB, GR, V1} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
@@ -245,7 +269,7 @@ struct Planet
 	{
 	}
 	
-	void operator () (const std::vector<Planet> &p, const real & upper);
+    void operator () (size_t i, const std::vector<Planet> &p, const real & upper);
 };
 
 class Canvas;
@@ -253,12 +277,11 @@ class Canvas;
 class Dual : public QThread
 {
 public:
-	Dual(Canvas *, int);
+    Dual(Canvas *);
 	virtual void run();
 	
 protected:
 	Canvas * p;
-	int i;
 };
 
 
@@ -296,6 +319,24 @@ protected:
 	std::vector< std::vector<Planet> > planet;
 	
     real scale;
+
+    real t = 0.0;
+    real dt = 0.0005;
+    int np = 200;
+    real rmax = 20.0;
+    real rmin = 0.5;
+    real h = 4.5;
+    real r0 = 1.0;
+    real v0 = 140;
+    real rdm0 = 1.0;
+    real massf = 1.0;
+    real dmf = 1.0;
+    real fit = 0.0;
+    real totalmass;
+    real starmass;
+    real emax;
+    real md;
+    real mdk;
 
     struct Stats
 	{
