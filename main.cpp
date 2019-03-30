@@ -267,10 +267,12 @@ void Dual::run()
         for (size_t j = 0; j < p->planet.size(); ++ j)
             for (size_t i = 1; i < p->planet[j].size(); ++ i)
                 p->planet[j][i](q->pTime->value());
-	}
+    }
 }
 
 const bool no_writing = false;
+
+char * const Canvas::theory[nt] = {"Initial", "Visible", "Dark Matter", "Total"};
 
 Canvas::Canvas( Type eType, QWidget *parent, real scale )
     : QWidget( parent/*, name, Qt::WStaticContents*/ ),
@@ -812,9 +814,11 @@ void Canvas::timerEvent(QTimerEvent *)
 			painter.begin( &buffer );
 			painter.setPen(planet[j][i].c);
 			painter.setBrush(planet[j][i].c);
-			painter.eraseRect(e);
             painter.fillRect(e, palette().base());
-            painter.drawEllipse(r);
+
+            if (q->pTheory[j]->checkState() == Qt::Checked)
+                painter.drawEllipse(r);
+
             painter.end();
 			r |= e;
 			bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
@@ -954,8 +958,23 @@ Scribble::Scribble( QWidget *parent, const char *name )
     pPlanet[1]->setToolTip("Galaxy" );
     connect(pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
 
+/*
     tools->addWidget(pPlanet[0]);
     tools->addWidget(pPlanet[1]);
+*/
+
+    pPlanet[0]->hide();
+    pPlanet[1]->hide();
+
+    for (size_t i = 0; i < Canvas::nt; ++ i)
+    {
+        pTheory[i] = new QCheckBox(Canvas::theory[i], tools);
+        pTheory[i]->setCheckState(Qt::Checked);
+        tools->addWidget(pTheory[i]);
+    }
+
+    pTheory[2]->setCheckState(Qt::Unchecked);
+
     addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
@@ -965,12 +984,12 @@ Scribble::Scribble( QWidget *parent, const char *name )
     QPalette* palette = new QPalette();
     palette->setColor(QPalette::WindowText, Qt::darkRed);
 
-    for (unsigned i = 0; i < ntabs; ++ i)
+    for (size_t i = 0; i < ntabs; ++ i)
 	{
 		pTab[i] = new QWidget(pTabWidget);
 
-        for (unsigned j = 0; j < 7; ++ j)
-            for (unsigned k = 0; k < 3; ++ k)
+        for (size_t j = 0; j < 7; ++ j)
+            for (size_t k = 0; k < 3; ++ k)
             {
                 pLabel[i][j][k] = new QLabel(pTab[i]);
                 pLabel[i][j][k]->hide();

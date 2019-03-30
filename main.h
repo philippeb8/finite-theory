@@ -37,6 +37,7 @@
 #include <qthread.h>
 #include <QtWidgets/QComboBox>
 #include <QtWidgets/QTabWidget>
+#include <QtWidgets/QCheckBox>
 //Added by qt3to4:
 #include <QResizeEvent>
 #include <QMouseEvent>
@@ -291,6 +292,10 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
+    static int const nt = 4;
+    static int const np = 200;
+    static char * const theory[nt];
+
     enum Type {PP, LB, BB, GR, V1} eType;
 
     Canvas( Type eType, QWidget *parent = 0, real scale = 8e9L );
@@ -320,8 +325,6 @@ protected:
 	
     real scale;
 
-    static int const nt = 4;
-    static int const np = 200;
     real const zoom = 5e11L;
     real const t = 0.0;
     real const dt = 0.0005;
@@ -389,6 +392,7 @@ public:
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
     QComboBox *pPlanet[3];
+    QCheckBox *pTheory[Canvas::nt];
     QToolButton *bPColor, *bSave, *bClear;
 };
 
