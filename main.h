@@ -320,7 +320,8 @@ protected:
 	
     real scale;
 
-    int const np = 200;
+    static int const nt = 3;
+    static int const np = 200;
     real const zoom = 1e12L;
     real const t = 0.0;
     real const dt = 0.0005;
@@ -334,10 +335,10 @@ protected:
     real const dmf = 1.0;
     real const fit = 0.0;
     real const emax = 2.0 / PI * atan(pow((rmax / h), 2));
-    real totalmass[2];
-    real starmass[2];
-    real md[2];
-    real mdk[2];
+    real totalmass;
+    real starmass;
+    real md;
+    real mdk;
 
     struct Stats
 	{
@@ -387,7 +388,7 @@ public:
     QWidget * pTab[ntabs];
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
-    QComboBox *pPlanet[2];
+    QComboBox *pPlanet[3];
     QToolButton *bPColor, *bSave, *bClear;
 };
 

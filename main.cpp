@@ -107,20 +107,12 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 
 inline void Planet::operator () (const real & dt)
 {
-/*
     alpha = alpha + omega * dt;
-    alphavis = alphavis + omegavis * dt;
-*/
-    alphatot = alphatot + omegatot * dt;
 
-/*
-    x = r * cos(alpha);
-    y = r * sin(alpha);
-    xvis = r * cos(alphavis);
-    yvis = r * sin(alphavis);
-*/
-    xtot = r * cos(alphatot);
-    ytot = r * sin(alphatot);
+    p[0] = r * cos(alpha);
+    p[1] = r * sin(alpha);
+    p[2] = 0;
+
 /*
     real massf = 1.0;
     real totalmass = pow(planet.back().vel, 2) * planet.back().r;
@@ -138,9 +130,6 @@ inline void Planet::operator () (const real & dt)
     vdark = sqrt(mdk * (r / rdm0 - atan(r / rdm0)) / r );
     massdk = vdark * vdark * r;
 */
-    p[0] = xtot;
-    p[1] = ytot;
-    p[2] = 0;
 
 #if 0
 	// net acceleration vector (with all planets)
@@ -291,7 +280,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 	
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
-	// initial position of each planet and photon
+    // initial position of each planet and photon
     static const real pos[][3] =
 	{
 		{0.L, 0.L, 0.L},
@@ -442,7 +431,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 			planet[1][i].c = planet[1][i].c.dark();
 		}
 
-		stats.resize(planet[0].size());
+        stats.resize(planet.size());
 
 		// prepare the UI
 		for (size_t i = 1; i < planet[0].size(); i ++)
@@ -469,7 +458,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 		planet[1].push_back(Sun);
 		planet[1].push_back(Photon2);
 
-		stats.resize(planet[0].size());
+        stats.resize(planet.size());
 		break;
 
     // big bang
@@ -497,7 +486,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
             planet[1][i].c = planet[1][i].c.dark();
         }
 
-        stats.resize(planet[0].size());
+        stats.resize(planet.size());
 
         // prepare the UI
         for (size_t i = 1; i < planet[0].size(); i ++)
@@ -510,68 +499,61 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         connect(q->pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
         break;
 
-        // galactic rotation
+    // galactic rotation
     case GR:
-        planet.resize(2);
+        planet.resize(nt);
 
-        //
-        //  set up the stars' initial angular and radial positions, plus velocities
-        //
-        for (int j = 0; j < 2; ++ j)
+        for (size_t j = 0; j < planet.size(); ++ j)
         {
             planet[j].reserve(np + 1);
             planet[j].push_back(Planet("Nucleus", Qt::black, 2E+12L, pos[0], vel[0], Planet::NW, Planet::GR));
 
             for (int i = 0; i < np; ++ i)
                 planet[j].push_back(Planet("Star1", Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR));
+        }
 
-            for (int i = 0; i < np + 1; ++ i)
-            {
-                planet[j][i].alpha = PI / 2 * ceil(dis(gen) * 4.0);
-                planet[j][i].r = h * sqrt(tan(PI * 0.5 * emax * i / (np + 1)));
-                planet[j][i].vel = v0 * 2.0 / PI * atan(planet[j][i].r / r0);
-                planet[j][i].omega = planet[j][i].vel / planet[j][i].r;
-                planet[j][i].mass = planet[j][i].vel * planet[j][i].vel * planet[j][i].r;
-            }
+        for (size_t i = 1; i < np + 1; ++ i)
+        {
+            planet[0][i].alpha = PI / 2 * ceil(dis(gen) * 4.0);
+            planet[0][i].r = h * sqrt(tan(PI * 0.5 * emax * i / (np + 1)));
+            planet[0][i].vel = v0 * 2.0 / PI * atan(planet[0][i].r / r0);
+            planet[0][i].omega = planet[0][i].vel / planet[0][i].r;
+            planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
+        }
 
-            totalmass[j] = pow(planet[j][np].vel,2) * planet[j][np].r;
-            starmass[j] = totalmass[j] / (8.0 * (np + 1));
+        totalmass = pow(planet[0][np].vel, 2) * planet[0][np].r;
+        starmass = totalmass / (8.0 * (np + 1));
 
-            for (int i = 0; i < np + 1; ++ i)
-            {
-                planet[j][i].alphavis = planet[j][i].alpha;
-                planet[j][i].vvis = sqrt(i * starmass[j] * massf / planet[j][i].r);
-                planet[j][i].omegavis = planet[j][i].vvis / planet[j][i].r;
-                planet[j][i].massvis = planet[j][i].vvis * planet[j][i].vvis * planet[j][i].r;
-            }
+        for (size_t i = 1; i < np + 1; ++ i)
+        {
+            planet[1][i].alpha = planet[0][i].alpha;
+            planet[1][i].r = planet[0][i].r;
+            planet[1][i].vel = sqrt(i * starmass * massf / planet[0][i].r);
+            planet[1][i].omega = planet[1][i].vel / planet[0][i].r;
+            planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[0][i].r;
+        }
 
-            md[j] = totalmass[j] - starmass[j] * massf * (np + 1);
-            mdk[j] = md[j] * dmf / (planet[j][np].r / rdm0 - atan(planet[j][np].r / rdm0));
+        md = totalmass - starmass * massf * (np + 1);
+        mdk = md * dmf / (planet[0][np].r / rdm0 - atan(planet[0][np].r / rdm0));
 
-            for (int i=0; i < np + 1; i++)
-            {
-                planet[j][i].vdark = sqrt(mdk[j] * (planet[j][i].r / rdm0 - atan(planet[j][i].r / rdm0)) / planet[j][i].r);
-                planet[j][i].massdk = planet[j][i].vdark * planet[j][i].vdark * planet[j][i].r;
-            }
+        for (size_t i = 1; i < np + 1; i++)
+        {
+            planet[2][i].vdark = sqrt(mdk * (planet[0][i].r / rdm0 - atan(planet[0][i].r / rdm0)) / planet[0][i].r);
+            planet[2][i].massdk = planet[2][i].vdark * planet[2][i].vdark * planet[0][i].r;
 
-            for (int i = 0; i < np + 1; ++ i)
-            {
-                planet[j][i].alphatot = planet[j][i].alpha;
-                planet[j][i].vtot = sqrt(planet[j][i].vvis * planet[j][i].vvis + planet[j][i].vdark * planet[j][i].vdark);
-                planet[j][i].omegatot = planet[j][i].vtot / planet[j][i].r;
-                planet[j][i].masst = planet[j][i].massvis + planet[j][i].massdk;
-            }
+            planet[2][i].alpha = planet[0][i].alpha;
+            planet[2][i].r = planet[0][i].r;
+            planet[2][i].vel = sqrt(planet[1][i].vel * planet[1][i].vel + planet[2][i].vdark * planet[2][i].vdark);
+            planet[2][i].omega = planet[2][i].vel / planet[0][i].r;
+            planet[2][i].mass = planet[0][i].mass + planet[1][i].mass;
         }
 
         // change each planet for the FT time formula
-        for (size_t i = 0; i < planet[1].size(); i ++)
-        {
-            planet[1][i].f = Planet::Planet::FR2;
-            planet[1][i].h = H[1];
-            planet[1][i].c = planet[1][i].c.dark();
-        }
+        for (size_t j = planet.size(); j > 1; -- j)
+            for (size_t i = 1; i < np + 1; ++ i)
+                planet[j - 2][i].c = planet[j - 1][i].c.dark();
 
-        stats.resize(planet[0].size());
+        stats.resize(planet.size());
         break;
 
     // pioneer 10
@@ -588,7 +570,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         planet[1].push_back(Sun);
         planet[1].push_back(Pioneer2);
 
-        stats.resize(planet[0].size());
+        stats.resize(planet.size());
         break;
     }
 	
@@ -809,10 +791,10 @@ void Canvas::timerEvent(QTimerEvent *)
         break;
     }
 
-    for (size_t i = 1; i < planet[0].size(); ++ i)
+    for (size_t j = 0; j < planet.size(); ++ j)
     {
-        for (size_t j = 0; j < planet.size(); ++ j)
-		{
+        for (size_t i = 1; i < planet[j].size(); ++ i)
+        {
             QRect e(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4+1, 4+1);
 
 			planet[j][i].o[0] = planet[j][i].p[0];
@@ -834,6 +816,7 @@ void Canvas::timerEvent(QTimerEvent *)
 			update(r);
 		}
 
+/*
         if (planet[0][i].updated && planet[1][i].updated)
         {
             if (size_t(q->pPlanet[0]->currentIndex() + 1) == i)
@@ -845,6 +828,7 @@ void Canvas::timerEvent(QTimerEvent *)
             planet[0][i].updated = false;
             planet[1][i].updated = false;
         }
+*/
     }
 }
 
