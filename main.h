@@ -322,7 +322,7 @@ protected:
 
     static int const nt = 4;
     static int const np = 200;
-    real const zoom = 1e12L;
+    real const zoom = 5e11L;
     real const t = 0.0;
     real const dt = 0.0005;
     real const rmax = 20.0 * zoom;

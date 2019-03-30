@@ -550,7 +550,7 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
             planet[3][i].alpha = planet[0][i].alpha;
             planet[3][i].r = planet[0][i].r;
             planet[3][i].vel = sqrt(planet[1][i].vel * planet[1][i].vel + planet[2][i].vel * planet[2][i].vel);
-            planet[3][i].omega = planet[3][i].vel / planet[0][i].r;
+            planet[3][i].omega = planet[3][i].vel / planet[3][i].r;
             planet[3][i].mass = planet[1][i].mass + planet[2][i].mass;
         }
 
