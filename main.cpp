@@ -973,6 +973,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         tools->addWidget(pTheory[i]);
     }
 
+    pTheory[0]->setCheckState(Qt::Unchecked);
     pTheory[2]->setCheckState(Qt::Unchecked);
 
     addToolBar(tools);
