@@ -528,9 +528,9 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
         {
             planet[1][i].alpha = planet[0][i].alpha;
             planet[1][i].r = planet[0][i].r;
-            planet[1][i].vel = sqrt(i * starmass * massf / planet[0][i].r);
-            planet[1][i].omega = planet[1][i].vel / planet[0][i].r;
-            planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[0][i].r;
+            planet[1][i].vel = sqrt(i * starmass * massf / planet[1][i].r);
+            planet[1][i].omega = planet[1][i].vel / planet[1][i].r;
+            planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[1][i].r;
         }
 
         md = totalmass - starmass * massf * (np + 1);
@@ -538,14 +538,20 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
 
         for (size_t i = 1; i < np + 1; i++)
         {
-            planet[2][i].vdark = sqrt(mdk * (planet[0][i].r / rdm0 - atan(planet[0][i].r / rdm0)) / planet[0][i].r);
-            planet[2][i].massdk = planet[2][i].vdark * planet[2][i].vdark * planet[0][i].r;
-
             planet[2][i].alpha = planet[0][i].alpha;
             planet[2][i].r = planet[0][i].r;
-            planet[2][i].vel = sqrt(planet[1][i].vel * planet[1][i].vel + planet[2][i].vdark * planet[2][i].vdark);
-            planet[2][i].omega = planet[2][i].vel / planet[0][i].r;
-            planet[2][i].mass = planet[0][i].mass + planet[1][i].mass;
+            planet[2][i].vel = sqrt(mdk * (planet[2][i].r / rdm0 - atan(planet[2][i].r / rdm0)) / planet[2][i].r);
+            planet[2][i].omega = planet[2][i].vel / planet[2][i].r;
+            planet[2][i].mass = planet[2][i].vel * planet[2][i].vel * planet[2][i].r;
+        }
+
+        for (size_t i = 1; i < np + 1; i++)
+        {
+            planet[3][i].alpha = planet[0][i].alpha;
+            planet[3][i].r = planet[0][i].r;
+            planet[3][i].vel = sqrt(planet[1][i].vel * planet[1][i].vel + planet[2][i].vel * planet[2][i].vel);
+            planet[3][i].omega = planet[3][i].vel / planet[0][i].r;
+            planet[3][i].mass = planet[1][i].mass + planet[2][i].mass;
         }
 
         // change each planet for the FT time formula

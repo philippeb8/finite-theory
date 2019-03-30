@@ -320,7 +320,7 @@ protected:
 	
     real scale;
 
-    static int const nt = 3;
+    static int const nt = 4;
     static int const np = 200;
     real const zoom = 1e12L;
     real const t = 0.0;
