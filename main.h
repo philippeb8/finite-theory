@@ -292,7 +292,7 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-    static int const nt = 4;
+    static int const nt = 5;
     static int const np = 200;
     static char * const theory[nt];
 

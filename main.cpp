@@ -272,7 +272,7 @@ void Dual::run()
 
 const bool no_writing = false;
 
-char * const Canvas::theory[nt] = {"Initial", "Visible", "Dark Matter", "Total"};
+char * const Canvas::theory[nt] = {"Initial", "Visible", "Dark Matter", "Total", "Finite Theory"};
 
 Canvas::Canvas( Type eType, QWidget *parent, real scale )
     : QWidget( parent/*, name, Qt::WStaticContents*/ ),
@@ -554,6 +554,15 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
             planet[3][i].vel = sqrt(planet[1][i].vel * planet[1][i].vel + planet[2][i].vel * planet[2][i].vel);
             planet[3][i].omega = planet[3][i].vel / planet[3][i].r;
             planet[3][i].mass = planet[1][i].mass + planet[2][i].mass;
+        }
+
+        for (size_t i = 1; i < np + 1; i++)
+        {
+            planet[4][i].alpha = planet[0][i].alpha;
+            planet[4][i].r = planet[0][i].r;
+            planet[4][i].vel = sqrt(mdk * (planet[4][i].r / rdm0 - atan(planet[4][i].r / rdm0)) / planet[4][i].r);
+            planet[4][i].omega = planet[4][i].vel / planet[4][i].r + 2.83273668e-16;
+            planet[4][i].mass = planet[4][i].vel * planet[4][i].vel * planet[4][i].r;
         }
 
         // change each planet for the FT time formula
@@ -969,12 +978,12 @@ Scribble::Scribble( QWidget *parent, const char *name )
     for (size_t i = 0; i < Canvas::nt; ++ i)
     {
         pTheory[i] = new QCheckBox(Canvas::theory[i], tools);
-        pTheory[i]->setCheckState(Qt::Checked);
         tools->addWidget(pTheory[i]);
     }
 
-    pTheory[0]->setCheckState(Qt::Unchecked);
-    pTheory[2]->setCheckState(Qt::Unchecked);
+    pTheory[1]->setCheckState(Qt::Checked);
+    pTheory[3]->setCheckState(Qt::Checked);
+    pTheory[4]->setCheckState(Qt::Checked);
 
     addToolBar(tools);
 	
