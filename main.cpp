@@ -105,16 +105,20 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
     @param dt       Time interval
 */
 
-inline void Planet::operator () (size_t i, const vector<Planet> &planet, const real & dt)
+inline void Planet::operator () (const real & dt)
 {
+/*
     alpha = alpha + omega * dt;
     alphavis = alphavis + omegavis * dt;
+*/
     alphatot = alphatot + omegatot * dt;
 
+/*
     x = r * cos(alpha);
     y = r * sin(alpha);
     xvis = r * cos(alphavis);
     yvis = r * sin(alphavis);
+*/
     xtot = r * cos(alphatot);
     ytot = r * sin(alphatot);
 /*
@@ -134,8 +138,8 @@ inline void Planet::operator () (size_t i, const vector<Planet> &planet, const r
     vdark = sqrt(mdk * (r / rdm0 - atan(r / rdm0)) / r );
     massdk = vdark * vdark * r;
 */
-    p[0] = xtot * 1e12;
-    p[1] = ytot * 1e12;
+    p[0] = xtot;
+    p[1] = ytot;
     p[2] = 0;
 
 #if 0
@@ -272,8 +276,8 @@ void Dual::run()
 		
 		// move the same planet or photon according to Newton & FT
         for (size_t j = 0; j < p->planet.size(); ++ j)
-            for (size_t i = 1; i < p->planet[0].size(); ++ i)
-                p->planet[j][i](i, p->planet[j], q->pTime->value());
+            for (size_t i = 1; i < p->planet[j].size(); ++ i)
+                p->planet[j][i](q->pTime->value());
 	}
 }
 
@@ -510,59 +514,56 @@ Canvas::Canvas( Type eType, QWidget *parent, real scale )
     case GR:
         planet.resize(2);
 
-        // store the Sun & the planets using FT time formula
-        planet[0].reserve(np + 1);
-        planet[0].push_back(Planet("Nucleus", Qt::black, 2E+12L, pos[0], vel[0], Planet::NW, Planet::GR));
-
-        for (int i = 0; i < np; ++ i)
-        {
-            planet[0].push_back(Planet("Star1", Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR));
-        }
-
         //
         //  set up the stars' initial angular and radial positions, plus velocities
         //
-        emax = 2.0 / PI * atan(pow((rmax/h), 2));
-
-        for (int i = 0; i < np; ++ i)
+        for (int j = 0; j < 2; ++ j)
         {
-            planet[0][i].alpha = PI * ceil(dis(gen) / 0.5);
-            planet[0][i].r = h * sqrt(tan(PI * 0.5 * emax * i / np));
-            planet[0][i].vel = v0 * 2.0 / PI * atan(planet[0][i].r / r0);
-            planet[0][i].omega = planet[0][i].vel / planet[0][i].r;
-            planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
+            planet[j].reserve(np + 1);
+            planet[j].push_back(Planet("Nucleus", Qt::black, 2E+12L, pos[0], vel[0], Planet::NW, Planet::GR));
+
+            for (int i = 0; i < np; ++ i)
+                planet[j].push_back(Planet("Star1", Qt::red, 50000L, pos[20], vel[20], Planet::NW, Planet::GR));
+
+            for (int i = 0; i < np + 1; ++ i)
+            {
+                planet[j][i].alpha = PI / 2 * ceil(dis(gen) * 4.0);
+                planet[j][i].r = h * sqrt(tan(PI * 0.5 * emax * i / (np + 1)));
+                planet[j][i].vel = v0 * 2.0 / PI * atan(planet[j][i].r / r0);
+                planet[j][i].omega = planet[j][i].vel / planet[j][i].r;
+                planet[j][i].mass = planet[j][i].vel * planet[j][i].vel * planet[j][i].r;
+            }
+
+            totalmass[j] = pow(planet[j][np].vel,2) * planet[j][np].r;
+            starmass[j] = totalmass[j] / (8.0 * (np + 1));
+
+            for (int i = 0; i < np + 1; ++ i)
+            {
+                planet[j][i].alphavis = planet[j][i].alpha;
+                planet[j][i].vvis = sqrt(i * starmass[j] * massf / planet[j][i].r);
+                planet[j][i].omegavis = planet[j][i].vvis / planet[j][i].r;
+                planet[j][i].massvis = planet[j][i].vvis * planet[j][i].vvis * planet[j][i].r;
+            }
+
+            md[j] = totalmass[j] - starmass[j] * massf * (np + 1);
+            mdk[j] = md[j] * dmf / (planet[j][np].r / rdm0 - atan(planet[j][np].r / rdm0));
+
+            for (int i=0; i < np + 1; i++)
+            {
+                planet[j][i].vdark = sqrt(mdk[j] * (planet[j][i].r / rdm0 - atan(planet[j][i].r / rdm0)) / planet[j][i].r);
+                planet[j][i].massdk = planet[j][i].vdark * planet[j][i].vdark * planet[j][i].r;
+            }
+
+            for (int i = 0; i < np + 1; ++ i)
+            {
+                planet[j][i].alphatot = planet[j][i].alpha;
+                planet[j][i].vtot = sqrt(planet[j][i].vvis * planet[j][i].vvis + planet[j][i].vdark * planet[j][i].vdark);
+                planet[j][i].omegatot = planet[j][i].vtot / planet[j][i].r;
+                planet[j][i].masst = planet[j][i].massvis + planet[j][i].massdk;
+            }
         }
 
-        totalmass = pow(planet[0][np - 1].vel,2) * planet[0][np - 1].r;
-        starmass = totalmass / (8.0 * np);
-
-        for (int i = 0; i < np; ++ i)
-        {
-            planet[0][i].alphavis = planet[0][i].alpha;
-            planet[0][i].vvis = sqrt(i * starmass * massf / planet[0][i].r);
-            planet[0][i].omegavis = planet[0][i].vvis / planet[0][i].r;
-            planet[0][i].massvis = planet[0][i].vvis * planet[0][i].vvis * planet[0][i].r;
-        }
-
-        md = totalmass - starmass * massf * np;
-        mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
-
-        for (int i=0; i < np; i++)
-        {
-            planet[0][i].vdark = sqrt(mdk * (planet[0][i].r / rdm0 - atan(planet[0][i].r / rdm0)) / planet[0][i].r);
-            planet[0][i].massdk = planet[0][i].vdark * planet[0][i].vdark * planet[0][i].r;
-        }
-
-        for (int i = 0; i < np; ++ i)
-        {
-            planet[0][i].alphatot = planet[0][i].alpha;
-            planet[0][i].vtot = sqrt(planet[0][i].vvis * planet[0][i].vvis + planet[0][i].vdark * planet[0][i].vdark);
-            planet[0][i].omegatot = planet[0][i].vtot / planet[0][i].r;
-            planet[0][i].masst = planet[0][i].massvis + planet[0][i].massdk;
-        }
-
-        // copy & change each planet for the FT time formula
-        planet[1] = planet[0];
+        // change each planet for the FT time formula
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
             planet[1][i].f = Planet::Planet::FR2;

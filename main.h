@@ -269,7 +269,7 @@ struct Planet
 	{
 	}
 	
-    void operator () (size_t i, const std::vector<Planet> &p, const real & upper);
+    void operator () (const real & dt);
 };
 
 class Canvas;
@@ -320,23 +320,24 @@ protected:
 	
     real scale;
 
-    real t = 0.0;
-    real dt = 0.0005;
-    int np = 200;
-    real rmax = 20.0;
-    real rmin = 0.5;
-    real h = 4.5;
-    real r0 = 1.0;
-    real v0 = 140;
-    real rdm0 = 1.0;
-    real massf = 1.0;
-    real dmf = 1.0;
-    real fit = 0.0;
-    real totalmass;
-    real starmass;
-    real emax;
-    real md;
-    real mdk;
+    int const np = 200;
+    real const zoom = 1e12L;
+    real const t = 0.0;
+    real const dt = 0.0005;
+    real const rmax = 20.0 * zoom;
+    real const rmin = 0.5 * zoom;
+    real const h = 4.5 * zoom;
+    real const r0 = 1.0 * zoom;
+    real const v0 = 140 * zoom;
+    real const rdm0 = 1.0 * zoom;
+    real const massf = 1.0;
+    real const dmf = 1.0;
+    real const fit = 0.0;
+    real const emax = 2.0 / PI * atan(pow((rmax / h), 2));
+    real totalmass[2];
+    real starmass[2];
+    real md[2];
+    real mdk[2];
 
     struct Stats
 	{
