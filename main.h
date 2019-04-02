@@ -270,17 +270,14 @@ class Canvas : public QWidget
 public:
     Canvas( int type, QWidget *parent = 0 );
     ~Canvas();
-    void clearScreen();
 
 protected:
-    constexpr static real const scale[] = {8e9L, 1e11};
-
     void mousePressEvent( QMouseEvent *e );
     void mouseReleaseEvent( QMouseEvent *e );
     void mouseMoveEvent( QMouseEvent *e );
     void resizeEvent( QResizeEvent *e );
     void paintEvent( QPaintEvent *e );
-	void timerEvent( QTimerEvent *e );
+    void timerEvent( QTimerEvent *e );
 
     int type;
 
@@ -336,6 +333,7 @@ public:
     real starmass;
     real md;
     real mdk;
+    real vmax;
 
     std::vector< std::vector<Planet> > planet;
 };

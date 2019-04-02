@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.6"
+#define EDITION "5.7"
 
 #include "main.h"
 
@@ -167,7 +167,7 @@ void Canvas::timerEvent(QTimerEvent *)
     {
     case 0:
         {
-            QRect r(q->planet[0][0].p[0] / scale[0] - 5 + width()/2, q->planet[0][0].p[1] / scale[0] - 5 + height()/2, 10, 10);
+            QRect r(q->planet[0][0].p[0] / Scribble::rmax * width()/2 - 5 + width()/2, q->planet[0][0].p[1] / Scribble::rmax * height()/2 - 5 + height()/2, 10, 10);
             QPainter painter;
 
             painter.begin( &buffer );
@@ -179,11 +179,11 @@ void Canvas::timerEvent(QTimerEvent *)
             {
                 for (size_t i = 1; i < q->planet[j].size(); ++ i)
                 {
-                    QRect e(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4+1, 4+1);
+                    QRect e(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4+1, 4+1);
 
                     q->planet[j][i].o = q->planet[j][i].p;
 
-                    QRect r(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4, 4);
+                    QRect r(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4, 4);
                     QPainter painter;
 
                     painter.begin( &buffer );
@@ -208,18 +208,11 @@ void Canvas::timerEvent(QTimerEvent *)
         {
             first = false;
 
-            real vmax = 0.0;
-
-            for (size_t j = 0; j < q->planet.size(); ++ j)
-                for (size_t i = 1; i < q->planet[j].size(); ++ i)
-                    if (vmax < q->planet[j][i].vel)
-                        vmax = q->planet[j][i].vel;
-
             for (size_t j = 0; j < q->planet.size(); ++ j)
             {
                 for (size_t i = 1; i < q->planet[j].size(); ++ i)
                 {
-                    QRect r(q->planet[j][i].r / scale[0] - 2, height() - q->planet[j][i].vel / vmax * height() - 2, 4, 4);
+                    QRect r(q->planet[j][i].r / Scribble::rmax * width() - 2, height() - q->planet[j][i].vel / q->vmax * height() - 2, 4, 4);
                     QPainter painter;
 
                     painter.begin( &buffer );
@@ -233,14 +226,14 @@ void Canvas::timerEvent(QTimerEvent *)
                 }
             }
 
-            for (real y = 0; y < vmax; y += vmax / 5.0)
+            for (real y = 0; y < q->vmax; y += q->vmax / 5.0)
             {
                 QPainter painter;
 
                 painter.begin( &buffer );
                 painter.setPen(Qt::white);
                 painter.setBrush(Qt::white);
-                painter.drawText(0, height() - y / vmax * height(), QString::number(y / Scribble::zoom) + " km/s");
+                painter.drawText(0, height() - y / q->vmax * height(), QString::number(y / Scribble::zoom) + " km/s");
                 painter.end();
             }
 
@@ -249,12 +242,6 @@ void Canvas::timerEvent(QTimerEvent *)
 
         break;
     };
-}
-
-void Canvas::clearScreen()
-{
-    buffer.fill( palette().base().color() );
-    repaint();
 }
 
 void Canvas::mousePressEvent( QMouseEvent *e )
@@ -294,6 +281,8 @@ void Canvas::mouseMoveEvent( QMouseEvent *e )
 
 void Canvas::resizeEvent( QResizeEvent *e )
 {
+    first = true;
+
     QWidget::resizeEvent( e );
 
     int w = width() > buffer.width() ?
@@ -311,8 +300,8 @@ void Canvas::paintEvent( QPaintEvent *e )
     QWidget::paintEvent( e );
 
     QVector<QRect> rects = e->region().rects();
-    for ( uint i = 0; i < rects.count(); ++ i ) 
-	{
+    for ( uint i = 0; i < rects.count(); ++ i )
+    {
         QRect r = rects[(int)i];
         bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
     }
@@ -453,6 +442,13 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[4][i].mass = planet[4][i].vel * planet[4][i].vel * planet[4][i].r;
     }
 
+    vmax = 0.0;
+
+    for (size_t j = 0; j < planet.size(); ++ j)
+        for (size_t i = 1; i < planet[j].size(); ++ i)
+            if (vmax < planet[j][i].vel)
+                vmax = planet[j][i].vel;
+
     for (size_t j = planet.size(); j > 1; -- j)
         for (size_t i = 1; i < np + 1; ++ i)
             planet[j - 2][i].c = planet[j - 1][i].c.dark();
@@ -479,6 +475,7 @@ int main( int argc, char **argv )
     Scribble scribble;
 
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
+    scribble.resize( 500, 360 );
     scribble.showMaximized();
 	
     return a.exec();
