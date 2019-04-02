@@ -19,7 +19,6 @@
 #ifndef SCRIBBLE_H
 #define SCRIBBLE_H
 
-#include <set>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -64,11 +63,11 @@ struct vector3
 
 	T elem_[N];
 
-	vector3()
+    vector3() noexcept
 	{
 	}
 	
-	vector3(const T & b1, const T & b2, const T & b3)
+    vector3(const T & b1, const T & b2, const T & b3) noexcept
 	{
 		elem_[0] = b1;
 		elem_[1] = b2;
@@ -223,53 +222,24 @@ struct vector3
 
 struct Planet
 {
-    static real FR1(real m, real d, real h);
-    static real FR2(real m, real d, real h);
-    static real NW(real m, real d, real h);
-
     char const * n;						// name
 	QColor c;							// color
 	real m;								// mass
-	vector3 p;							// position
-    vector3 v[2];						// current & saved velocity
-    vector3 o;							// old position
-    real t[2];							// current & old time intervals according to Newton or FT
-    bool first;                         // first cycle
-	bool updated;						// the cycle of the planet or the photon arrival line has been completed
-    vector3 pp[2];						// current & old saved positions on the perihelion
-    vector3 ps[5];						// current & old polar coordinates of pp
-    real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
-    real h;                             // fudge factor
+    vector3 o, p;                       // old & new positions
 
     real alpha;
-    real alphavis;
-    real alphatot;
     real r;
     real x;
     real y;
-    real xvis;
-    real yvis;
-    real xtot;
-    real ytot;
     real vel;
     real omega;
-    real omegavis;
-    real omegatot;
-    real vvis;
-    real vdark;
-    real vtot;
     real mass;
-    real massvis;
-    real massdk;
-    real masst;
 
-    enum Type {PP, LB, BB, GR, V1} eType;		// is for the perihelion precession disparity or the gravitational light bending
-
-    Planet(char const * n, const QColor & c, real m, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
-        : n(n), c(c), m(m), p(pp[0], pp[1], pp[2]), v({vector3(pv[0], pv[1], pv[2])}), first(true), updated(false), f(f), eType(eType), h(h)
+    Planet(char const * n = "", const QColor c = QColor(), real m = 0.0)
+        : n(n), c(c), m(m), o(), p()
 	{
 	}
-	
+
     void operator () (const real & dt);
 };
 
@@ -292,21 +262,13 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-    static int const nt = 5;
-    static int const np = 200;
-    static char * const theory[nt];
-
-    enum Type {PP, LB, BB, GR, V1} eType;
-
-    Canvas( Type eType, QWidget *parent = 0, real scale = 8e9L );
+    Canvas( int type, QWidget *parent = 0 );
     ~Canvas();
     void clearScreen();
-	
-protected slots:
-	void slotPlanet(int);
-    void slotGalaxy(int);
 
 protected:
+    constexpr static real const scale[] = {8e9L, -3e11};
+
     void mousePressEvent( QMouseEvent *e );
     void mouseReleaseEvent( QMouseEvent *e );
     void mouseMoveEvent( QMouseEvent *e );
@@ -314,16 +276,42 @@ protected:
     void paintEvent( QPaintEvent *e );
 	void timerEvent( QTimerEvent *e );
 
+    int type;
+
     QPen pen;
     QPolygon polyline;
 
     bool mousePressed;
 
     QPixmap buffer;
+};
 
-	std::vector< std::vector<Planet> > planet;
+class Scribble : public QMainWindow
+{
+    Q_OBJECT
+	friend class Canvas;
+
+public:
+    Scribble( QWidget *parent = 0, const char *name = 0 );
+
+protected slots:
+    void slotRestart();
+    void slotAbout();
 	
-    real scale;
+public:
+    static const int ntabs = 2;
+    static int const nt = 5;
+    static int const np = 200;
+    static char * const theory[nt];
+
+    real ntime;
+
+	QTabWidget *pTabWidget;
+    Canvas* canvas[ntabs];
+    QWidget * pTab[ntabs];
+    QDoubleSpinBox *pTime;
+    QCheckBox *pTheory[nt];
+    QToolButton *bPColor, *bSave, *bClear;
 
     real const zoom = 5e11L;
     real const t = 0.0;
@@ -343,57 +331,7 @@ protected:
     real md;
     real mdk;
 
-    struct Stats
-	{
-		vector3 precession[2];
-		std::set<real> mean[3];
-		vector3 best[2];
-		
-		Stats()
-		{
-			best[1][0] = std::numeric_limits<real>::max();
-			best[1][1] = std::numeric_limits<real>::max();
-			best[1][2] = std::numeric_limits<real>::max();
-		}
-	};
-	
-	std::vector<Stats> stats;
-};
-
-class Scribble : public QMainWindow
-{
-    Q_OBJECT
-	friend class Canvas;
-
-public:
-    Scribble( QWidget *parent = 0, const char *name = 0 );
-
-protected slots:
-    void slotRestart();
-    void slotClear();
-    void slotPlanet(int);
-	void slotPP();
-	void slotLB();
-    void slotBB();
-    void slotGR();
-    void slotV1();
-    void slotChanged(int);
-	void slotAbout();
-	
-public:
-    static const int ntabs = 5;
-
-    unsigned nc;
-    real ntime[ntabs];
-
-	QTabWidget *pTabWidget;
-    Canvas* canvas[ntabs];
-    QWidget * pTab[ntabs];
-    QLabel *pLabel[ntabs][8][3];
-    QDoubleSpinBox *pTime;
-    QComboBox *pPlanet[3];
-    QCheckBox *pTheory[Canvas::nt];
-    QToolButton *bPColor, *bSave, *bClear;
+    std::vector< std::vector<Planet> > planet;
 };
 
 #endif
