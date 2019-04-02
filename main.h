@@ -3,8 +3,11 @@
     Copyright (C) 2011 Phil Bouchard <phil@fornux.com>
 
     Based on:
-        "Galaxy Rotation with Dark Matter" by Dr. Armando Pisani
+        "Galaxy Rotation with Dark Matter" simulator by Dr. Armando Pisani
         https://www.compadre.org/OSP/document/ServeFile.cfm?ID=11512&DocID=2444
+
+        "Finite Theory of the Universe [...]" debate on Cosmoquest.org by Phil Bouchard
+        http://forum.cosmoquest.org/showthread.php?137103-Finite-Theory-of-the-Universe-Dark-Matter-Disproof-and-Faster-Than-Light-Speed&p=2464825#post2464825
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
