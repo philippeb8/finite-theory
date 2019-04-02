@@ -49,25 +49,24 @@ class QPaintEvent;
 class QToolButton;
 class QDoubleSpinBox;
 
-typedef long double real;
+typedef double real;
 
-const real PI = std::acos(real(-1));
-const real C = 299792458.L;
-const real G = 6.67428e-11L;
-const real H[] = {C*C/(2*G), 0., 1e20};
+constexpr const real PI = std::acos(real(-1));
+constexpr const real C = 299792458.L;
+constexpr const real G = 6.67428e-11L;
+constexpr const real H[] = {C*C/(2*G), 0., 1e20};
 
 struct vector3
 {
-	typedef long double T;
 	static const size_t N = 3;
 
-	T elem_[N];
+    real elem_[N];
 
     vector3() noexcept
 	{
 	}
 	
-    vector3(const T & b1, const T & b2, const T & b3) noexcept
+    vector3(const real & b1, const real & b2, const real & b3) noexcept
 	{
 		elem_[0] = b1;
 		elem_[1] = b2;
@@ -80,12 +79,12 @@ struct vector3
 			elem_[i] = b.elem_[i];
 	}
 
-	T & operator [] (const size_t n) 
+    real & operator [] (const size_t n)
 	{ 
 		return elem_[n]; 
 	}
 
-	const T & operator [] (const size_t n) const
+    const real & operator [] (const size_t n) const
 	{ 
 		return elem_[n]; 
 	}
@@ -267,7 +266,7 @@ public:
     void clearScreen();
 
 protected:
-    constexpr static real const scale[] = {8e9L, -3e11};
+    constexpr static real const scale[] = {8e9L, 1e11};
 
     void mousePressEvent( QMouseEvent *e );
     void mouseReleaseEvent( QMouseEvent *e );
@@ -281,7 +280,7 @@ protected:
     QPen pen;
     QPolygon polyline;
 
-    bool mousePressed;
+    bool first, mousePressed;
 
     QPixmap buffer;
 };
@@ -313,19 +312,19 @@ public:
     QCheckBox *pTheory[nt];
     QToolButton *bPColor, *bSave, *bClear;
 
-    real const zoom = 5e11L;
-    real const t = 0.0;
-    real const dt = 0.0005;
-    real const rmax = 20.0 * zoom;
-    real const rmin = 0.5 * zoom;
-    real const h = 4.5 * zoom;
-    real const r0 = 1.0 * zoom;
-    real const v0 = 140 * zoom;
-    real const rdm0 = 1.0 * zoom;
-    real const massf = 1.0;
-    real const dmf = 1.0;
-    real const fit = 0.0;
-    real const emax = 2.0 / PI * atan(pow((rmax / h), 2));
+    constexpr static real const zoom = 5e11L;
+    constexpr static real const t = 0.0;
+    constexpr static real const dt = 0.0005;
+    constexpr static real const rmax = 20.0 * zoom;
+    constexpr static real const rmin = 0.5 * zoom;
+    constexpr static real const h = 4.5 * zoom;
+    constexpr static real const r0 = 1.0 * zoom;
+    constexpr static real const v0 = 140 * zoom;
+    constexpr static real const rdm0 = 1.0 * zoom;
+    constexpr static real const massf = 1.0;
+    constexpr static real const dmf = 1.0;
+    constexpr static real const fit = 0.0;
+    constexpr static real const emax = 2.0 / PI * atan(pow((rmax / h), 2));
     real totalmass;
     real starmass;
     real md;

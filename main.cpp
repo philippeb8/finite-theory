@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.5"
+#define EDITION "5.6"
 
 #include "main.h"
 
@@ -126,7 +126,7 @@ void Dual::run()
 
 Canvas::Canvas( int type, QWidget *parent )
     : QWidget( parent ),
-      type(type), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() )
+      type(type), pen( Qt::red, 3 ), polyline(3), first(true), mousePressed( false ), buffer( width(), height() )
 {
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 
@@ -162,62 +162,84 @@ void Canvas::timerEvent(QTimerEvent *)
         {
             QRect r(q->planet[0][0].p[0] / scale[0] - 5 + width()/2, q->planet[0][0].p[1] / scale[0] - 5 + height()/2, 10, 10);
             QPainter painter;
+
             painter.begin( &buffer );
             painter.setBrush(Qt::yellow);
             painter.drawEllipse(r);
             painter.end();
-            bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
-            update(r);
-        }
-
-        for (size_t j = 0; j < q->planet.size(); ++ j)
-        {
-            for (size_t i = 1; i < q->planet[j].size(); ++ i)
+            for (size_t j = 0; j < q->planet.size(); ++ j)
             {
-                QRect e(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4+1, 4+1);
+                for (size_t i = 1; i < q->planet[j].size(); ++ i)
+                {
+                    QRect e(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4+1, 4+1);
 
-                q->planet[j][i].o = q->planet[j][i].p;
+                    q->planet[j][i].o = q->planet[j][i].p;
 
-                QRect r(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4, 4);
-                QPainter painter;
-                painter.begin( &buffer );
-                painter.setPen(q->planet[j][i].c);
-                painter.setBrush(q->planet[j][i].c);
-                painter.fillRect(e, palette().base());
+                    QRect r(q->planet[j][i].o[0] / scale[0] - 2 + width()/2, q->planet[j][i].o[1] / scale[0] - 2 + height()/2, 4, 4);
+                    QPainter painter;
 
-                if (q->pTheory[j]->checkState() == Qt::Checked)
-                    painter.drawEllipse(r);
+                    painter.begin( &buffer );
+                    painter.setPen(q->planet[j][i].c);
+                    painter.setBrush(q->planet[j][i].c);
+                    painter.fillRect(e, palette().base());
 
-                painter.end();
-                r |= e;
-                bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
+                    if (q->pTheory[j]->checkState() == Qt::Checked)
+                        painter.drawEllipse(r);
 
-                update(r);
+                    painter.end();
+                    r |= e;
+                }
+
+                update();
             }
         }
         break;
 
     case 1:
-        for (size_t j = 0; j < q->planet.size(); ++ j)
+        if (first)
         {
-            for (size_t i = 1; i < q->planet[j].size(); ++ i)
+            first = false;
+
+            real vmax = 0.0;
+
+            for (size_t j = 0; j < q->planet.size(); ++ j)
+                for (size_t i = 1; i < q->planet[j].size(); ++ i)
+                    if (vmax < q->planet[j][i].vel)
+                        vmax = q->planet[j][i].vel;
+
+            for (size_t j = 0; j < q->planet.size(); ++ j)
             {
-                QRect r(q->planet[j][i].r / scale[0] - 2 + width()/2, q->planet[j][i].vel / scale[1] - 2 + height()/2, 4, 4);
-                QPainter painter;
-                painter.begin( &buffer );
-                painter.setPen(q->planet[j][i].c);
-                painter.setBrush(q->planet[j][i].c);
+                for (size_t i = 1; i < q->planet[j].size(); ++ i)
+                {
+                    QRect r(q->planet[j][i].r / scale[0] - 2, height() - q->planet[j][i].vel / vmax * height() - 2, 4, 4);
+                    QPainter painter;
 
-                if (q->pTheory[j]->checkState() == Qt::Checked)
-                    painter.drawEllipse(r);
+                    painter.begin( &buffer );
+                    painter.setPen(q->planet[j][i].c);
+                    painter.setBrush(q->planet[j][i].c);
 
-                painter.end();
-                bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
+                    if (q->pTheory[j]->checkState() == Qt::Checked)
+                        painter.drawEllipse(r);
 
-                update(r);
+                    painter.end();
+                }
             }
+
+            for (real y = 0; y < vmax; y += vmax / 5.0)
+            {
+                QPainter painter;
+
+                painter.begin( &buffer );
+                painter.setPen(Qt::white);
+                painter.setBrush(Qt::white);
+                painter.drawText(0, height() - y / vmax * height(), QString::number(y / Scribble::zoom) + " km/s");
+                painter.end();
+            }
+
+            update();
         }
+
         break;
     };
 }
@@ -445,12 +467,11 @@ int main( int argc, char **argv )
 {
     QApplication a( argc, argv );
 
+    a.setStyle("windows");
+
     Scribble scribble;
 
-    scribble.resize( 500, 360 );
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
-	a.setStyle("windows");
-
     scribble.showMaximized();
 	
     return a.exec();
