@@ -316,15 +316,14 @@ public:
     QCheckBox *pTheory[nt];
     QToolButton *bPColor, *bSave, *bClear;
 
-    constexpr static real const zoom = 5e11L;
     constexpr static real const t = 0.0;
     constexpr static real const dt = 0.0005;
-    constexpr static real const rmax = 20.0 * zoom;
-    constexpr static real const rmin = 0.5 * zoom;
-    constexpr static real const h = 4.5 * zoom;
-    constexpr static real const r0 = 1.0 * zoom;
-    constexpr static real const v0 = 140 * zoom;
-    constexpr static real const rdm0 = 1.0 * zoom;
+    constexpr static real const rmax = 20.0;
+    constexpr static real const rmin = 0.5;
+    constexpr static real const h = 4.5;
+    constexpr static real const r0 = 1.0;
+    constexpr static real const v0 = 140;
+    constexpr static real const rdm0 = 1.0;
     constexpr static real const massf = 1.0;
     constexpr static real const dmf = 1.0;
     constexpr static real const fit = 0.0;

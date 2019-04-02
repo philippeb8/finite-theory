@@ -233,7 +233,7 @@ void Canvas::timerEvent(QTimerEvent *)
                 painter.begin( &buffer );
                 painter.setPen(Qt::white);
                 painter.setBrush(Qt::white);
-                painter.drawText(0, height() - y / q->vmax * height(), QString::number(y / Scribble::zoom) + " km/s");
+                painter.drawText(0, height() - y / q->vmax * height(), QString::number(y) + " km/s");
                 painter.end();
             }
 
