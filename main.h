@@ -1,6 +1,10 @@
 /**
     Finite Theory Simulator
-    Copyright (C) 2011 Phil Bouchard <philippeb8@gmail.com>
+    Copyright (C) 2011 Phil Bouchard <phil@fornux.com>
+
+    Based on:
+        "Galaxy Rotation with Dark Matter" by Dr. Armando Pisani
+        https://www.compadre.org/OSP/document/ServeFile.cfm?ID=11512&DocID=2444
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

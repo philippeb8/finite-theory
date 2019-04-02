@@ -1,6 +1,10 @@
 /**
     Finite Theory Simulator
-    Copyright (C) 2011 Phil Bouchard <philippeb8@gmail.com>
+    Copyright (C) 2011 Phil Bouchard <phil@fornux.com>
+
+    Based on:
+        "Galaxy Rotation with Dark Matter" by Dr. Armando Pisani
+        https://www.compadre.org/OSP/document/ServeFile.cfm?ID=11512&DocID=2444
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -459,7 +463,7 @@ void Scribble::slotRestart()
 
 void Scribble::slotAbout()
 {
-    QMessageBox::about( this, "Finite Theory of the Universe", "\nCopyright (c) 2011-2019\n\nPhil Bouchard <pbouchard8@gmail.com>\n");
+    QMessageBox::about( this, "Finite Theory of the Universe " EDITION, "\nCopyright (c) 2011-2019\n\nPhil Bouchard <phil@fornux.com>\n");
 }
 	
 
