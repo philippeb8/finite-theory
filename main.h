@@ -320,10 +320,11 @@ public:
     constexpr static real const r0 = 1.0;
     constexpr static real const v0 = 140;
     constexpr static real const rdm0 = 1.0;
-    constexpr static real const massf = 1.0;
     constexpr static real const dmf = 1.0;
     constexpr static real const fit = 0.0;
-    constexpr static real const emax = 2.0 / PI * atan(pow((rmax / h), 2));
+    constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
+    constexpr static real const massf = 5.0;
+    constexpr static real const sping = 3.0;
     real totalmass;
     real starmass;
     real md;

@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.12"
+#define EDITION "5.13"
 
 #include "main.h"
 
@@ -192,7 +192,7 @@ void Canvas::timerEvent(QTimerEvent *)
             {
                 for (size_t i = 1; i < q->planet[j].size(); ++ i)
                 {
-                    QRect r(q->planet[j][i].r / Scribble::rmax * width() - 2, height() - q->planet[j][i].omega * q->planet[j][i].r / q->vmax * height() - 2, 4, 4);
+                    QRect r(q->planet[j][i].r / Scribble::rmax * width() - 2, height() - q->planet[j][i].vel / q->vmax * height() - 2, 4, 4);
                     QPainter painter;
 
                     painter.begin( &buffer );
@@ -333,6 +333,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     }
 
     pTheory[1]->setCheckState(Qt::Checked);
+    pTheory[3]->setCheckState(Qt::Checked);
     pTheory[4]->setCheckState(Qt::Checked);
 
     addToolBar(tools);
@@ -377,14 +378,14 @@ Scribble::Scribble( QWidget *parent, const char *name )
     for (size_t i = 1; i < np + 1; ++ i)
     {
         planet[0][i].alpha = PI / 2 * ceil(dis(gen) * 4.0);
-        planet[0][i].r = h * sqrt(tan(PI * 0.5 * emax * i / (np + 1)));
+        planet[0][i].r = h * sqrt(tan(PI * 0.5 * emax * i / np));
         planet[0][i].vel = v0 * 2.0 / PI * atan(planet[0][i].r / r0);
         planet[0][i].omega = planet[0][i].vel / planet[0][i].r;
         planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
     }
 
-    totalmass = pow(planet[0][np].vel, 2) * planet[0][np].r;
-    starmass = totalmass / (8.0 * (np + 1));
+    totalmass = planet[0][np].vel * planet[0][np].vel * planet[0][np].r;
+    starmass = totalmass / (8.0 * np);
 
     for (size_t i = 1; i < np + 1; ++ i)
     {
@@ -395,7 +396,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[1][i].r;
     }
 
-    md = totalmass - starmass * massf * (np + 1);
+    md = totalmass - starmass * massf * np;
     mdk = md * dmf / (planet[0][np].r / rdm0 - atan(planet[0][np].r / rdm0));
 
     for (size_t i = 1; i < np + 1; ++ i)
@@ -420,8 +421,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
     {
         planet[4][i].alpha = planet[0][i].alpha;
         planet[4][i].r = planet[0][i].r;
-        planet[4][i].vel = planet[1][i].vel;
-        planet[4][i].omega = planet[4][i].vel / planet[4][i].r + 2.0;
+        planet[4][i].vel = planet[1][i].vel + sping * planet[4][i].r;
+        planet[4][i].omega = planet[4][i].vel / planet[4][i].r;
         planet[4][i].mass = planet[4][i].vel * planet[4][i].vel * planet[4][i].r;
     }
 
@@ -429,8 +430,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     for (size_t j = 0; j < planet.size(); ++ j)
         for (size_t i = 1; i < planet[j].size(); ++ i)
-            if (vmax < planet[j][i].omega * planet[j][i].r)
-                vmax = planet[j][i].omega * planet[j][i].r;
+            if (vmax < planet[j][i].vel)
+                vmax = planet[j][i].vel;
 
     for (size_t j = planet.size(); j > 1; -- j)
         for (size_t i = 1; i < np + 1; ++ i)
