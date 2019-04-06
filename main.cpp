@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.11"
+#define EDITION "5.12"
 
 #include "main.h"
 
@@ -333,7 +333,6 @@ Scribble::Scribble( QWidget *parent, const char *name )
     }
 
     pTheory[1]->setCheckState(Qt::Checked);
-    pTheory[3]->setCheckState(Qt::Checked);
     pTheory[4]->setCheckState(Qt::Checked);
 
     addToolBar(tools);
@@ -421,7 +420,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     {
         planet[4][i].alpha = planet[0][i].alpha;
         planet[4][i].r = planet[0][i].r;
-        planet[4][i].vel = sqrt(i * starmass * massf / planet[4][i].r);
+        planet[4][i].vel = planet[1][i].vel;
         planet[4][i].omega = planet[4][i].vel / planet[4][i].r + 2.0;
         planet[4][i].mass = planet[4][i].vel * planet[4][i].vel * planet[4][i].r;
     }
@@ -435,7 +434,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     for (size_t j = planet.size(); j > 1; -- j)
         for (size_t i = 1; i < np + 1; ++ i)
-            planet[j - 2][i].c = planet[j - 1][i].c.dark();
+            planet[j - 2][i].c = planet[j - 1][i].c.darker(150);
 
     new Dual(this);
 }
