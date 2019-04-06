@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.10"
+#define EDITION "5.11"
 
 #include "main.h"
 
@@ -42,7 +42,6 @@
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QStyleFactory>
-//Added by qt3to4:
 #include <QtWidgets/QHBoxLayout>
 #include <QTimerEvent>
 #include <QtWidgets/QLabel>
@@ -170,7 +169,6 @@ void Canvas::timerEvent(QTimerEvent *)
                         painter.drawEllipse(r);
 
                     painter.end();
-                    r |= e;
                 }
             }
 
@@ -194,7 +192,7 @@ void Canvas::timerEvent(QTimerEvent *)
             {
                 for (size_t i = 1; i < q->planet[j].size(); ++ i)
                 {
-                    QRect r(q->planet[j][i].r / Scribble::rmax * width() - 2, height() - q->planet[j][i].vel / q->vmax * height() - 2, 4, 4);
+                    QRect r(q->planet[j][i].r / Scribble::rmax * width() - 2, height() - q->planet[j][i].omega * q->planet[j][i].r / q->vmax * height() - 2, 4, 4);
                     QPainter painter;
 
                     painter.begin( &buffer );
@@ -423,8 +421,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
     {
         planet[4][i].alpha = planet[0][i].alpha;
         planet[4][i].r = planet[0][i].r;
-        planet[4][i].vel = sqrt(mdk * (planet[4][i].r / rdm0 - atan(planet[4][i].r / rdm0)) / planet[4][i].r);
-        planet[4][i].omega = planet[4][i].vel / planet[4][i].r + 2.83273668e-16;
+        planet[4][i].vel = sqrt(i * starmass * massf / planet[4][i].r);
+        planet[4][i].omega = planet[4][i].vel / planet[4][i].r + 2.0;
         planet[4][i].mass = planet[4][i].vel * planet[4][i].vel * planet[4][i].r;
     }
 
@@ -432,8 +430,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     for (size_t j = 0; j < planet.size(); ++ j)
         for (size_t i = 1; i < planet[j].size(); ++ i)
-            if (vmax < planet[j][i].vel)
-                vmax = planet[j][i].vel;
+            if (vmax < planet[j][i].omega * planet[j][i].r)
+                vmax = planet[j][i].omega * planet[j][i].r;
 
     for (size_t j = planet.size(); j > 1; -- j)
         for (size_t i = 1; i < np + 1; ++ i)
