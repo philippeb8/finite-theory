@@ -28,27 +28,21 @@
 
 #include <cmath>
 #include <limits>
-#include <vector>
-#include <random>
 
-#include <qcolor.h>
-#include <QtWidgets/QMainWindow>
-#include <qpen.h>
-#include <qpoint.h>
-#include <QtWidgets/QLabel>
-#include <qpixmap.h>
-#include <QtWidgets/QWidget>
-#include <qstring.h>
-#include <QPolygon>
-#include <qthread.h>
-#include <QtWidgets/QComboBox>
-#include <QtWidgets/QTabWidget>
-#include <QtWidgets/QCheckBox>
-//Added by qt3to4:
+#include <QPen>
+#include <QThread>
 #include <QResizeEvent>
 #include <QMouseEvent>
 #include <QTimerEvent>
 #include <QPaintEvent>
+#include <QtWidgets/QMainWindow>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QWidget>
+#include <QPolygon>
+#include <QtWidgets/QComboBox>
+#include <QtWidgets/QTabWidget>
+#include <QtWidgets/QCheckBox>
+
 
 class QMouseEvent;
 class QResizeEvent;
@@ -62,6 +56,7 @@ constexpr const real PI = std::acos(real(-1));
 constexpr const real C = 299792458.L;
 constexpr const real G = 6.67428e-11L;
 constexpr const real H[] = {C*C/(2*G), 0., 1e20};
+
 
 struct vector3
 {
@@ -226,11 +221,11 @@ struct vector3
 	}
 };
 
+
 struct Planet
 {
     char const * n;						// name
 	QColor c;							// color
-	real m;								// mass
     vector3 o, p;                       // old & new positions
 
     real alpha;
@@ -241,35 +236,32 @@ struct Planet
     real omega;
     real mass;
 
-    Planet(char const * n = "", const QColor c = QColor(), real m = 0.0)
-        : n(n), c(c), m(m), o(), p()
+    Planet(char const * n = "", const QColor c = QColor())
+        : n(n), c(c), o(), p()
 	{
 	}
 
     void operator () (const real & dt);
 };
 
-class Canvas;
-	
+
+class Scribble;
+
 class Dual : public QThread
 {
 public:
-    Dual(Canvas *);
-	virtual void run();
-	
-protected:
-	Canvas * p;
+    Dual(Scribble *);
+
+    virtual void run();
 };
 
 
 class Canvas : public QWidget
 {
     Q_OBJECT
-	friend class Dual;
 
 public:
     Canvas( int type, QWidget *parent = 0 );
-    ~Canvas();
 
 protected slots:
     void slotForceUpdate();
@@ -292,13 +284,14 @@ protected:
     QPixmap buffer;
 };
 
+
 class Scribble : public QMainWindow
 {
     Q_OBJECT
-	friend class Canvas;
 
 public:
     Scribble( QWidget *parent = 0, const char *name = 0 );
+    ~Scribble();
 
 protected slots:
     void slotRestart();

@@ -23,36 +23,22 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.8"
+#define EDITION "5.10"
 
 #include "main.h"
 
 #include <cmath>
+#include <random>
 #include <limits>
-#include <iomanip>
-#include <sstream>
 #include <iostream>
-#include <typeinfo>
 
-#include <QDebug>
 #include <QtWidgets/QApplication>
-#include <qevent.h>
-#include <qpainter.h>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QToolButton>
 #include <QtWidgets/QDoubleSpinBox>
 #include <QtWidgets/QToolTip>
-#include <qrect.h>
-#include <qpoint.h>
-#include <QtWidgets/QColorDialog>
-#include <QtWidgets/QFileDialog>
-#include <qcursor.h>
-#include <qimage.h>
-#include <QStringList>
 #include <QtWidgets/QMenu>
-#include <QHash>
 #include <QtWidgets/QLayout>
-#include <qobject.h>
 #include <QtWidgets/QMenuBar>
 #include <QtWidgets/QMessageBox>
 #include <QtWidgets/QStyleFactory>
@@ -65,7 +51,6 @@
 #include <QMouseEvent>
 #include <QtWidgets/QVBoxLayout>
 #include <QPaintEvent>
-#include <QVector>
 #include <QtGui/QPainter>
 #include <QtWidgets/QDesktopWidget>
 #include <QtCore/QProcess>
@@ -111,24 +96,19 @@ inline void Planet::operator () (const real & dt)
 */
 }
 
-Dual::Dual(Canvas * pParent) : p(pParent)
+Dual::Dual(Scribble * pParent) : QThread(pParent)
 {
     start();
 }
 
 void Dual::run()
 {
-	Scribble * q = static_cast<Scribble *>(p->topLevelWidget());
-	
+    Scribble * q = static_cast<Scribble *>(parent());
+
     while (true)
-	{
-		while (! p->isVisible())
-			QThread::msleep(100);
-		
         for (size_t j = 0; j < q->planet.size(); ++ j)
             for (size_t i = 1; i < q->planet[j].size(); ++ i)
                 q->planet[j][i](q->pTime->value());
-    }
 }
 
 Canvas::Canvas( int type, QWidget *parent )
@@ -149,19 +129,11 @@ Canvas::Canvas( int type, QWidget *parent )
         connect(q->pTheory[i], SIGNAL(stateChanged(int)), SLOT(slotForceUpdate()));
 
 	startTimer(100);
-
-    // launch a thread for each set of planets or photons
-    new Dual(this);
-}
-
-Canvas::~Canvas()
-{
-	exit(-1);
 }
 
 void Canvas::timerEvent(QTimerEvent *)
 {
-	Scribble * q = static_cast<Scribble *>(topLevelWidget());
+    Scribble * q = static_cast<Scribble *>(topLevelWidget());
 
     if (! isVisible())
         return;
@@ -200,9 +172,9 @@ void Canvas::timerEvent(QTimerEvent *)
                     painter.end();
                     r |= e;
                 }
-
-                update();
             }
+
+            update();
         }
         break;
 
@@ -348,11 +320,10 @@ Scribble::Scribble( QWidget *parent, const char *name )
     QToolBar *tools = new QToolBar( this );
 
     pTime = new QDoubleSpinBox( tools );
-    pTime->setRange(0.0000005, 50000000000);
-    pTime->setDecimals(7);
-    pTime->setSingleStep(10);
+    pTime->setDecimals(abs(log10(ntime)) + 1);
+    pTime->setSingleStep(ntime / (abs(log10(ntime)) + 1));
     pTime->setToolTip("Time Interval (s)");
-    pTime->setValue( ntime );
+    pTime->setValue(ntime);
 
     tools->addWidget(pTime);
     tools->addSeparator();
@@ -400,10 +371,10 @@ Scribble::Scribble( QWidget *parent, const char *name )
     for (size_t j = 0; j < planet.size(); ++ j)
     {
         planet[j].reserve(np + 1);
-        planet[j].push_back(Planet("Nucleus", Qt::black, 2E+12L));
+        planet[j].push_back(Planet("Buldge", Qt::black));
 
         for (int i = 0; i < np; ++ i)
-            planet[j].push_back(Planet("Star1", Qt::red, 50000L));
+            planet[j].push_back(Planet("Star", Qt::red));
     }
 
     for (size_t i = 1; i < np + 1; ++ i)
@@ -430,7 +401,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     md = totalmass - starmass * massf * (np + 1);
     mdk = md * dmf / (planet[0][np].r / rdm0 - atan(planet[0][np].r / rdm0));
 
-    for (size_t i = 1; i < np + 1; i++)
+    for (size_t i = 1; i < np + 1; ++ i)
     {
         planet[2][i].alpha = planet[0][i].alpha;
         planet[2][i].r = planet[0][i].r;
@@ -439,7 +410,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[2][i].mass = planet[2][i].vel * planet[2][i].vel * planet[2][i].r;
     }
 
-    for (size_t i = 1; i < np + 1; i++)
+    for (size_t i = 1; i < np + 1; ++ i)
     {
         planet[3][i].alpha = planet[0][i].alpha;
         planet[3][i].r = planet[0][i].r;
@@ -448,7 +419,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[3][i].mass = planet[1][i].mass + planet[2][i].mass;
     }
 
-    for (size_t i = 1; i < np + 1; i++)
+    for (size_t i = 1; i < np + 1; ++ i)
     {
         planet[4][i].alpha = planet[0][i].alpha;
         planet[4][i].r = planet[0][i].r;
@@ -467,6 +438,13 @@ Scribble::Scribble( QWidget *parent, const char *name )
     for (size_t j = planet.size(); j > 1; -- j)
         for (size_t i = 1; i < np + 1; ++ i)
             planet[j - 2][i].c = planet[j - 1][i].c.dark();
+
+    new Dual(this);
+}
+
+Scribble::~Scribble()
+{
+    exit(-1);
 }
 
 void Scribble::slotRestart()
