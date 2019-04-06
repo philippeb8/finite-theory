@@ -271,6 +271,9 @@ public:
     Canvas( int type, QWidget *parent = 0 );
     ~Canvas();
 
+protected slots:
+    void slotForceUpdate();
+
 protected:
     void mousePressEvent( QMouseEvent *e );
     void mouseReleaseEvent( QMouseEvent *e );

@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.7"
+#define EDITION "5.8"
 
 #include "main.h"
 
@@ -145,6 +145,9 @@ Canvas::Canvas( int type, QWidget *parent )
     p.setColor(QPalette::Base, Qt::black);
     setPalette(p);
 
+    for (size_t i = 0; i < Scribble::nt; ++ i)
+        connect(q->pTheory[i], SIGNAL(stateChanged(int)), SLOT(slotForceUpdate()));
+
 	startTimer(100);
 
     // launch a thread for each set of planets or photons
@@ -208,6 +211,13 @@ void Canvas::timerEvent(QTimerEvent *)
         {
             first = false;
 
+            QRect e(0, 0, width(), height());
+            QPainter painter;
+
+            painter.begin( &buffer );
+            painter.fillRect(e, palette().base());
+            painter.end();
+
             for (size_t j = 0; j < q->planet.size(); ++ j)
             {
                 for (size_t i = 1; i < q->planet[j].size(); ++ i)
@@ -242,6 +252,11 @@ void Canvas::timerEvent(QTimerEvent *)
 
         break;
     };
+}
+
+void Canvas::slotForceUpdate()
+{
+    first = true;
 }
 
 void Canvas::mousePressEvent( QMouseEvent *e )
