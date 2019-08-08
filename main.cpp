@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "6.2"
+#define EDITION "6.3"
 
 #include "main.h"
 
@@ -76,24 +76,6 @@ inline void Planet::operator () (const real & dt)
     alpha = alpha + omega * dt;
 
     p = vector3(r * cos(alpha), r * sin(alpha), 0);
-
-/*
-    real massf = 1.0;
-    real totalmass = pow(planet.back().vel, 2) * planet.back().r;
-    real starmass = totalmass / (8.0 * planet.size()); // here Mtot/Mvisible=8 as example
-
-    vvis = sqrt(i * starmass * massf / r);
-    omegavis = vvis / r ;
-    massvis = vvis * vvis * r ;
-
-    real rdm0 = 1.0;
-    real dmf = 1.0;
-    real md = totalmass - starmass * massf * planet.size();
-    real mdk = md * dmf / (planet.back().r / rdm0 - atan(planet.back().r / rdm0));
-
-    vdark = sqrt(mdk * (r / rdm0 - atan(r / rdm0)) / r );
-    massdk = vdark * vdark * r;
-*/
 }
 
 Dual::Dual(Scribble * pParent) : QThread(pParent)
@@ -306,7 +288,7 @@ void Canvas::timerEvent(QTimerEvent *)
                 painter.begin( &buffer );
                 painter.setPen(Qt::black);
                 painter.setBrush(Qt::black);
-                painter.drawText(0, height() - y / q->mmax * height(), QString::number(y) + " km/s");
+                painter.drawText(0, height() - y / q->mmax * height(), QString::number(y) + " M");
                 painter.end();
             }
 
@@ -525,8 +507,9 @@ Scribble::Scribble( QWidget *parent, const char *name )
     planet[5].clear();
     planet[5].reserve(1000);
 
-    for (size_t i = 0; planet[5].push_back(Planet("Star", Qt::red)), f >> planet[5][i].r >> planet[5][i].vel >> planet[5][i].err; ++ i)
+    for (size_t i = 0; planet[5].push_back(Planet("Star", Qt::red)), f >> planet[5][i].r >> planet[5][i].vel; ++ i)
     {
+        planet[5][i].err = 1;
         planet[5][i].alpha = planet[0][i].alpha;
         planet[5][i].omega = planet[5][i].vel / planet[5][i].r;
         planet[5][i].mass = planet[5][i].vel * planet[5][i].vel * planet[5][i].r;

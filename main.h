@@ -314,17 +314,16 @@ public:
     QToolButton *bPColor, *bSave, *bClear;
 
     constexpr static real const t = 0.0;
-    constexpr static real const dt = 0.0005;
     constexpr static real const rmax = 20.0;
     constexpr static real const rmin = 0.5;
     constexpr static real const h = 4.5;
     constexpr static real const r0 = 1.0;
-    constexpr static real const v0 = 140;
+    constexpr static real const v0 = 86;
     constexpr static real const rdm0 = 1.0;
     constexpr static real const dmf = 1.0;
     constexpr static real const fit = 0.0;
     constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
-    constexpr static real const massf = 5.0;
+    constexpr static real const massf = 7.0;
     constexpr static real const sping = PI;
     real vmax = 0;
     real mmax = 0;
