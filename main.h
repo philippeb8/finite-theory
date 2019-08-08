@@ -228,13 +228,14 @@ struct Planet
 	QColor c;							// color
     vector3 o, p;                       // old & new positions
 
-    real alpha;
-    real r;
-    real x;
-    real y;
-    real vel;
-    real omega;
-    real mass;
+    real alpha = real();
+    real r = real();
+    real x = real();
+    real y = real();
+    real vel = real();
+    real err = real();
+    real omega = real();
+    real mass = real();
 
     Planet(char const * n = "", const QColor c = QColor())
         : n(n), c(c), o(), p()
@@ -299,7 +300,7 @@ protected slots:
 	
 public:
     static const int ntabs = 2;
-    static int const nt = 5;
+    static int const nt = 6;
     static int const np = 200;
     static char * const theory[nt];
 
@@ -324,7 +325,7 @@ public:
     constexpr static real const fit = 0.0;
     constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
     constexpr static real const massf = 5.0;
-    constexpr static real const sping = 3.0;
+    constexpr static real const sping = 4.0;
     real totalmass;
     real starmass;
     real md;
