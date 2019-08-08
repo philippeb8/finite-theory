@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "6.1"
+#define EDITION "6.2"
 
 #include "main.h"
 
@@ -245,6 +245,75 @@ void Canvas::timerEvent(QTimerEvent *)
         }
 
         break;
+
+    case 2:
+        if (first)
+        {
+            first = false;
+
+            QRect e(0, 0, width(), height());
+            QPainter painter;
+
+            painter.begin( &buffer );
+            painter.fillRect(e, palette().base());
+            painter.end();
+
+            for (size_t j = 0; j < q->planet.size(); ++ j)
+            {
+                for (size_t i = 2; i < q->planet[j].size(); ++ i)
+                {
+                    QPoint r(q->planet[j][i].r / Scribble::rmax * width(), height() - q->planet[j][i].mass / q->mmax * height());
+                    QPoint s(q->planet[j][i - 1].r / Scribble::rmax * width(), height() - q->planet[j][i - 1].mass / q->mmax * height());
+                    QPainter painter;
+
+                    painter.begin( &buffer );
+
+                    if (q->pTheory[j]->checkState() == Qt::Checked)
+                    {
+                        if (q->planet[j][i].err == 0)
+                        {
+                            painter.setPen(QPen(q->planet[j][i].c, 2));
+                            painter.drawLine(s.x(), s.y(), r.x(), r.y());
+                        }
+                        else
+                        {
+                            painter.setBrush(QBrush(q->planet[j][i].c, Qt::SolidPattern));
+                            painter.drawEllipse(r, 4, 4);
+                            painter.setPen(QPen(q->planet[j][i].c, 1));
+                            painter.drawLine(r.x(), r.y() - q->planet[j][i].err / q->mmax * height(), r.x(), r.y() + q->planet[j][i].err / q->mmax * height());
+                        }
+                    }
+
+                    painter.end();
+                }
+            }
+
+            for (real x = 0; x < Scribble::rmax; x += Scribble::rmax / 5.0)
+            {
+                QPainter painter;
+
+                painter.begin( &buffer );
+                painter.setPen(Qt::black);
+                painter.setBrush(Qt::black);
+                painter.drawText(x / Scribble::rmax * width(), height() - painter.boundingRect(QRectF(), 0, QString::number(x)).height(), QString::number(x) + " kpc");
+                painter.end();
+            }
+
+            for (real y = 0; y < q->mmax; y += q->mmax / 5.0)
+            {
+                QPainter painter;
+
+                painter.begin( &buffer );
+                painter.setPen(Qt::black);
+                painter.setBrush(Qt::black);
+                painter.drawText(0, height() - y / q->mmax * height(), QString::number(y) + " km/s");
+                painter.end();
+            }
+
+            update();
+        }
+
+        break;
     };
 }
 
@@ -379,8 +448,9 @@ Scribble::Scribble( QWidget *parent, const char *name )
 	    l->addWidget( canvas[i] );
     }
 
-    pTabWidget->addTab(pTab[0], "Galactic Rotation");
-    pTabWidget->addTab(pTab[1], "Galactic Rotation Curve");
+    pTabWidget->addTab(pTab[0], "Galaxy");
+    pTabWidget->addTab(pTab[1], "Rotation Curve");
+    pTabWidget->addTab(pTab[2], "Mass Distribution");
 
     setCentralWidget( pTabWidget );
 
@@ -455,12 +525,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
     planet[5].clear();
     planet[5].reserve(1000);
 
-    for (size_t i = 0; f; ++ i)
+    for (size_t i = 0; planet[5].push_back(Planet("Star", Qt::red)), f >> planet[5][i].r >> planet[5][i].vel >> planet[5][i].err; ++ i)
     {
-        planet[5].push_back(Planet("Star", Qt::red));
-
-        f >> planet[5][i].r >> planet[5][i].vel >> planet[5][i].err;
-
         planet[5][i].alpha = planet[0][i].alpha;
         planet[5][i].omega = planet[5][i].vel / planet[5][i].r;
         planet[5][i].mass = planet[5][i].vel * planet[5][i].vel * planet[5][i].r;
@@ -468,12 +534,15 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     planet[5].pop_back();
 
-    vmax = 0.0;
-
     for (size_t j = 0; j < planet.size(); ++ j)
         for (size_t i = 0; i < planet[j].size(); ++ i)
             if (vmax < planet[j][i].vel)
                 vmax = planet[j][i].vel;
+
+    for (size_t j = 0; j < planet.size(); ++ j)
+        for (size_t i = 0; i < planet[j].size(); ++ i)
+            if (mmax < planet[j][i].mass)
+                mmax = planet[j][i].mass;
 
     new Dual(this);
 }

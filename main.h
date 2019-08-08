@@ -299,7 +299,7 @@ protected slots:
     void slotAbout();
 	
 public:
-    static const int ntabs = 2;
+    static const int ntabs = 3;
     static int const nt = 6;
     static int const np = 200;
     static char * const theory[nt];
@@ -326,7 +326,8 @@ public:
     constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
     constexpr static real const massf = 5.0;
     constexpr static real const sping = PI;
-    real vmax;
+    real vmax = 0;
+    real mmax = 0;
 
     std::vector< std::vector<Planet> > planet;
 };
