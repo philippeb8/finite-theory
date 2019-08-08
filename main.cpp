@@ -23,7 +23,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "6.0"
+#define EDITION "6.1"
 
 #include "main.h"
 
@@ -408,8 +408,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
     }
 
-    totalmass = planet[0][np - 1].vel * planet[0][np - 1].vel * planet[0][np - 1].r;
-    starmass = totalmass / (8.0 * np);
+    real const totalmass = planet[0][np - 1].vel * planet[0][np - 1].vel * planet[0][np - 1].r;
+    real const starmass = totalmass / (8.0 * np);
 
     for (size_t i = 0; i < np; ++ i)
     {
@@ -420,8 +420,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[1][i].r;
     }
 
-    md = totalmass - starmass * massf * np;
-    mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
+    real const md = totalmass - starmass * massf * np;
+    real const mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
 
     for (size_t i = 0; i < np; ++ i)
     {

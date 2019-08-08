@@ -325,11 +325,7 @@ public:
     constexpr static real const fit = 0.0;
     constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
     constexpr static real const massf = 5.0;
-    constexpr static real const sping = 4.0;
-    real totalmass;
-    real starmass;
-    real md;
-    real mdk;
+    constexpr static real const sping = PI;
     real vmax;
 
     std::vector< std::vector<Planet> > planet;
