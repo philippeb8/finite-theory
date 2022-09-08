@@ -52,16 +52,16 @@ class QDoubleSpinBox;
 
 typedef double real;
 
-constexpr const real PI = std::acos(real(-1));
+constexpr const real PI = 3.14159265358979323846; //std::acos(real(-1));
 constexpr const real C = 299792458.L;
 constexpr const real G = 6.67428e-11L;
 constexpr const real H[] = {C*C/(2*G), 0., 1e20};
 
 
+size_t const N = 3;
+
 struct vector3
 {
-	static const size_t N = 3;
-
     real elem_[N];
 
     vector3() noexcept
@@ -237,12 +237,12 @@ struct Planet
     real omega = real();
     real mass = real();
 
-    Planet(char const * n = "", const QColor c = QColor())
+    Planet(char const * n, const QColor c)
         : n(n), c(c), o(), p()
 	{
 	}
 
-    void operator () (const real & dt);
+    void execute(const real & dt);
 };
 
 
@@ -262,7 +262,7 @@ class Canvas : public QWidget
     Q_OBJECT
 
 public:
-    Canvas( int type, QWidget *parent = 0 );
+    Canvas( int type, QWidget *parent );
 
 protected slots:
     void slotForceUpdate();
@@ -286,12 +286,16 @@ protected:
 };
 
 
+int const ntabs = 3;
+int const nt = 6;
+int const np = 200;
+
 class Scribble : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    Scribble( QWidget *parent = 0, const char *name = 0 );
+    Scribble( QWidget *parent, const char *name );
     ~Scribble();
 
 protected slots:
@@ -299,9 +303,6 @@ protected slots:
     void slotAbout();
 	
 public:
-    static const int ntabs = 3;
-    static int const nt = 6;
-    static int const np = 200;
     static char * const theory[nt];
 
     real ntime;
@@ -313,18 +314,18 @@ public:
     QCheckBox *pTheory[nt];
     QToolButton *bPColor, *bSave, *bClear;
 
-    constexpr static real const t = 0.0;
-    constexpr static real const rmax = 20.0;
-    constexpr static real const rmin = 0.5;
-    constexpr static real const h = 4.5;
-    constexpr static real const r0 = 1.0;
-    constexpr static real const v0 = 86;
-    constexpr static real const rdm0 = 1.0;
-    constexpr static real const dmf = 1.0;
-    constexpr static real const fit = 0.0;
-    constexpr static real const emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
-    constexpr static real const massf = 7.0;
-    constexpr static real const sping = PI;
+    static real const t;
+    static real const rmax;
+    static real const rmin;
+    static real const h;
+    static real const r0;
+    static real const v0;
+    static real const rdm0;
+    static real const dmf;
+    static real const fit;
+    static real const emax;
+    static real const massf;
+    static real const sping;
     real vmax = 0;
     real mmax = 0;
 

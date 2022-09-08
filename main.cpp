@@ -71,7 +71,7 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
     @param dt       Time interval
 */
 
-inline void Planet::operator () (const real & dt)
+inline void Planet::execute(const ::real & dt)
 {
     alpha = alpha + omega * dt;
 
@@ -85,19 +85,19 @@ Dual::Dual(Scribble * pParent) : QThread(pParent)
 
 void Dual::run()
 {
-    Scribble * q = static_cast<Scribble *>(parent());
+    Scribble * q = (Scribble *) (void *) parent();
 
     while (true)
         for (size_t j = 0; j < q->planet.size(); ++ j)
             for (size_t i = 0; i < q->planet[j].size(); ++ i)
-                q->planet[j][i](q->pTime->value());
+                q->planet[j][i].execute(q->pTime->value());
 }
 
 Canvas::Canvas( int type, QWidget *parent )
     : QWidget( parent ),
       type(type), pen( Qt::red, 3 ), polyline(3), first(true), mousePressed( false ), buffer( width(), height() )
 {
-	Scribble * q = static_cast<Scribble *>(topLevelWidget());
+    Scribble * q = (Scribble *) (void *) topLevelWidget();
 
 #ifndef QT_NO_CURSOR
     setCursor( Qt::CrossCursor );
@@ -107,7 +107,7 @@ Canvas::Canvas( int type, QWidget *parent )
     p.setColor(QPalette::Base, Qt::white);
     setPalette(p);
 
-    for (size_t i = 0; i < Scribble::nt; ++ i)
+    for (size_t i = 0; i < nt; ++ i)
         connect(q->pTheory[i], SIGNAL(stateChanged(int)), SLOT(slotForceUpdate()));
 
 	startTimer(100);
@@ -115,51 +115,48 @@ Canvas::Canvas( int type, QWidget *parent )
 
 void Canvas::timerEvent(QTimerEvent *)
 {
-    Scribble * q = static_cast<Scribble *>(topLevelWidget());
+    Scribble * q = (Scribble *) (void *) topLevelWidget();
 
     if (! isVisible())
         return;
 
-    switch (type)
+    if (type == 0)
     {
-    case 0:
+        QRect r(q->planet[0][0].p[0] / Scribble::rmax * width()/2 - 5 + width()/2, q->planet[0][0].p[1] / Scribble::rmax * height()/2 - 5 + height()/2, 10, 10);
+        QPainter painter;
+
+        painter.begin( &buffer );
+        painter.setBrush(Qt::yellow);
+        painter.drawEllipse(r);
+        painter.end();
+
+        for (size_t j = 0; j < q->planet.size(); ++ j)
         {
-            QRect r(q->planet[0][0].p[0] / Scribble::rmax * width()/2 - 5 + width()/2, q->planet[0][0].p[1] / Scribble::rmax * height()/2 - 5 + height()/2, 10, 10);
-            QPainter painter;
-
-            painter.begin( &buffer );
-            painter.setBrush(Qt::yellow);
-            painter.drawEllipse(r);
-            painter.end();
-
-            for (size_t j = 0; j < q->planet.size(); ++ j)
+            for (size_t i = 0; i < q->planet[j].size(); ++ i)
             {
-                for (size_t i = 0; i < q->planet[j].size(); ++ i)
-                {
-                    QRect e(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4+1, 4+1);
+                QRect e(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4+1, 4+1);
 
-                    q->planet[j][i].o = q->planet[j][i].p;
+                q->planet[j][i].o = q->planet[j][i].p;
 
-                    QRect r(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4, 4);
-                    QPainter painter;
+                QRect r(q->planet[j][i].o[0] / Scribble::rmax * width()/2 - 2 + width()/2, q->planet[j][i].o[1] / Scribble::rmax * height()/2 - 2 + height()/2, 4, 4);
+                QPainter painter;
 
-                    painter.begin( &buffer );
-                    painter.setPen(q->planet[j][i].c);
-                    painter.setBrush(q->planet[j][i].c);
-                    painter.fillRect(e, palette().base());
+                painter.begin( &buffer );
+                painter.setPen(q->planet[j][i].c);
+                painter.setBrush(q->planet[j][i].c);
+                painter.fillRect(e, palette().base());
 
-                    if (q->pTheory[j]->checkState() == Qt::Checked)
-                        painter.drawEllipse(r);
+                if (q->pTheory[j]->checkState() == Qt::Checked)
+                    painter.drawEllipse(r);
 
-                    painter.end();
-                }
+                painter.end();
             }
-
-            update();
         }
-        break;
 
-    case 1:
+        update();
+    }
+    else if (type == 1)
+    {
         if (first)
         {
             first = false;
@@ -201,34 +198,33 @@ void Canvas::timerEvent(QTimerEvent *)
                 }
             }
 
-            for (real x = 0; x < Scribble::rmax; x += Scribble::rmax / 5.0)
+            for (::real x = 0; x < Scribble::rmax; x += Scribble::rmax / 5.0)
             {
                 QPainter painter;
 
                 painter.begin( &buffer );
                 painter.setPen(Qt::black);
                 painter.setBrush(Qt::black);
-                painter.drawText(x / Scribble::rmax * width(), height() - painter.boundingRect(QRectF(), 0, QString::number(x)).height(), QString::number(x) + " kpc");
+                painter.drawText(x / Scribble::rmax * width(), height() - painter.boundingRect(QRectF(), 0, QString::number(x)).height(), QString::number(x) + QString(" kpc"));
                 painter.end();
             }
 
-            for (real y = 0; y < q->vmax; y += q->vmax / 5.0)
+            for (::real y = 0; y < q->vmax; y += q->vmax / 5.0)
             {
                 QPainter painter;
 
                 painter.begin( &buffer );
                 painter.setPen(Qt::black);
                 painter.setBrush(Qt::black);
-                painter.drawText(0, height() - y / q->vmax * height(), QString::number(y) + " km/s");
+                painter.drawText(0, height() - y / q->vmax * height(), QString::number(y) + QString(" km/s"));
                 painter.end();
             }
 
             update();
         }
-
-        break;
-
-    case 2:
+    }
+    else if (type == 2)
+    {
         if (first)
         {
             first = false;
@@ -270,33 +266,31 @@ void Canvas::timerEvent(QTimerEvent *)
                 }
             }
 
-            for (real x = 0; x < Scribble::rmax; x += Scribble::rmax / 5.0)
+            for (::real x = 0; x < Scribble::rmax; x += Scribble::rmax / 5.0)
             {
                 QPainter painter;
 
                 painter.begin( &buffer );
                 painter.setPen(Qt::black);
                 painter.setBrush(Qt::black);
-                painter.drawText(x / Scribble::rmax * width(), height() - painter.boundingRect(QRectF(), 0, QString::number(x)).height(), QString::number(x) + " kpc");
+                painter.drawText(x / Scribble::rmax * width(), height() - painter.boundingRect(QRectF(), 0, QString::number(x)).height(), QString::number(x) + QString(" kpc"));
                 painter.end();
             }
 
-            for (real y = 0; y < q->mmax; y += q->mmax / 5.0)
+            for (::real y = 0; y < q->mmax; y += q->mmax / 5.0)
             {
                 QPainter painter;
 
                 painter.begin( &buffer );
                 painter.setPen(Qt::black);
                 painter.setBrush(Qt::black);
-                painter.drawText(0, height() - y / q->mmax * height(), QString::number(y) + " M");
+                painter.drawText(0, height() - y / q->mmax * height(), QString::number(y) + QString(" M"));
                 painter.end();
             }
 
             update();
         }
-
-        break;
-    };
+    }
 }
 
 void Canvas::slotForceUpdate()
@@ -335,7 +329,7 @@ void Canvas::mouseMoveEvent( QMouseEvent *e )
         r.setRight( r.right() + pen.width() );
         r.setBottom( r.bottom() + pen.width() );
 
-        bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
+        bitBlt( (QPaintDevice *) this, r.x(), r.y(), (QPixmap *) &buffer, r.x(), r.y(), r.width(), r.height() );
     }
 }
 
@@ -363,26 +357,26 @@ void Canvas::paintEvent( QPaintEvent *e )
     for ( uint i = 0; i < rects.count(); ++ i )
     {
         QRect r = rects[(int)i];
-        bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
+        bitBlt( (QPaintDevice *) this, r.x(), r.y(), (QPixmap *) &buffer, r.x(), r.y(), r.width(), r.height() );
     }
 }
 
 //------------------------------------------------------
 
-char * const Scribble::theory[Scribble::nt] = {"Initial", "Visible", "Dark Matter", "Total", "Finite Theory", "Observed"};
+char * const Scribble::theory[nt] = {"Initial", "Visible", "Dark Matter", "Total", "Finite Theory", "Observed"};
 
 Scribble::Scribble( QWidget *parent, const char *name )
     : QMainWindow( parent )
 {
     ntime = 0.0000005;
 
-    QMenu *file = new QMenu( "&File", this );
-    file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
+    QMenu *file = new QMenu( QString("&File"), this );
+    //file->addAction( QString("&Restart"), this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
     file->addSeparator();
-    file->addAction( "E&xit", qApp, SLOT(quit()), Qt::CTRL+Qt::Key_Q );
+    //file->addAction( QString("E&xit"), (QApplication *) (void *) QCoreApplication::instance(), SLOT(quit()), Qt::CTRL+Qt::Key_Q );
 
-    QMenu *help = new QMenu( "&Help", this );
-    help->addAction( "&About", this, SLOT(slotAbout()));
+    QMenu *help = new QMenu( QString("&Help"), this );
+    //help->addAction( QString("&About"), this, SLOT(slotAbout()));
 
 	QMenuBar * menu = new QMenuBar( this );
     menu->addMenu( file );
@@ -395,7 +389,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     pTime = new QDoubleSpinBox( tools );
     pTime->setDecimals(abs(log10(ntime)) + 1);
     pTime->setSingleStep(ntime / (abs(log10(ntime)) + 1));
-    pTime->setToolTip("Time Interval (s)");
+    pTime->setToolTip(QString("Time Interval (s)"));
     pTime->setValue(ntime);
 
     tools->addWidget(pTime);
@@ -403,7 +397,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     for (size_t i = 0; i < nt; ++ i)
     {
-        pTheory[i] = new QCheckBox(theory[i], tools);
+        pTheory[i] = new QCheckBox(QString(theory[i]), tools);
         tools->addWidget(pTheory[i]);
     }
 
@@ -426,20 +420,21 @@ Scribble::Scribble( QWidget *parent, const char *name )
         canvas[i] = new Canvas(i, pTab[i]);
 		canvas[i]->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
-        QBoxLayout * l = new QVBoxLayout(pTab[i]);
+        QBoxLayout * l = (QBoxLayout *) (void *) new QVBoxLayout(pTab[i]);
 	    l->addWidget( canvas[i] );
     }
 
-    pTabWidget->addTab(pTab[0], "Galaxy");
-    pTabWidget->addTab(pTab[1], "Rotation Curve");
-    pTabWidget->addTab(pTab[2], "Mass Distribution");
+    pTabWidget->addTab(pTab[0], QString("Galaxy"));
+    pTabWidget->addTab(pTab[1], QString("Rotation Curve"));
+    pTabWidget->addTab(pTab[2], QString("Mass Distribution"));
+    pTabWidget->addTab(pTab[3], QString("Single Star in Empty Universe"));
 
     setCentralWidget( pTabWidget );
 
     // galactic rotation
     random_device rd;
     mt19937 gen(rd());
-    uniform_real_distribution<real> dis(0.0, 1.0);
+    uniform_real_distribution<::real> dis(0.0, 1.0);
 
     planet.resize(nt);
 
@@ -460,8 +455,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[0][i].mass = planet[0][i].vel * planet[0][i].vel * planet[0][i].r;
     }
 
-    real const totalmass = planet[0][np - 1].vel * planet[0][np - 1].vel * planet[0][np - 1].r;
-    real const starmass = totalmass / (8.0 * np);
+    ::real const totalmass = planet[0][np - 1].vel * planet[0][np - 1].vel * planet[0][np - 1].r;
+    ::real const starmass = totalmass / (8.0 * np);
 
     for (size_t i = 0; i < np; ++ i)
     {
@@ -472,8 +467,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
         planet[1][i].mass = planet[1][i].vel * planet[1][i].vel * planet[1][i].r;
     }
 
-    real const md = totalmass - starmass * massf * np;
-    real const mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
+    ::real const md = totalmass - starmass * massf * np;
+    ::real const mdk = md * dmf / (planet[0][np - 1].r / rdm0 - atan(planet[0][np - 1].r / rdm0));
 
     for (size_t i = 0; i < np; ++ i)
     {
@@ -527,7 +522,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
             if (mmax < planet[j][i].mass)
                 mmax = planet[j][i].mass;
 
-    new Dual(this);
+    new Dual((Scribble *) this);
 }
 
 Scribble::~Scribble()
@@ -537,25 +532,38 @@ Scribble::~Scribble()
 
 void Scribble::slotRestart()
 {
-    qApp->quit();
-    QProcess::startDetached(qApp->arguments()[0], qApp->arguments());
+    ((QApplication *) (void *) QCoreApplication::instance())->quit();
+    QProcess::startDetached(((QApplication *) (void *) QCoreApplication::instance())->arguments()[0], ((QApplication *) (void *) QCoreApplication::instance())->arguments());
 }
 
 void Scribble::slotAbout()
 {
-    QMessageBox::about( this, "Finite Theory of the Universe " EDITION, "\nCopyright (c) 2011-2019\n\nPhil Bouchard <phil@fornux.com>\n");
+    QMessageBox::about( this, QString("Finite Theory of the Universe " EDITION), QString("\nCopyright (c) 2011-2019\n\nPhil Bouchard <phil@fornux.com>\n"));
 }
-	
+
+real const Scribble::t = 0.0;
+real const Scribble::rmax = 20.0;
+real const Scribble::rmin = 0.5;
+real const Scribble::h = 4.5;
+real const Scribble::r0 = 1.0;
+real const Scribble::v0 = 86;
+real const Scribble::rdm0 = 1.0;
+real const Scribble::dmf = 1.0;
+real const Scribble::fit = 0.0;
+real const Scribble::emax = 2.0 / PI * atan((rmax / h) * (rmax / h));
+real const Scribble::massf = 7.0;
+real const Scribble::sping = PI;
+
 
 int main( int argc, char **argv )
 {
     QApplication a( argc, argv );
 
-    a.setStyle("windows");
+    a.setStyle(QString("windows"));
 
-    Scribble scribble;
+    Scribble scribble((QWidget *) nullptr, (const char *) nullptr);
 
-    scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
+    scribble.setWindowTitle(QString("Finite Theory of the Universe " EDITION));
     scribble.resize( 500, 360 );
     scribble.showMaximized();
 	
