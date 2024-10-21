@@ -30,6 +30,7 @@
 #include <sstream>
 #include <iostream>
 #include <typeinfo>
+#include <mutex>
 
 #include <QtWidgets/QApplication>
 #include <qevent.h>
@@ -63,7 +64,7 @@
 #include <QPaintEvent>
 #include <QVector>
 #include <QtGui/QPainter>
-#include <QtWidgets/QDesktopWidget>
+//#include <QtWidgets/QDesktopWidget>
 #include <QtCore/QProcess>
 
 using namespace std;
@@ -980,7 +981,7 @@ void Canvas::paintEvent( QPaintEvent *e )
 {
     QWidget::paintEvent( e );
 
-    QVector<QRect> rects = e->region().rects();
+    QVector<QRect> rects = QVector<QRect>(e->region().begin(), e->region().end());
     for ( uint i = 0; i < rects.count(); ++ i ) 
 	{
         QRect r = rects[(int)i];
@@ -998,6 +999,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
     ntime[3] = 50000000000;
     ntime[4] = 1;
+    ntime[5] = 1;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1039,6 +1041,11 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     tools->addWidget(pPlanet[0]);
     tools->addWidget(pPlanet[1]);
+
+    pScale = new QLabel( tools );
+
+    tools->addWidget(pScale);
+
     addToolBar(tools);
 	
 	pTabWidget = new QTabWidget(this);
@@ -1050,7 +1057,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
 
     for (unsigned i = 0; i < ntabs; ++ i)
 	{
-		pTab[i] = new QWidget(pTabWidget);
+        pTab[i] = new QWidget(pTabWidget);
 
         pLabel[i][0][0] = new QLabel(pTab[i]);
         pLabel[i][0][1] = new QLabel(pTab[i]);

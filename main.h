@@ -247,6 +247,7 @@ struct Planet
     Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
         : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), f(f), eType(eType), h(h)
 	{
+        v[0] = vector3(pv[0], pv[1], pv[2]);
 	}
 	
 	void operator () (const std::vector<Planet> &p, const real & upper);

@@ -1,9 +1,4 @@
 TEMPLATE  = app
-<<<<<<< HEAD:fr.pro
-CONFIG	 += thread
-QT       += core gui widgets
-
-=======
 LANGUAGE  = C++
 CONFIG	 += thread c++17
 QT       += core gui widgets
@@ -30,7 +25,6 @@ QT       += core gui widgets
 #QMAKE_CXXFLAGS_RELEASE += /Gy
 #QMAKE_LFLAGS_RELEASE += /OPT:REF
 
->>>>>>> 3df9735 (Added quarks simulation.):ft.pro
 TARGET    = ft
 
 HEADERS	+= main.h
