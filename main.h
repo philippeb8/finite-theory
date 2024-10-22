@@ -53,9 +53,9 @@ typedef long double real;
 const real C = 299792458.L;
 const real G = 6.67428e-11L;
 const real K = 8.987551e9L;
-const real Eta = 1e-34;//0.0013342L;
+const real Eta = 0.0013342L;
 const real Q = 1.602176634e-19L;
-const real H[] = {C*C/(2*G), 0., 1e20};
+const real H[] = {C*C/(G), 0., 1e20};
 
 struct vector3
 {

@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "4.21"
+#define EDITION "5.0.0"
 
 #include "main.h"
 
@@ -106,44 +106,45 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 
 inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
 {
-    static mutex mtx;
-
     // net acceleration vector (with all planets)
     vector3 vf(0.L, 0.L, 0.L);
 
     switch (eType)
     {
     case SM:
+        // iterate through all planets
+        for (size_t i = 0; i < planet.size(); i ++)
         {
-            //scoped_lock l(mtx);
+            // if same planet or photon then skip
+            if (planet[i].n == n)
+                continue;
 
-            //cout << "dump:" << endl;
+            // vector and norm between the moving planet and the other one
+            const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
 
-            // iterate through all planets
-            for (size_t i = 0; i < planet.size() && i < 1; i ++)
+            const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+            const real norm = sqrt(norm2);
+
+#if 0
             {
-                // if same planet or photon then skip
-                if (! strcmp(planet[i].n, n))
-                    continue;
+                static mutex m;
+                scoped_lock l(m);
 
-                // vector and norm between the moving planet and the other one
-                const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
-                //const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-                //const real norm = sqrt(norm2);
-
-                // F = (2 * K * q_1 * q_2 * x * η^3) / (x * η + q)^3 - (K * q_1 * q_2 * η_e^2) / (x * η_e + q)^2
-                real f0 = ((2 * K * planet[i].q * q * normal[0] * pow(Eta, 3)) / pow(normal[0] * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(normal[0] * Eta + Q, 2));// * normal[0] / norm;
-                real f1 = ((2 * K * planet[i].q * q * normal[1] * pow(Eta, 3)) / pow(normal[1] * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(normal[1] * Eta + Q, 2));// * normal[1] / norm;
-                real f2 = ((2 * K * planet[i].q * q * normal[2] * pow(Eta, 3)) / pow(normal[2] * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(normal[2] * Eta + Q, 2));// * normal[2] / norm;
-
-                //cout << "force: " << f0 << ", " << f1 << ", " << f2 << endl;
-                //cout << "charge: " << planet[i].q << ", " << q << endl;
-                //cout << "distance: " << normal[0] << ", " << normal[1] << ", " << normal[2] << endl;
-
-                vf[0] += f0;
-                vf[1] += f1;
-                vf[2] += f2;
+                cout << ((2 * K * planet[i].q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * pow(Eta, 2)) / pow(norm * Eta + Q, 2)) << ", " << normal[0] / norm2 << ", " << normal[1] / norm2 << ", " << normal[2] / norm2 << endl;
             }
+#endif
+
+            // F = (2 * K * q_1 * q_2 * x * η^3) / (x * η + q)^3 - (K * q_1 * q_2 * η_e^2) / (x * η_e + q)^2
+            const real fe = ((2 * K * planet[i].q * q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(norm * Eta + Q, 2));
+            const real fg = ((2 * G * planet[i].m * m * norm * pow(Eta, 3)) / pow(norm * Eta + H[0], 3) - (G * planet[i].m * m * pow(Eta, 2)) / pow(norm * Eta + H[0], 2));
+
+            vf[0] -= fe * normal[0] / norm;
+            vf[1] -= fe * normal[1] / norm;
+            vf[2] -= fe * normal[2] / norm;
+
+            vf[0] -= fg * normal[0] / norm;
+            vf[1] -= fg * normal[1] / norm;
+            vf[2] -= fg * normal[2] / norm;
         }
         break;
 
@@ -152,18 +153,24 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         for (size_t i = 0; i < planet.size(); i ++)
         {
             // if same planet or photon then skip
-            if (planet[i].m == m || planet[i].m == 0.0L)
+            if (planet[i].n == n)
                 continue;
 
             // vector and norm between the moving planet and the other one
             const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
+
+            // a = Gm/r^2 decomposed in scalar
+            //vf[0] -= G * planet[i].m / (normal[0] * normal[0]);
+            //vf[1] -= G * planet[i].m / (normal[1] * normal[1]);
+            //vf[2] -= G * planet[i].m / (normal[2] * normal[2]);
+
             const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
             const real norm = sqrt(norm2);
 
             // a = Gm/r^2 decomposed in scalar
-            vf[0] += - G * planet[i].m * m / norm2 * normal[0] / norm;
-            vf[1] += - G * planet[i].m * m / norm2 * normal[1] / norm;
-            vf[2] += - G * planet[i].m * m / norm2 * normal[2] / norm;
+            vf[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
+            vf[1] -= G * planet[i].m * m / norm2 * normal[1] / norm;
+            vf[2] -= G * planet[i].m * m / norm2 * normal[2] / norm;
         }
         break;
     }
@@ -200,19 +207,41 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
 
     // Newton: t = upper
     // FT: t = upper / ((m / d + h) / h)
-    t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
+    switch (eType)
+    {
+    case SM:
+        t[0] = upper * f(planet[0].q, nnorm_p, Eta);
+        break;
+
+    default:
+        t[0] = upper * f(planet[0].m, nnorm_p, planet[0].h);
+        break;
+    }
 
     if (first)
     {
         t[1] = t[0];
     }
 
-    // p = p + v*t + (a*t^2)/2
-    p += v[0] * t[0] + vf / m * t[0] * t[0] / 2.;
+    switch (eType)
+    {
+    case SM:
+        // p = p + v*t + (a*t^2)/2
+        p += v[0] * t[0] + vf / m * t[0] * t[0] / 2.;
 
-    // v = v + a*t
-    v[0] += vf / m * t[0];
-	
+        // v = v + a*t
+        v[0] += vf / m * t[0];
+        break;
+
+    default:
+        // p = p + v*t + (a*t^2)/2
+        p += v[0] * t[0] + vf / m * t[0] * t[0] / 2.;
+
+        // v = v + a*t
+        v[0] += vf / m * t[0];
+        break;
+    }
+
     switch (eType)
 	{
     // perihelion precession
@@ -283,7 +312,7 @@ void Dual::run()
 			QThread::msleep(100);
 		
 		// move the same planet or photon according to Newton & FT
-		for (size_t j = 0; j < p->planet.size(); j ++)
+        for (size_t j = 0; j < p->planet.size() && j < 1; j ++)
 			p->planet[j][i](p->planet[j], q->pTime->value());
 	}
 }
@@ -305,7 +334,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
     case V1: scale = 8e10L; break;
     case SM: scale = 1e-15L; break;
     }
-	
+
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
 	// initial position of each planet and photon
@@ -349,9 +378,9 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {17048116800000.L, 0.L, 0.L},
 
         // quarks positions:
-        {0e-15L, 0.L, 0.L},
-        {1e-15L, 0.L, 0.L},
-        {2e-15L, 0.L, 0.L},
+        {0e-2L, 0.L, 0.L},
+        {2e-2L, 0.L, 0.L},
+        {4e-2L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -418,9 +447,9 @@ Canvas::Canvas( Type eType, QWidget *parent)
     static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, 0, pos[28], vel[28], Planet::FR1, Planet::V1);
     static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, 0, pos[29], vel[29], Planet::NW, Planet::V1);
 
-    static const Planet Quark1   ("Quark1", 	Qt::darkRed, 8.38e-30, -Q*1/3, pos[30], vel[30], Planet::NW, Planet::SM);
-    static const Planet Quark2   ("Quark2", 	Qt::darkBlue, 3.92e-30, Q*2/3, pos[31], vel[31], Planet::NW, Planet::SM);
-    static const Planet Quark3   ("Quark3", 	Qt::darkBlue, 3.92e-30, Q*2/3, pos[32], vel[32], Planet::NW, Planet::SM);
+    static const Planet Quark1   ("Quark1", 	Qt::red, 8.38e-30, -Q*1/3, pos[30], vel[30], Planet::NW, Planet::SM);
+    static const Planet Quark2   ("Quark2", 	Qt::blue, 3.92e-30, Q*2/3, pos[31], vel[31], Planet::NW, Planet::SM);
+    static const Planet Quark3   ("Quark3", 	Qt::blue, 3.92e-30, Q*2/3, pos[32], vel[32], Planet::NW, Planet::SM);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -591,12 +620,6 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet[0].push_back(Quark1);
         planet[0].push_back(Quark2);
         planet[0].push_back(Quark3);
-
-        // store the Sun & the photon using the FT time formula
-        planet[1].reserve(3);
-        planet[1].push_back(Quark1);
-        planet[1].push_back(Quark2);
-        planet[1].push_back(Quark3);
 
         stats.resize(planet[0].size());
         break;
@@ -810,9 +833,6 @@ void Canvas::timerEvent(QTimerEvent *)
 
             if (planet[i][j].p[1] > max[1])
                 max[1] = planet[i][j].p[1];
-
-            if (planet[i][j].p[2] > max[2])
-                max[2] = planet[i][j].p[2];
         }
     }
 
@@ -820,9 +840,9 @@ void Canvas::timerEvent(QTimerEvent *)
 
     for (size_t x = 0; x < 2; ++ x)
         if (max[x] > new_scale)
-            new_scale = pow(10, floor(log10(max[x])) - 1);
+            new_scale = pow(10, floor(log10(abs(max[x]))) - 2);
 
-    if (new_scale != scale)
+    if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<real>::min())
     {
         QRect r(0, 0, width(), height());
         QPainter painter;
@@ -866,7 +886,7 @@ void Canvas::timerEvent(QTimerEvent *)
     {
     case PP:
     case LB:
-        for (size_t i = 1; i < planet[0].size(); ++ i)
+        for (size_t i = 0; i < planet[0].size(); ++ i)
         {
             for (size_t j = 0; j < planet.size(); ++ j)
                 if (planet[j][i].updated)
@@ -884,10 +904,10 @@ void Canvas::timerEvent(QTimerEvent *)
         break;
     }
 
-    for (size_t i = 0; i < planet[0].size(); ++ i)
+    for (size_t j = 0; j < planet.size(); ++ j)
     {
-        for (size_t j = 0; j < planet.size() && j < 1; ++ j)
-		{
+        for (size_t i = 0; i < planet[j].size(); ++ i)
+        {
             QRect e(planet[j][i].o[0] / scale - 2 + width()/2, planet[j][i].o[1] / scale - 2 + height()/2, 4+1, 4+1);
 
 			planet[j][i].o[0] = planet[j][i].p[0];
@@ -906,18 +926,21 @@ void Canvas::timerEvent(QTimerEvent *)
 			bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
 			update(r);
-		}
 
-        if (planet[0][i].updated && planet[1][i].updated)
-        {
-            if (size_t(q->pPlanet[0]->currentIndex() + 1) == i)
-                slotPlanet(i - 1);
+            if (planet[j][i].updated)
+            {
+                if (size_t(q->pPlanet[j]->currentIndex() + 1) == i)
+                    slotPlanet(i - 1);
 
-            if (size_t(q->pPlanet[1]->currentIndex() + 1) == i)
-                slotGalaxy(i - 1);
+                planet[j][i].updated = false;
 
-            planet[0][i].updated = false;
-            planet[1][i].updated = false;
+#if 0
+                if (size_t(q->pPlanet[1]->currentIndex() + 1) == i)
+                    slotGalaxy(i - 1);
+
+                planet[1][i].updated = false;
+#endif
+            }
         }
     }
 }
@@ -999,7 +1022,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
     ntime[3] = 50000000000;
     ntime[4] = 1;
-    ntime[5] = 1;
+    ntime[5] = 1e-10;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1022,9 +1045,9 @@ Scribble::Scribble( QWidget *parent, const char *name )
 //    bClear->setText( "Clear Screen" );
 
     pTime = new QDoubleSpinBox( tools );
-    pTime->setRange(0.01, 50000000000);
-    pTime->setDecimals(2);
-    pTime->setSingleStep(10);
+    pTime->setRange(1e-10, 1e10);
+    pTime->setDecimals(10);
+    pTime->setSingleStep(1);
     pTime->setToolTip("Time Interval (s)");
     pTime->setValue( ntime[nc] );
 
