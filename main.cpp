@@ -112,6 +112,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     switch (eType)
     {
     case SM:
+        // same effect:
+#if 0
+        t[0] = 0.L;
+#else
+        t[0] = upper;
+#endif
+
         // iterate through all planets
         for (size_t i = 0; i < planet.size(); i ++)
         {
@@ -120,7 +127,19 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
                 continue;
 
             // vector and norm between the moving planet and the other one
-            const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
+            vector3 normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
+
+#if 0
+            // planck length:
+            if (abs(normal[0]) < 1.616255e-35L)
+                normal[0] = 1.616255e-35L * (signbit(normal[0]) ? -1 : 1);
+
+            if (abs(normal[1]) < 1.616255e-35L)
+                normal[1] = 1.616255e-35L * (signbit(normal[1]) ? -1 : 1);
+
+            if (abs(normal[2]) < 1.616255e-35L)
+                normal[2] = 1.616255e-35L * (signbit(normal[2]) ? -1 : 1);
+#endif
 
             const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
             const real norm = sqrt(norm2);
@@ -134,6 +153,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
             }
 #endif
 
+            // same effect:
+#if 1
             // F = (2 * K * q_1 * q_2 * x * η^3) / (x * η + q)^3 - (K * q_1 * q_2 * η_e^2) / (x * η_e + q)^2
             const real fe = ((2 * K * planet[i].q * q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(norm * Eta + Q, 2));
             const real fg = ((2 * G * planet[i].m * m * norm * pow(Eta, 3)) / pow(norm * Eta + H[0], 3) - (G * planet[i].m * m * pow(Eta, 2)) / pow(norm * Eta + H[0], 2));
@@ -145,6 +166,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
             vf[0] -= fg * normal[0] / norm;
             vf[1] -= fg * normal[1] / norm;
             vf[2] -= fg * normal[2] / norm;
+#else
+            vf[0] -= K * planet[i].q * q / norm2 * normal[0] / norm;
+            vf[1] -= K * planet[i].q * q / norm2 * normal[1] / norm;
+            vf[2] -= K * planet[i].q * q / norm2 * normal[2] / norm;
+
+            t[0] += upper * f(planet[i].q, norm, Eta);
+#endif
         }
         break;
 
@@ -210,7 +238,6 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
     switch (eType)
     {
     case SM:
-        t[0] = upper * f(planet[0].q, nnorm_p, Eta);
         break;
 
     default:
@@ -381,6 +408,10 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0e-2L, 0.L, 0.L},
         {2e-2L, 0.L, 0.L},
         {4e-2L, 0.L, 0.L},
+
+        {0e-2L, 0.L, 0.L},
+        {2e-2L, 0.L, 0.L},
+        {4e-2L, 0.L, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -427,6 +458,10 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
+
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -450,6 +485,10 @@ Canvas::Canvas( Type eType, QWidget *parent)
     static const Planet Quark1   ("Quark1", 	Qt::red, 8.38e-30, -Q*1/3, pos[30], vel[30], Planet::NW, Planet::SM);
     static const Planet Quark2   ("Quark2", 	Qt::blue, 3.92e-30, Q*2/3, pos[31], vel[31], Planet::NW, Planet::SM);
     static const Planet Quark3   ("Quark3", 	Qt::blue, 3.92e-30, Q*2/3, pos[32], vel[32], Planet::NW, Planet::SM);
+
+    static const Planet Quark4   ("Quark4", 	Qt::red, 8.38e-30, -Q*1/3, pos[33], vel[33], Planet::FR1, Planet::SM);
+    static const Planet Quark5   ("Quark5", 	Qt::blue, 3.92e-30, Q*2/3, pos[34], vel[34], Planet::FR1, Planet::SM);
+    static const Planet Quark6   ("Quark6", 	Qt::blue, 3.92e-30, Q*2/3, pos[35], vel[35], Planet::FR1, Planet::SM);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -839,7 +878,7 @@ void Canvas::timerEvent(QTimerEvent *)
     real new_scale = numeric_limits<real>::min();
 
     for (size_t x = 0; x < 2; ++ x)
-        if (max[x] > new_scale)
+        if (pow(10, floor(log10(abs(max[x]))) - 2) > new_scale)
             new_scale = pow(10, floor(log10(abs(max[x]))) - 2);
 
     if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<real>::min())
