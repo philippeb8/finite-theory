@@ -53,7 +53,7 @@ typedef long double real;
 const real C = 299792458.L;
 const real G = 6.67428e-11L;
 const real K = 8.987551e9L;
-const real Eta = 0.0013342L;
+const real Eta = 1e-8; //0.0013342L;
 const real Q = 1.602176634e-19L;
 const real H[] = {C*C/(G), 0., 1e20};
 
@@ -234,6 +234,7 @@ struct Planet
 	vector3 p;							// position
     vector3 v[2];						// current & saved velocity
     vector3 o;							// old position
+    vector3 a;							// acceleration or force
     real t[2];							// current & old time intervals according to Newton or FT
     bool first;                         // first cycle
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
