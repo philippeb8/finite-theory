@@ -425,6 +425,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {-5.29177e-11 * 1 * 1, 0.L, 0.L},
         {0.L, 5.29177e-11 * 2 * 2, 0.L},
         {0.L, -5.29177e-11 * 2 * 2, 0.L},
+
+        {5e-10L + 1e-15L, 0.L, 0.L},
+        {5e-10L + -1e-15L, 0.L, 0.L},
+        {5e-10L + 0.L, 1e-15L, 0.L},
+        {5e-10L + 0.L, -1e-15L, 0.L},
+        {5e-10L + 0.L, 0.L, 1e-15L},
+        {5e-10L + 0.L, 0.L, -1e-15L},
+        {5e-10L + 5.29177e-11 * 1 * 1, 0.L, 0.L},
+        {5e-10L + -5.29177e-11 * 1 * 1, 0.L, 0.L},
+        {5e-10L + 0.L, 5.29177e-11 * 2 * 2, 0.L},
+        {5e-10L + 0.L, -5.29177e-11 * 2 * 2, 0.L},
     };
 	
 	// initial velocity of each planet and photon
@@ -491,6 +502,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, -5e5L, 0.L},
         {5e5L, 0.L, 0.L},
         {-5e5L, 0.L, 0.L},
+
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 0.L, 0.L},
+        {-5e6L + 0.L, 5e5L, 0.L},
+        {-5e6L + 0.L, -5e5L, 0.L},
+        {-5e6L + 5e5L, 0.L, 0.L},
+        {-5e6L + -5e5L, 0.L, 0.L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -536,6 +558,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
     static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[46], vel[46], Planet::NW, Planet::SM);
     static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[47], vel[47], Planet::NW, Planet::SM);
     static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[48], vel[48], Planet::NW, Planet::SM);
+
+    static const Planet Proton4     ("Proton4",   Qt::red, 1.6726e-27, Q, pos[49], vel[49], Planet::NW, Planet::SM);
+    static const Planet Proton5     ("Proton5",   Qt::red, 1.6726e-27, Q, pos[50], vel[50], Planet::NW, Planet::SM);
+    static const Planet Proton6     ("Proton6",   Qt::red, 1.6726e-27, Q, pos[51], vel[51], Planet::NW, Planet::SM);
+    static const Planet Neutron4     ("Neutron4",   Qt::yellow, 1.6726e-27, 0, pos[52], vel[52], Planet::NW, Planet::SM);
+    static const Planet Neutron5     ("Neutron5",   Qt::yellow, 1.6726e-27, 0, pos[53], vel[53], Planet::NW, Planet::SM);
+    static const Planet Neutron6     ("Neutron6",   Qt::yellow, 1.6726e-27, 0, pos[54], vel[54], Planet::NW, Planet::SM);
+    static const Planet Electron5   ("Electron5", Qt::blue, 9.109e-31, -Q, pos[55], vel[55], Planet::NW, Planet::SM);
+    static const Planet Electron6   ("Electron6", Qt::blue, 9.109e-31, -Q, pos[56], vel[56], Planet::NW, Planet::SM);
+    static const Planet Electron7   ("Electron7", Qt::blue, 9.109e-31, -Q, pos[57], vel[57], Planet::NW, Planet::SM);
+    static const Planet Electron8   ("Electron8", Qt::blue, 9.109e-31, -Q, pos[58], vel[58], Planet::NW, Planet::SM);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -702,7 +735,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet.resize(2);
 
         // store the Sun & the photon using the Newton time formula
-        planet[0].reserve(10);
+        planet[0].reserve(20);
         planet[0].push_back(Proton1);
         planet[0].push_back(Proton2);
         planet[0].push_back(Proton3);
@@ -713,6 +746,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet[0].push_back(Electron2);
         planet[0].push_back(Electron3);
         planet[0].push_back(Electron4);
+
+        planet[0].push_back(Proton4);
+        planet[0].push_back(Proton5);
+        planet[0].push_back(Proton6);
+        planet[0].push_back(Neutron4);
+        planet[0].push_back(Neutron5);
+        planet[0].push_back(Neutron6);
+        planet[0].push_back(Electron5);
+        planet[0].push_back(Electron6);
+        planet[0].push_back(Electron7);
+        planet[0].push_back(Electron8);
 
         // copy & change each planet for the FT time formula
         planet[1] = planet[0];
