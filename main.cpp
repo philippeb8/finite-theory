@@ -347,6 +347,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
 {
 //	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
 
+#if 0
     switch (eType)
     {
     case PP: scale = 8e8L; break;
@@ -354,8 +355,9 @@ Canvas::Canvas( Type eType, QWidget *parent)
     case BB: scale = 8e9L; break;
     case GR: scale = 8e9L; break;
     case V1: scale = 8e10L; break;
-    case SM: scale = 1e-15L; break;
+    case SM: scale = 1e-11L; break;
     }
+#endif
 
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
@@ -417,6 +419,8 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {-1e-15L, 0.L, 0.L},
         {0.L, 1e-15L, 0.L},
         {0.L, -1e-15L, 0.L},
+        {0.L, 0.L, 1e-15L},
+        {0.L, 0.L, -1e-15L},
         {5.29177e-11 * 1 * 1, 0.L, 0.L},
         {-5.29177e-11 * 1 * 1, 0.L, 0.L},
         {0.L, 5.29177e-11 * 2 * 2, 0.L},
@@ -481,6 +485,8 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
         {0.L, 5e5L, 0.L},
         {0.L, -5e5L, 0.L},
         {5e5L, 0.L, 0.L},
@@ -522,12 +528,14 @@ Canvas::Canvas( Type eType, QWidget *parent)
 
     static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[39], vel[39], Planet::NW, Planet::SM);
     static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[40], vel[40], Planet::NW, Planet::SM);
-    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[41], vel[41], Planet::NW, Planet::SM);
-    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[42], vel[42], Planet::NW, Planet::SM);
-    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[43], vel[43], Planet::NW, Planet::SM);
-    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[44], vel[44], Planet::NW, Planet::SM);
-    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[45], vel[45], Planet::NW, Planet::SM);
-    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[46], vel[46], Planet::NW, Planet::SM);
+    static const Planet Proton3     ("Proton3",   Qt::red, 1.6726e-27, Q, pos[41], vel[41], Planet::NW, Planet::SM);
+    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[42], vel[42], Planet::NW, Planet::SM);
+    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[43], vel[43], Planet::NW, Planet::SM);
+    static const Planet Neutron3     ("Neutron3",   Qt::yellow, 1.6726e-27, 0, pos[44], vel[44], Planet::NW, Planet::SM);
+    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[45], vel[45], Planet::NW, Planet::SM);
+    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[46], vel[46], Planet::NW, Planet::SM);
+    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[47], vel[47], Planet::NW, Planet::SM);
+    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[48], vel[48], Planet::NW, Planet::SM);
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -694,15 +702,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet.resize(2);
 
         // store the Sun & the photon using the Newton time formula
-        planet[0].reserve(6);
+        planet[0].reserve(10);
         planet[0].push_back(Proton1);
         planet[0].push_back(Proton2);
+        planet[0].push_back(Proton3);
         planet[0].push_back(Neutron1);
         planet[0].push_back(Neutron2);
+        planet[0].push_back(Neutron3);
         planet[0].push_back(Electron1);
         planet[0].push_back(Electron2);
-        //planet[0].push_back(Electron3);
-        //planet[0].push_back(Electron4);
+        planet[0].push_back(Electron3);
+        planet[0].push_back(Electron4);
 
         // copy & change each planet for the FT time formula
         planet[1] = planet[0];
@@ -915,27 +925,6 @@ void Canvas::timerEvent(QTimerEvent *)
     if (! isVisible())
         return;
 
-    vector3 max = {numeric_limits<real>::min(), numeric_limits<real>::min(), numeric_limits<real>::min()};
-
-    for (size_t i = 1; i < planet.size(); ++ i)
-    {
-        for (size_t j = 0; j < planet[i].size(); ++ j)
-        {
-            if (abs(planet[i][j].p[0]) > max[0])
-                max[0] = abs(planet[i][j].p[0]);
-
-            if (abs(planet[i][j].p[1]) > max[1])
-                max[1] = abs(planet[i][j].p[1]);
-        }
-    }
-
-    real new_scale = numeric_limits<real>::min();
-
-    for (size_t x = 0; x < 2; ++ x)
-        if (pow(10, ceil(log10(abs(max[x] / 200)))) > new_scale)
-            new_scale = pow(10, ceil(log10(abs(max[x] / 200))));
-
-    //if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<real>::min())
     {
         QRect r(0, 0, width(), height());
         QPainter painter;
@@ -946,14 +935,40 @@ void Canvas::timerEvent(QTimerEvent *)
         bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
         update(r);
+    }
+
+    if (scale == 0.L)
+    {
+        vector3 max = {numeric_limits<real>::min(), numeric_limits<real>::min(), numeric_limits<real>::min()};
+
+        for (size_t i = 1; i < planet.size(); ++ i)
+        {
+            for (size_t j = 0; j < planet[i].size(); ++ j)
+            {
+                if (abs(planet[i][j].p[0]) > max[0])
+                    max[0] = abs(planet[i][j].p[0]);
+
+                if (abs(planet[i][j].p[1]) > max[1])
+                    max[1] = abs(planet[i][j].p[1]);
+            }
+        }
+
+        real new_scale = numeric_limits<real>::min();
+
+        for (size_t x = 0; x < 2; ++ x)
+            if (pow(10, ceil(log10(abs(max[x] / 200)))) > new_scale)
+                new_scale = pow(10, ceil(log10(abs(max[x] / 200))));
 
         scale = new_scale;
     }
 
-    ostringstream o;
-    o << "Scale: " << scale;
+    //if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<real>::min())
+    ostringstream o[2];
+    o[0] << "Scale: " << scale;
+    o[1] << "Zoom: " << zoom;
 
-    q->pScale->setText(o.str().c_str());
+    q->pScale->setText(o[0].str().c_str());
+    q->pZoom->setText(o[1].str().c_str());
 
     switch (eType)
     {
@@ -1001,7 +1016,7 @@ void Canvas::timerEvent(QTimerEvent *)
     {
         for (size_t i = 0; i < planet[j].size(); ++ i)
         {
-            QRect e(planet[j][i].o[0] / scale - 4 + width()/2, planet[j][i].o[1] / scale - 4 + height()/2, 8, 8);
+            QRect e(planet[j][i].o[0] / (scale * zoom) - 2 / zoom + width()/2, planet[j][i].o[1] / (scale * zoom) - 2 / zoom + height()/2, 4 / zoom, 4 / zoom);
 
 			planet[j][i].o[0] = planet[j][i].p[0];
 			planet[j][i].o[1] = planet[j][i].p[1];
@@ -1012,7 +1027,7 @@ void Canvas::timerEvent(QTimerEvent *)
             const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
             const real norm = sqrt(norm2);
 
-            QRect r(planet[j][i].o[0] / scale - 4 + width()/2, planet[j][i].o[1] / scale - 4 + height()/2, 8, 8);
+            QRect r(planet[j][i].o[0] / (scale * zoom) - 2 / zoom + width()/2, planet[j][i].o[1] / (scale * zoom) - 2 / zoom + height()/2, 4 / zoom, 4 / zoom);
             QPainter painter;
 			painter.begin( &buffer );
 			painter.setPen(planet[j][i].c);
@@ -1021,13 +1036,13 @@ void Canvas::timerEvent(QTimerEvent *)
             painter.drawEllipse(r);
 
             {
-                QPointF start(planet[j][i].o[0] / scale + width()/2, planet[j][i].o[1] / scale + height()/2);
-                QPointF end((planet[j][i].o[0]) / scale + width()/2 + 20 * normal[0] / norm, (planet[j][i].o[1]) / scale + height()/2 + 20 * normal[1] / norm);
+                QPointF start(planet[j][i].o[0] / (scale * zoom) + width()/2, planet[j][i].o[1] / (scale * zoom) + height()/2);
+                QPointF end((planet[j][i].o[0]) / (scale * zoom) + width()/2 + 20 / zoom * normal[0] / norm, (planet[j][i].o[1]) / (scale * zoom) + height()/2 + 20 / zoom * normal[1] / norm);
 
                 painter.drawLine(start, end);
 
-                double arrowHeadLength = 6;
-                double arrowHeadAngle = M_PI / 6;
+                double arrowHeadLength = 4 / zoom;
+                double arrowHeadAngle = M_PI / 4;
 
                 double angle = std::atan2(end.y() - start.y(), end.x() - start.x());
 
@@ -1063,6 +1078,20 @@ void Canvas::timerEvent(QTimerEvent *)
             }
         }
     }
+}
+
+void Canvas::wheelEvent(QWheelEvent *event)
+{
+    QPoint d = event->pixelDelta() / 8;
+
+    if (!d.isNull())
+    {
+        QPoint n = d / 15;
+
+        zoom *= pow(10, signbit(n.y()) ? 0.1 : -0.1);
+    }
+
+    event->accept();
 }
 
 void Canvas::clearScreen()
@@ -1142,7 +1171,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
     ntime[3] = 50000000000;
     ntime[4] = 1;
-    ntime[5] = 1e-22;
+    ntime[5] = 1e-21;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1188,6 +1217,11 @@ Scribble::Scribble( QWidget *parent, const char *name )
     pScale = new QLabel( tools );
 
     tools->addWidget(pScale);
+    tools->addSeparator();
+
+    pZoom = new QLabel( tools );
+
+    tools->addWidget(pZoom);
 
     addToolBar(tools);
 	

@@ -291,6 +291,7 @@ protected:
     void resizeEvent( QResizeEvent *e );
     void paintEvent( QPaintEvent *e );
 	void timerEvent( QTimerEvent *e );
+    void wheelEvent( QWheelEvent *e );
 
     QPen pen;
     QPolygon polyline;
@@ -301,7 +302,7 @@ protected:
 
     std::vector< std::vector<Planet> > planet;
 
-    real scale;
+    real scale = 0.L, zoom = 1.L;
 
     struct Stats
 	{
@@ -353,6 +354,7 @@ public:
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
     QLabel *pScale;
+    QLabel *pZoom;
     QComboBox *pPlanet[2];
     QToolButton *bPColor, *bSave, *bClear;
 };
