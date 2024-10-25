@@ -23,7 +23,8 @@
 #include <cmath>
 #include <limits>
 #include <vector>
-//#include <boost/multiprecision/cpp_dec_float.hpp>
+#define BOOST_DISABLE_ASSERTS
+#include <boost/multiprecision/cpp_bin_float.hpp>
 
 #include <qcolor.h>
 #include <QtWidgets/QMainWindow>

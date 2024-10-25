@@ -193,6 +193,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
     a = b;
 
+#if 0
     // spherical coordinates
     if (! first)
     {
@@ -209,6 +210,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         ps[2] = ps[0];
         ps[1] = ps[0];
     }
+#endif
 
     // save
     const vector3 s(p[0], p[1], p[2]);
@@ -308,7 +310,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
 Dual::Dual(Canvas * pParent, int id) : p(pParent), i(id)
 {
-	start();
+    start();
 }
 
 void Dual::run()
@@ -322,8 +324,15 @@ void Dual::run()
 			QThread::msleep(100);
 		
 		// move the same planet or photon according to Newton & FT
-        for (size_t j = 0; j < p->planet.size(); j ++)
-			p->planet[j][i](p->planet[j], q->pTime->value());
+        for (size_t j = 0; j < p->planet.size(); ++ j)
+        {
+          vector<Planet> temporary = p->planet[j];
+
+          for (size_t i = 0; i < p->planet[j].size(); ++ i)
+            temporary[i](p->planet[j], q->pTime->value());
+
+          p->planet[j] = temporary;
+        }
 	}
 }
 
@@ -773,6 +782,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
 
         // store the Sun & the photon using the Newton time formula
         planet[0].reserve(24);
+#if 1
         planet[0].push_back(Proton1);
         planet[0].push_back(Proton2);
         planet[0].push_back(Proton3);
@@ -791,6 +801,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet[0].push_back(Electron4);
         planet[0].push_back(Electron5);
         planet[0].push_back(Electron6);
+#endif
 
         planet[0].push_back(Proton7);
         planet[0].push_back(Proton8);
@@ -835,8 +846,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
 
 	// launch a thread for each planet or photon
     if (planet.size())
-        for (size_t i = 0; i < planet[0].size(); i ++)
-            new Dual(this, i);
+        new Dual(this, planet[0].size());
 }
 
 Canvas::~Canvas()
