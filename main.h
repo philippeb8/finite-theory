@@ -23,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+//#include <boost/multiprecision/cpp_dec_float.hpp>
 
 #include <qcolor.h>
 #include <QtWidgets/QMainWindow>
@@ -59,7 +60,7 @@ const real H[] = {C*C/(G), 0., 1e20};
 
 struct vector3
 {
-	typedef long double T;
+    typedef real T;
 	static const size_t N = 3;
 
 	T elem_[N];
@@ -302,7 +303,7 @@ protected:
 
     std::vector< std::vector<Planet> > planet;
 
-    real scale = 0.L, zoom = 1.L;
+    real scale = 0.L, zoom = 0.2L;
 
     struct Stats
 	{

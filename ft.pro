@@ -3,6 +3,8 @@ LANGUAGE  = C++
 CONFIG	 += thread c++17
 QT       += core gui widgets
 
+QMAKE_LFLAGS += -lboost_system
+
 #QMAKE_CC              = i686-pc-mingw32-gcc
 #QMAKE_CXX             = i686-pc-mingw32-g++
 #QMAKE_LINK            = i686-pc-mingw32-g++
@@ -12,7 +14,7 @@ QT       += core gui widgets
 #QMAKE_RPATHDIR           += /opt/V-PlaySDK/5.6/gcc_64/lib/
 #QMAKE_LIBDIR             += /usr/lib
 #QMAKE_LFLAGS             += -static-libgcc -static-libg++
-#QMAKE_CXXFLAGS           += -ffast-math
+QMAKE_CXXFLAGS           += -ffast-math -O3
 
 #QMAKE_CFLAGS_RELEASE += /MT
 #QMAKE_CXXFLAGS_RELEASE += /MT

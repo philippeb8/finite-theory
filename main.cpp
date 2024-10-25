@@ -69,23 +69,23 @@
 
 using namespace std;
 
-const real upper = 0.1L;
+const ::real upper = 0.1L;
 
 // FT time formula
 // observer is infinitly far away
-real Planet::FR1(real m, real d, real h)
+::real Planet::FR1(::real m, ::real d, ::real h)
 {
     return (h) / (abs(m) / abs(d) + h);
 }
 
 // observer is in a null environment
-real Planet::FR2(real m, real d, real h)
+::real Planet::FR2(::real m, ::real d, ::real h)
 {
     return (h + 1.L) / (abs(m) / abs(d) + h);
 }
 
 // Newton time formula
-real Planet::NW(real, real, real)
+::real Planet::NW(::real, ::real, ::real)
 {
 	return 1.L;
 }
@@ -104,7 +104,7 @@ void bitBlt( QPaintDevice * dst, int x, int y, const QPixmap* src, int sx, int s
 	@param upper	Time interval
 */
 
-inline void Planet::operator () (const vector<Planet> &planet, const real & upper)
+inline void Planet::operator () (const vector<Planet> &planet, const ::real & upper)
 {
     // net acceleration vector (with all planets)
     vector3 b(0.L, 0.L, 0.L);
@@ -120,32 +120,20 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
         // iterate through all planets
         for (size_t i = 0; i < planet.size(); i ++)
         {
-            // if same planet or photon then skip
+            // if same particle then skip
             if (planet[i].n == n)
                 continue;
 
-            // vector and norm between the moving planet and the other one
+            // vector and norm between the moving particle and the other one
             vector3 normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
-#if 0
-            // planck length:
-            if (abs(normal[0]) < 1.616255e-35L)
-                normal[0] = 1.616255e-35L * (signbit(normal[0]) ? -1 : 1);
-
-            if (abs(normal[1]) < 1.616255e-35L)
-                normal[1] = 1.616255e-35L * (signbit(normal[1]) ? -1 : 1);
-
-            if (abs(normal[2]) < 1.616255e-35L)
-                normal[2] = 1.616255e-35L * (signbit(normal[2]) ? -1 : 1);
-#endif
-
-            const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const real norm = sqrt(norm2);
+            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+            const ::real norm = sqrt(norm2);
 
 #if 1
             // F = (2 * K * q_1 * q_2 * x * η^3) / (x * η + q)^3 - (K * q_1 * q_2 * η_e^2) / (x * η_e + q)^2
-            const real fe = (2 * K * planet[i].q * q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(norm * Eta + Q, 2);
-            const real fg = (2 * G * planet[i].m * m * norm * pow(Eta, 3)) / pow(norm * Eta + planet[i].h, 3) - (G * planet[i].m * m * pow(Eta, 2)) / pow(norm * Eta + planet[i].h, 2);
+            const ::real fe = (2 * K * planet[i].q * q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(norm * Eta + Q, 2);
+            const ::real fg = (2 * G * planet[i].m * m * norm * pow(Eta, 3)) / pow(norm * Eta + planet[i].h, 3) - (G * planet[i].m * m * pow(Eta, 2)) / pow(norm * Eta + planet[i].h, 2);
 
             b[0] += fe * normal[0] / norm;
             b[1] += fe * normal[1] / norm;
@@ -190,8 +178,8 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
             //vf[1] -= G * planet[i].m / (normal[1] * normal[1]);
             //vf[2] -= G * planet[i].m / (normal[2] * normal[2]);
 
-            const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const real norm = sqrt(norm2);
+            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+            const ::real norm = sqrt(norm2);
 
             // a = Gm/r^2 decomposed in scalar
             b[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
@@ -248,19 +236,19 @@ inline void Planet::operator () (const vector<Planet> &planet, const real & uppe
             }
 #endif
 
-        // p = p + v*t + (a*t^2)/2
-        p += v[0] * t[0] + a / m * t[0] * t[0] / 2.;
-
         // v = v + a*t
         v[0] += a / m * t[0];
+
+        // p = p + v*t + (a*t^2)/2
+        p += v[0] * t[0];
         break;
 
     default:
-        // p = p + v*t + (a*t^2)/2
-        p += v[0] * t[0] + a / m * t[0] * t[0] / 2.;
-
         // v = v + a*t
         v[0] += a / m * t[0];
+
+        // p = p + v*t + (a*t^2)/2
+        p += v[0] * t[0];
         break;
     }
 
@@ -362,7 +350,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
 	// initial position of each planet and photon
-    static const real pos[][3] =
+    static const ::real pos[][3] =
 	{
 		{0.L, 0.L, 0.L},
         //{-57025548112.2453L, 3197006916.08582L, 5283916036.50742L},
@@ -421,10 +409,18 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, -1e-15L, 0.L},
         {0.L, 0.L, 1e-15L},
         {0.L, 0.L, -1e-15L},
+        {1e-15L, 1e-15L, 0.L},
+        {-1e-15L, 1e-15L, 0.L},
+        {0.L, 1e-15L, 1e-15L},
+        {0.L, -1e-15L, 1e-15L},
+        {1e-15L, 0.L, 1e-15L},
+        {1e-15L, 0.L, -1e-15L},
         {5.29177e-11 * 1 * 1, 0.L, 0.L},
         {-5.29177e-11 * 1 * 1, 0.L, 0.L},
         {0.L, 5.29177e-11 * 2 * 2, 0.L},
         {0.L, -5.29177e-11 * 2 * 2, 0.L},
+        {0.L, 0.L, 5.29177e-11 * 3 * 3},
+        {0.L, 0.L, -5.29177e-11 * 3 * 3},
 
         {5e-10L + 1e-15L, 0.L, 0.L},
         {5e-10L + -1e-15L, 0.L, 0.L},
@@ -432,14 +428,22 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {5e-10L + 0.L, -1e-15L, 0.L},
         {5e-10L + 0.L, 0.L, 1e-15L},
         {5e-10L + 0.L, 0.L, -1e-15L},
+        {5e-10L + 1e-15L, 1e-15L, 0.L},
+        {5e-10L + -1e-15L, 1e-15L, 0.L},
+        {5e-10L + 0.L, 1e-15L, 1e-15L},
+        {5e-10L + 0.L, -1e-15L, 1e-15L},
+        {5e-10L + 1e-15L, 0.L, 1e-15L},
+        {5e-10L + 1e-15L, 0.L, -1e-15L},
         {5e-10L + 5.29177e-11 * 1 * 1, 0.L, 0.L},
         {5e-10L + -5.29177e-11 * 1 * 1, 0.L, 0.L},
         {5e-10L + 0.L, 5.29177e-11 * 2 * 2, 0.L},
         {5e-10L + 0.L, -5.29177e-11 * 2 * 2, 0.L},
+        {5e-10L + 0.L, 0.L, 5.29177e-11 * 3 * 3},
+        {5e-10L + 0.L, 0.L, -5.29177e-11 * 3 * 3},
     };
 	
 	// initial velocity of each planet and photon
-    static const real vel[][3] =
+    static const ::real vel[][3] =
 	{
 		{0.L, 0.L, 0.L},
         //{-13058.0445420602L, -46493.5791091285L, -2772.42900405547L},
@@ -498,21 +502,37 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
         {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
+        {0.L, 0.L, 0.L},
         {0.L, 5e5L, 0.L},
         {0.L, -5e5L, 0.L},
         {5e5L, 0.L, 0.L},
         {-5e5L, 0.L, 0.L},
+        {0.L, 0.L, 5e5L},
+        {0.L, 0.L, -5e5L},
 
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 0.L, 0.L},
-        {-5e6L + 0.L, 5e5L, 0.L},
-        {-5e6L + 0.L, -5e5L, 0.L},
-        {-5e6L + 5e5L, 0.L, 0.L},
-        {-5e6L + -5e5L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 0.L},
+        {-5e5 + 0.L, 5e5L, 0.L},
+        {-5e5 + 0.L, -5e5L, 0.L},
+        {-5e5 + 5e5L, 0.L, 0.L},
+        {-5e5 + -5e5L, 0.L, 0.L},
+        {-5e5 + 0.L, 0.L, 5e5L},
+        {-5e5 + 0.L, 0.L, -5e5L},
     };
 
 	// name, color, mass, position and velocity of each moving object
@@ -551,24 +571,41 @@ Canvas::Canvas( Type eType, QWidget *parent)
     static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[39], vel[39], Planet::NW, Planet::SM);
     static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[40], vel[40], Planet::NW, Planet::SM);
     static const Planet Proton3     ("Proton3",   Qt::red, 1.6726e-27, Q, pos[41], vel[41], Planet::NW, Planet::SM);
-    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[42], vel[42], Planet::NW, Planet::SM);
-    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[43], vel[43], Planet::NW, Planet::SM);
-    static const Planet Neutron3     ("Neutron3",   Qt::yellow, 1.6726e-27, 0, pos[44], vel[44], Planet::NW, Planet::SM);
-    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[45], vel[45], Planet::NW, Planet::SM);
-    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[46], vel[46], Planet::NW, Planet::SM);
-    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[47], vel[47], Planet::NW, Planet::SM);
-    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[48], vel[48], Planet::NW, Planet::SM);
-
-    static const Planet Proton4     ("Proton4",   Qt::red, 1.6726e-27, Q, pos[49], vel[49], Planet::NW, Planet::SM);
-    static const Planet Proton5     ("Proton5",   Qt::red, 1.6726e-27, Q, pos[50], vel[50], Planet::NW, Planet::SM);
-    static const Planet Proton6     ("Proton6",   Qt::red, 1.6726e-27, Q, pos[51], vel[51], Planet::NW, Planet::SM);
-    static const Planet Neutron4     ("Neutron4",   Qt::yellow, 1.6726e-27, 0, pos[52], vel[52], Planet::NW, Planet::SM);
-    static const Planet Neutron5     ("Neutron5",   Qt::yellow, 1.6726e-27, 0, pos[53], vel[53], Planet::NW, Planet::SM);
-    static const Planet Neutron6     ("Neutron6",   Qt::yellow, 1.6726e-27, 0, pos[54], vel[54], Planet::NW, Planet::SM);
+    static const Planet Proton4     ("Proton4",   Qt::red, 1.6726e-27, Q, pos[42], vel[42], Planet::NW, Planet::SM);
+    static const Planet Proton5     ("Proton5",   Qt::red, 1.6726e-27, Q, pos[43], vel[43], Planet::NW, Planet::SM);
+    static const Planet Proton6     ("Proton6",   Qt::red, 1.6726e-27, Q, pos[44], vel[44], Planet::NW, Planet::SM);
+    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[45], vel[45], Planet::NW, Planet::SM);
+    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[46], vel[46], Planet::NW, Planet::SM);
+    static const Planet Neutron3     ("Neutron3",   Qt::yellow, 1.6726e-27, 0, pos[47], vel[47], Planet::NW, Planet::SM);
+    static const Planet Neutron4     ("Neutron4",   Qt::yellow, 1.6726e-27, 0, pos[48], vel[48], Planet::NW, Planet::SM);
+    static const Planet Neutron5     ("Neutron5",   Qt::yellow, 1.6726e-27, 0, pos[49], vel[49], Planet::NW, Planet::SM);
+    static const Planet Neutron6     ("Neutron6",   Qt::yellow, 1.6726e-27, 0, pos[50], vel[50], Planet::NW, Planet::SM);
+    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[51], vel[51], Planet::NW, Planet::SM);
+    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[52], vel[52], Planet::NW, Planet::SM);
+    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[53], vel[53], Planet::NW, Planet::SM);
+    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[54], vel[54], Planet::NW, Planet::SM);
     static const Planet Electron5   ("Electron5", Qt::blue, 9.109e-31, -Q, pos[55], vel[55], Planet::NW, Planet::SM);
     static const Planet Electron6   ("Electron6", Qt::blue, 9.109e-31, -Q, pos[56], vel[56], Planet::NW, Planet::SM);
-    static const Planet Electron7   ("Electron7", Qt::blue, 9.109e-31, -Q, pos[57], vel[57], Planet::NW, Planet::SM);
-    static const Planet Electron8   ("Electron8", Qt::blue, 9.109e-31, -Q, pos[58], vel[58], Planet::NW, Planet::SM);
+
+    static const Planet Proton7     ("Proton7",   Qt::red, 1.6726e-27, Q, pos[57], vel[57], Planet::NW, Planet::SM);
+    static const Planet Proton8     ("Proton8",   Qt::red, 1.6726e-27, Q, pos[58], vel[58], Planet::NW, Planet::SM);
+    static const Planet Proton9     ("Proton9",   Qt::red, 1.6726e-27, Q, pos[59], vel[59], Planet::NW, Planet::SM);
+    static const Planet Proton10     ("Proton10",   Qt::red, 1.6726e-27, Q, pos[60], vel[60], Planet::NW, Planet::SM);
+    static const Planet Proton11     ("Proton11",   Qt::red, 1.6726e-27, Q, pos[61], vel[61], Planet::NW, Planet::SM);
+    static const Planet Proton12     ("Proton12",   Qt::red, 1.6726e-27, Q, pos[62], vel[62], Planet::NW, Planet::SM);
+    static const Planet Neutron7     ("Neutron7",   Qt::yellow, 1.6726e-27, 0, pos[63], vel[63], Planet::NW, Planet::SM);
+    static const Planet Neutron8     ("Neutron8",   Qt::yellow, 1.6726e-27, 0, pos[64], vel[64], Planet::NW, Planet::SM);
+    static const Planet Neutron9     ("Neutron9",   Qt::yellow, 1.6726e-27, 0, pos[65], vel[65], Planet::NW, Planet::SM);
+    static const Planet Neutron10     ("Neutron10",   Qt::yellow, 1.6726e-27, 0, pos[66], vel[66], Planet::NW, Planet::SM);
+    static const Planet Neutron11     ("Neutron11",   Qt::yellow, 1.6726e-27, 0, pos[67], vel[67], Planet::NW, Planet::SM);
+    static const Planet Neutron12     ("Neutron12",   Qt::yellow, 1.6726e-27, 0, pos[68], vel[68], Planet::NW, Planet::SM);
+    static const Planet Electron7   ("Electron7", Qt::blue, 9.109e-31, -Q, pos[69], vel[69], Planet::NW, Planet::SM);
+    static const Planet Electron8   ("Electron8", Qt::blue, 9.109e-31, -Q, pos[70], vel[70], Planet::NW, Planet::SM);
+    static const Planet Electron9   ("Electron9", Qt::blue, 9.109e-31, -Q, pos[71], vel[71], Planet::NW, Planet::SM);
+    static const Planet Electron10   ("Electron10", Qt::blue, 9.109e-31, -Q, pos[72], vel[72], Planet::NW, Planet::SM);
+    static const Planet Electron11   ("Electron11", Qt::blue, 9.109e-31, -Q, pos[73], vel[73], Planet::NW, Planet::SM);
+    static const Planet Electron12   ("Electron12", Qt::blue, 9.109e-31, -Q, pos[74], vel[74], Planet::NW, Planet::SM);
+
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
     static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
@@ -735,28 +772,44 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet.resize(2);
 
         // store the Sun & the photon using the Newton time formula
-        planet[0].reserve(20);
+        planet[0].reserve(24);
         planet[0].push_back(Proton1);
         planet[0].push_back(Proton2);
         planet[0].push_back(Proton3);
+        planet[0].push_back(Proton4);
+        planet[0].push_back(Proton5);
+        planet[0].push_back(Proton6);
         planet[0].push_back(Neutron1);
         planet[0].push_back(Neutron2);
         planet[0].push_back(Neutron3);
+        planet[0].push_back(Neutron4);
+        planet[0].push_back(Neutron5);
+        planet[0].push_back(Neutron6);
         planet[0].push_back(Electron1);
         planet[0].push_back(Electron2);
         planet[0].push_back(Electron3);
         planet[0].push_back(Electron4);
-
-        planet[0].push_back(Proton4);
-        planet[0].push_back(Proton5);
-        planet[0].push_back(Proton6);
-        planet[0].push_back(Neutron4);
-        planet[0].push_back(Neutron5);
-        planet[0].push_back(Neutron6);
         planet[0].push_back(Electron5);
         planet[0].push_back(Electron6);
+
+        planet[0].push_back(Proton7);
+        planet[0].push_back(Proton8);
+        planet[0].push_back(Proton9);
+        planet[0].push_back(Proton10);
+        planet[0].push_back(Proton11);
+        planet[0].push_back(Proton12);
+        planet[0].push_back(Neutron7);
+        planet[0].push_back(Neutron8);
+        planet[0].push_back(Neutron9);
+        planet[0].push_back(Neutron10);
+        planet[0].push_back(Neutron11);
+        planet[0].push_back(Neutron12);
         planet[0].push_back(Electron7);
         planet[0].push_back(Electron8);
+        planet[0].push_back(Electron9);
+        planet[0].push_back(Electron10);
+        planet[0].push_back(Electron11);
+        planet[0].push_back(Electron12);
 
         // copy & change each planet for the FT time formula
         planet[1] = planet[0];
@@ -810,7 +863,7 @@ void Canvas::slotPlanet(int i)
                 if (stats[i].mean[0].size() > 0)
                 {
                     s.setf(ios::scientific, ios::floatfield);
-                    s << std::setprecision(numeric_limits<real>::digits10);
+                    s << std::setprecision(numeric_limits<::real>::digits10);
                     s << stats[i].precession[j][x];
                 }
 
@@ -825,7 +878,7 @@ void Canvas::slotPlanet(int i)
             if (stats[i].mean[0].size() > 0)
             {
                 s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<real>::digits10);
+                s << std::setprecision(numeric_limits<::real>::digits10);
                 s << stats[i].precession[1][x] - stats[i].precession[0][x];
             }
 
@@ -841,14 +894,14 @@ void Canvas::slotPlanet(int i)
             if (stats[i].mean[0].size() > 0)
             {
                 s[0].setf(ios::scientific, ios::floatfield);
-                s[0] << std::setprecision(numeric_limits<real>::digits10);
+                s[0] << std::setprecision(numeric_limits<::real>::digits10);
 
-                set<real>::iterator k = stats[i].mean[x].begin();
-                set<real>::reverse_iterator l = stats[i].mean[x].rbegin();
+                set<::real>::iterator k = stats[i].mean[x].begin();
+                set<::real>::reverse_iterator l = stats[i].mean[x].rbegin();
                 advance(k, stats[i].mean[x].size() / 2);
                 advance(l, stats[i].mean[x].size() / 2);
 
-                const real median = (* k + * l) / 2;
+                const ::real median = (* k + * l) / 2;
 
                 s[0] << median;
 
@@ -856,18 +909,18 @@ void Canvas::slotPlanet(int i)
                 if (stats[i].mean[0].size() > 1)
                 {
                     s[1].setf(ios::scientific, ios::floatfield);
-                    s[1] << std::setprecision(numeric_limits<real>::digits10);
+                    s[1] << std::setprecision(numeric_limits<::real>::digits10);
 
-                    set<real> dev;
-                    for (set<real>::iterator m = stats[i].mean[x].begin(); m != stats[i].mean[x].end(); ++ m)
+                    set<::real> dev;
+                    for (set<::real>::iterator m = stats[i].mean[x].begin(); m != stats[i].mean[x].end(); ++ m)
                         dev.insert(abs(* m - median));
 
-                    set<real>::iterator m = dev.begin();
-                    set<real>::reverse_iterator n = dev.rbegin();
+                    set<::real>::iterator m = dev.begin();
+                    set<::real>::reverse_iterator n = dev.rbegin();
                     advance(m, dev.size() / 2);
                     advance(n, dev.size() / 2);
 
-                    const real mad = (* m + * n) / 2;
+                    const ::real mad = (* m + * n) / 2;
 
                     s[1] << mad;
 
@@ -878,10 +931,10 @@ void Canvas::slotPlanet(int i)
                     }
 
                     s[2].setf(ios::scientific, ios::floatfield);
-                    s[2] << std::setprecision(numeric_limits<real>::digits10);
+                    s[2] << std::setprecision(numeric_limits<::real>::digits10);
 
                     s[3].setf(ios::scientific, ios::floatfield);
-                    s[3] << std::setprecision(numeric_limits<real>::digits10);
+                    s[3] << std::setprecision(numeric_limits<::real>::digits10);
 
                     s[2] << stats[i].best[0][x];
                     s[3] << stats[i].best[1][x];
@@ -904,7 +957,7 @@ void Canvas::slotPlanet(int i)
                 ostringstream s;
 
                 s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<real>::digits10);
+                s << std::setprecision(numeric_limits<::real>::digits10);
                 s << planet[i][j].p[x];
 
                 p->pLabel[eType][j][x]->setText(s.str().c_str());
@@ -930,7 +983,7 @@ void Canvas::slotGalaxy(int i)
                 ostringstream s;
 
                 s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<real>::digits10);
+                s << std::setprecision(numeric_limits<::real>::digits10);
                 s << planet[j][i].p[x];
 
                 p->pLabel[eType][j][x]->setText(s.str().c_str());
@@ -942,7 +995,7 @@ void Canvas::slotGalaxy(int i)
                 ostringstream s;
 
                 s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<real>::digits10);
+                s << std::setprecision(numeric_limits<::real>::digits10);
                 s << planet[j][i].v[1][x];
 
                 p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
@@ -953,7 +1006,7 @@ void Canvas::slotGalaxy(int i)
             ostringstream s;
 
             s.setf(ios::scientific, ios::floatfield);
-            s << std::setprecision(numeric_limits<real>::digits10);
+            s << std::setprecision(numeric_limits<::real>::digits10);
             s << planet[1][i].v[1][x] - planet[0][i].v[1][x];
 
             p->pLabel[eType][4][x]->setText(s.str().c_str());
@@ -983,7 +1036,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
     if (scale == 0.L)
     {
-        vector3 max = {numeric_limits<real>::min(), numeric_limits<real>::min(), numeric_limits<real>::min()};
+        vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
         for (size_t i = 1; i < planet.size(); ++ i)
         {
@@ -997,7 +1050,7 @@ void Canvas::timerEvent(QTimerEvent *)
             }
         }
 
-        real new_scale = numeric_limits<real>::min();
+        ::real new_scale = numeric_limits<::real>::min();
 
         for (size_t x = 0; x < 2; ++ x)
             if (pow(10, ceil(log10(abs(max[x] / 200)))) > new_scale)
@@ -1006,7 +1059,7 @@ void Canvas::timerEvent(QTimerEvent *)
         scale = new_scale;
     }
 
-    //if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<real>::min())
+    //if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<::real>::min())
     ostringstream o[2];
     o[0] << "Scale: " << scale;
     o[1] << "Zoom: " << zoom;
@@ -1021,7 +1074,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
     default:
         {
-            QRect r(planet[0][0].p[0] / scale - 5 + width()/2, planet[0][0].p[1] / scale - 5 + height()/2, 10, 10);
+            QRect r((planet[0][0].p[0] / scale - 5 + width()/2), (planet[0][0].p[1] / scale - 5 + height()/2), 10, 10);
             QPainter painter;
             painter.begin( &buffer );
             painter.setBrush(Qt::yellow);
@@ -1060,7 +1113,9 @@ void Canvas::timerEvent(QTimerEvent *)
     {
         for (size_t i = 0; i < planet[j].size(); ++ i)
         {
-            QRect e(planet[j][i].o[0] / (scale * zoom) - 2 / zoom + width()/2, planet[j][i].o[1] / (scale * zoom) - 2 / zoom + height()/2, 4 / zoom, 4 / zoom);
+            ::real const radius = (log10(planet[j][i].m) - log10(9.109e-31)) / 4 + 1;
+
+            QRect e((planet[j][i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[j][i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
 
 			planet[j][i].o[0] = planet[j][i].p[0];
 			planet[j][i].o[1] = planet[j][i].p[1];
@@ -1068,10 +1123,10 @@ void Canvas::timerEvent(QTimerEvent *)
 
             vector3 normal(planet[j][i].a[0], planet[j][i].a[1], planet[j][i].a[2]);
 
-            const real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const real norm = sqrt(norm2);
+            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+            const ::real norm = sqrt(norm2);
 
-            QRect r(planet[j][i].o[0] / (scale * zoom) - 2 / zoom + width()/2, planet[j][i].o[1] / (scale * zoom) - 2 / zoom + height()/2, 4 / zoom, 4 / zoom);
+            QRect r((planet[j][i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[j][i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
             QPainter painter;
 			painter.begin( &buffer );
 			painter.setPen(planet[j][i].c);
@@ -1079,6 +1134,7 @@ void Canvas::timerEvent(QTimerEvent *)
 			painter.eraseRect(e);
             painter.drawEllipse(r);
 
+#if 0
             {
                 QPointF start(planet[j][i].o[0] / (scale * zoom) + width()/2, planet[j][i].o[1] / (scale * zoom) + height()/2);
                 QPointF end((planet[j][i].o[0]) / (scale * zoom) + width()/2 + 20 / zoom * normal[0] / norm, (planet[j][i].o[1]) / (scale * zoom) + height()/2 + 20 / zoom * normal[1] / norm);
@@ -1099,6 +1155,7 @@ void Canvas::timerEvent(QTimerEvent *)
                 arrowHead << end << arrowP1 << arrowP2;
                 painter.drawPolygon(arrowHead);
             }
+#endif
 
             painter.end();
 			r |= e;
