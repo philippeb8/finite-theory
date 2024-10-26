@@ -14,7 +14,7 @@ QMAKE_LFLAGS += -lboost_system
 #QMAKE_RPATHDIR           += /opt/V-PlaySDK/5.6/gcc_64/lib/
 #QMAKE_LIBDIR             += /usr/lib
 #QMAKE_LFLAGS             += -static-libgcc -static-libg++
-QMAKE_CXXFLAGS           += -march=native -ffast-math -O3
+QMAKE_CXXFLAGS           += -march=native -O3
 
 #QMAKE_CFLAGS_RELEASE += /MT
 #QMAKE_CXXFLAGS_RELEASE += /MT

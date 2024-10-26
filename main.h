@@ -77,10 +77,12 @@ struct vector3
 		elem_[2] = b3;
 	}
 
-	void operator = (const vector3 & b)
+    vector3 & operator = (const vector3 & b)
 	{
 		for (size_t i = 0; i < N; ++ i)
 			elem_[i] = b.elem_[i];
+
+        return * this;
 	}
 
 	T & operator [] (const size_t n) 
@@ -225,8 +227,7 @@ struct vector3
 
 struct Planet
 {
-    static real FR1(real m, real d, real h);
-    static real FR2(real m, real d, real h);
+    static real FR(real m, real d, real h);
     static real NW(real m, real d, real h);
 
     char const * n;						// name
