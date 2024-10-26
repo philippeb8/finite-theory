@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.0.0"
+#define EDITION "5.0.1"
 
 #include "main.h"
 
@@ -111,8 +111,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
     switch (eType)
     {
-    case NU:
-    case QU:
+    default:
         // same effect:
 #if 1
         t[0] = upper;
@@ -132,62 +131,29 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             const ::real norm = sqrt(norm2);
 
 #if 1
-            // F = (2 * K * q_1 * q_2 * x * η^3) / (x * η + q)^3 - (K * q_1 * q_2 * η_e^2) / (x * η_e + q)^2
-            const ::real fe = (2 * K * planet[i].q * q * norm * pow(Eta, 3)) / pow(norm * Eta + Q, 3) - (K * planet[i].q * q * pow(Eta, 2)) / pow(norm * Eta + Q, 2);
-            const ::real fg = (2 * G * planet[i].m * m * norm * pow(Eta, 3)) / pow(norm * Eta + planet[i].h, 3) - (G * planet[i].m * m * pow(Eta, 2)) / pow(norm * Eta + planet[i].h, 2);
-
-            b[0] += fe * normal[0] / norm;
-            b[1] += fe * normal[1] / norm;
-            b[2] += fe * normal[2] / norm;
+            // F = (2 * K * q_1 * q_2 * x * η_e^3)/(x * η_e + q_2 + q_1)^3 - (K * q_1 * q_2 * η_e^2)/(x * η_e + q_2 + q_1)^2
+            const ::real fg = (2 * G * planet[i].m * m * norm * pow(hg, 3)) / pow(norm * hg + abs(planet[i].m), 3) - (G * planet[i].m * m * pow(hg, 2)) / pow(norm * hg + abs(planet[i].m), 2);
+            const ::real fe = (2 * K * planet[i].q * q * norm * pow(he, 3)) / pow(norm * he + abs(planet[i].q), 3) - (K * planet[i].q * q * pow(he, 2)) / pow(norm * he + abs(planet[i].q), 2);
 
             b[0] -= fg * normal[0] / norm;
             b[1] -= fg * normal[1] / norm;
             b[2] -= fg * normal[2] / norm;
 
+            b[0] += fe * normal[0] / norm;
+            b[1] += fe * normal[1] / norm;
+            b[2] += fe * normal[2] / norm;
 #else
+            b[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
+            b[1] -= G * planet[i].m * m / norm2 * normal[1] / norm;
+            b[2] -= G * planet[i].m * m / norm2 * normal[2] / norm;
+
             b[0] += K * planet[i].q * q / norm2 * normal[0] / norm;
             b[1] += K * planet[i].q * q / norm2 * normal[1] / norm;
             b[2] += K * planet[i].q * q / norm2 * normal[2] / norm;
 
-            b[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
-            b[1] -= G * planet[i].m * m / norm2 * normal[1] / norm;
-            b[2] -= G * planet[i].m * m / norm2 * normal[2] / norm;
-
-            t[0] *= f(planet[i].q, norm, Eta);
-            t[0] *= f(planet[i].m, norm, planet[i].h);
+            t[0] *= f(planet[i].m, norm, planet[i].hg);
+            t[0] *= f(planet[i].q, norm, planet[i].he);
 #endif
-        }
-        break;
-
-    default:
-#if 1
-        t[0] = upper;
-#endif
-
-        // iterate through all planets
-        for (size_t i = 0; i < planet.size(); i ++)
-        {
-            // if same planet or photon then skip
-            if (planet[i].n == n)
-                continue;
-
-            // vector and norm between the moving planet and the other one
-            const vector3 normal(p[0] - planet[i].p[0], p[1] - planet[i].p[1], p[2] - planet[i].p[2]);
-
-            // a = Gm/r^2 decomposed in scalar
-            //vf[0] -= G * planet[i].m / (normal[0] * normal[0]);
-            //vf[1] -= G * planet[i].m / (normal[1] * normal[1]);
-            //vf[2] -= G * planet[i].m / (normal[2] * normal[2]);
-
-            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const ::real norm = sqrt(norm2);
-
-            // a = Gm/r^2 decomposed in scalar
-            b[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
-            b[1] -= G * planet[i].m * m / norm2 * normal[1] / norm;
-            b[2] -= G * planet[i].m * m / norm2 * normal[2] / norm;
-
-            t[0] *= f(planet[i].m, norm, planet[i].h);
         }
         break;
     }
@@ -227,34 +193,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         t[1] = t[0];
     }
 
-    switch (eType)
-    {
-    case NU:
-    case QU:
-#if 0
-            {
-                static mutex m;
-                scoped_lock l(m);
+    // v = v + a*t
+    v[0] += a / m * t[0];
 
-                cout << n << ": " << a[0] << ", " << a[1] << ", " << a[2] << endl;
-            }
-#endif
-
-        // v = v + a*t
-        v[0] += a / m * t[0];
-
-        // p = p + v*t + (a*t^2)/2
-        p += v[0] * t[0];
-        break;
-
-    default:
-        // v = v + a*t
-        v[0] += a / m * t[0];
-
-        // p = p + v*t + (a*t^2)/2
-        p += v[0] * t[0];
-        break;
-    }
+    // p = p + v*t + (a*t^2)/2
+    p += v[0] * t[0];
 
     switch (eType)
 	{
@@ -347,15 +290,16 @@ Canvas::Canvas( Type eType, QWidget *parent)
 {
 //	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
 
-#if 0
+#if 1
     switch (eType)
     {
     case PP: scale = 8e8L; break;
-    case LB: scale = 8e9L; break;
+    case LB: scale = 8e10L; break;
     case BB: scale = 8e9L; break;
-    case GR: scale = 8e9L; break;
+    case GR: scale = 8e10L; break;
     case V1: scale = 8e10L; break;
     case NU: scale = 1e-11L; break;
+    case QU: scale = 1e-17L; break;
     }
 #endif
 
@@ -548,93 +492,93 @@ Canvas::Canvas( Type eType, QWidget *parent)
     };
 
 	// name, color, mass, position and velocity of each moving object
-    static const Planet Sun 	  ("Sun", 		Qt::yellow, 1.98911E+30L, 0, pos[0], vel[0]);
-    static const Planet Mercury   ("Mercury", 	Qt::red, 3.302E+23L, 0, pos[1], vel[1]);
-    static const Planet Venus 	  ("Venus", 	Qt::cyan, 4.8685E+24L, 0, pos[2], vel[2]);
-    static const Planet Earth 	  ("Earth", 	Qt::blue, 5.9736E+24L, 0, pos[3], vel[3]);
-    static const Planet Mars 	  ("Mars", 		Qt::yellow, 6.41850000000001E+23L, 0, pos[4], vel[4]);
-    static const Planet Jupiter   ("Jupiter", 	Qt::magenta, 1.8986E+27L, 0, pos[5], vel[5]);
-    static const Planet Saturn 	  ("Saturn", 	Qt::darkRed, 5.6842928E+26L, 0, pos[6], vel[6]);
-    static const Planet Uranus 	  ("Uranus", 	Qt::green, 8.68320000000002E+25L, 0, pos[7], vel[7]);
-    static const Planet Neptune   ("Neptune", 	Qt::darkBlue, 1.0243E+26L, 0, pos[8], vel[8]);
-    static const Planet Pluto 	  ("Pluto", 	Qt::darkGray, 1.27E+22L, 0, pos[9], vel[9]);
+    static const Planet Sun 	  ("Sun", 		Qt::yellow, 1.98911E+30L, 0, pos[0], vel[0], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Mercury   ("Mercury", 	Qt::red, 3.302E+23L, 0, pos[1], vel[1], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Venus 	  ("Venus", 	Qt::cyan, 4.8685E+24L, 0, pos[2], vel[2], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Earth 	  ("Earth", 	Qt::blue, 5.9736E+24L, 0, pos[3], vel[3], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Mars 	  ("Mars", 		Qt::yellow, 6.41850000000001E+23L, 0, pos[4], vel[4], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Jupiter   ("Jupiter", 	Qt::magenta, 1.8986E+27L, 0, pos[5], vel[5], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Saturn 	  ("Saturn", 	Qt::darkRed, 5.6842928E+26L, 0, pos[6], vel[6], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Uranus 	  ("Uranus", 	Qt::green, 8.68320000000002E+25L, 0, pos[7], vel[7], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Neptune   ("Neptune", 	Qt::darkBlue, 1.0243E+26L, 0, pos[8], vel[8], Planet::NW, Planet::V1, H[0], Eta);
+    static const Planet Pluto 	  ("Pluto", 	Qt::darkGray, 1.27E+22L, 0, pos[9], vel[9], Planet::NW, Planet::V1, H[0], Eta);
 
-    static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, 0, pos[10], vel[10], Planet::FR1, Planet::LB);
-    static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, 0, pos[11], vel[11], Planet::NW, Planet::LB);
+    static const Planet Photon1   ("Photon1", 	Qt::darkGreen, 0.0L, 0, pos[10], vel[10], Planet::FR1, Planet::LB, H[0], Eta);
+    static const Planet Photon2   ("Photon2", 	Qt::darkRed, 0.0L, 0, pos[11], vel[11], Planet::NW, Planet::LB, H[0], Eta);
 
-    static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, 0, pos[28], vel[28], Planet::FR1, Planet::V1);
-    static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, 0, pos[29], vel[29], Planet::NW, Planet::V1);
+    static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, 0, pos[28], vel[28], Planet::FR1, Planet::V1, H[0], Eta);
+    static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, 0, pos[29], vel[29], Planet::NW, Planet::V1, H[0], Eta);
 
-    static const Planet Quark1   ("Quark1", 	Qt::red, 8.38e-30, -Q*1/3, pos[30], vel[30], Planet::NW, Planet::QU);
-    static const Planet Quark2   ("Quark2", 	Qt::blue, 3.92e-30, Q*2/3, pos[31], vel[31], Planet::NW, Planet::QU);
-    static const Planet Quark3   ("Quark3", 	Qt::blue, 3.92e-30, Q*2/3, pos[32], vel[32], Planet::NW, Planet::QU);
+    static const Planet Quark1   ("Quark1", 	Qt::red, 8.38e-30, -Q*1/3, pos[30], vel[30], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark2   ("Quark2", 	Qt::blue, 3.92e-30, Q*2/3, pos[31], vel[31], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark3   ("Quark3", 	Qt::blue, 3.92e-30, Q*2/3, pos[32], vel[32], Planet::NW, Planet::QU, H[0], Eta);
 
-    static const Planet Quark4   ("Quark4", 	Qt::red, 8.38e-30, -Q*1/3, pos[33], vel[33], Planet::NW, Planet::QU);
-    static const Planet Quark5   ("Quark5", 	Qt::blue, 3.92e-30, Q*2/3, pos[34], vel[34], Planet::NW, Planet::QU);
-    static const Planet Quark6   ("Quark6", 	Qt::blue, 3.92e-30, Q*2/3, pos[35], vel[35], Planet::NW, Planet::QU);
+    static const Planet Quark4   ("Quark4", 	Qt::red, 8.38e-30, -Q*1/3, pos[33], vel[33], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark5   ("Quark5", 	Qt::blue, 3.92e-30, Q*2/3, pos[34], vel[34], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark6   ("Quark6", 	Qt::blue, 3.92e-30, Q*2/3, pos[35], vel[35], Planet::NW, Planet::QU, H[0], Eta);
 
-    static const Planet Quark7   ("Quark7", 	Qt::red, 8.38e-30, -Q*1/3, pos[36], vel[36], Planet::NW, Planet::QU);
-    static const Planet Quark8   ("Quark8", 	Qt::blue, 3.92e-30, Q*2/3, pos[37], vel[37], Planet::NW, Planet::QU);
-    static const Planet Quark9   ("Quark9", 	Qt::blue, 3.92e-30, Q*2/3, pos[38], vel[38], Planet::NW, Planet::QU);
+    static const Planet Quark7   ("Quark7", 	Qt::red, 8.38e-30, -Q*1/3, pos[36], vel[36], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark8   ("Quark8", 	Qt::blue, 3.92e-30, Q*2/3, pos[37], vel[37], Planet::NW, Planet::QU, H[0], Eta);
+    static const Planet Quark9   ("Quark9", 	Qt::blue, 3.92e-30, Q*2/3, pos[38], vel[38], Planet::NW, Planet::QU, H[0], Eta);
 
-    static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[39], vel[39], Planet::NW, Planet::NU);
-    static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[40], vel[40], Planet::NW, Planet::NU);
-    static const Planet Proton3     ("Proton3",   Qt::red, 1.6726e-27, Q, pos[41], vel[41], Planet::NW, Planet::NU);
-    static const Planet Proton4     ("Proton4",   Qt::red, 1.6726e-27, Q, pos[42], vel[42], Planet::NW, Planet::NU);
-    static const Planet Proton5     ("Proton5",   Qt::red, 1.6726e-27, Q, pos[43], vel[43], Planet::NW, Planet::NU);
-    static const Planet Proton6     ("Proton6",   Qt::red, 1.6726e-27, Q, pos[44], vel[44], Planet::NW, Planet::NU);
-    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[45], vel[45], Planet::NW, Planet::NU);
-    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[46], vel[46], Planet::NW, Planet::NU);
-    static const Planet Neutron3     ("Neutron3",   Qt::yellow, 1.6726e-27, 0, pos[47], vel[47], Planet::NW, Planet::NU);
-    static const Planet Neutron4     ("Neutron4",   Qt::yellow, 1.6726e-27, 0, pos[48], vel[48], Planet::NW, Planet::NU);
-    static const Planet Neutron5     ("Neutron5",   Qt::yellow, 1.6726e-27, 0, pos[49], vel[49], Planet::NW, Planet::NU);
-    static const Planet Neutron6     ("Neutron6",   Qt::yellow, 1.6726e-27, 0, pos[50], vel[50], Planet::NW, Planet::NU);
-    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[51], vel[51], Planet::NW, Planet::NU);
-    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[52], vel[52], Planet::NW, Planet::NU);
-    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[53], vel[53], Planet::NW, Planet::NU);
-    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[54], vel[54], Planet::NW, Planet::NU);
-    static const Planet Electron5   ("Electron5", Qt::blue, 9.109e-31, -Q, pos[55], vel[55], Planet::NW, Planet::NU);
-    static const Planet Electron6   ("Electron6", Qt::blue, 9.109e-31, -Q, pos[56], vel[56], Planet::NW, Planet::NU);
+    static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[39], vel[39], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[40], vel[40], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton3     ("Proton3",   Qt::red, 1.6726e-27, Q, pos[41], vel[41], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton4     ("Proton4",   Qt::red, 1.6726e-27, Q, pos[42], vel[42], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton5     ("Proton5",   Qt::red, 1.6726e-27, Q, pos[43], vel[43], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton6     ("Proton6",   Qt::red, 1.6726e-27, Q, pos[44], vel[44], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron1     ("Neutron1",   Qt::yellow, 1.6726e-27, 0, pos[45], vel[45], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron2     ("Neutron2",   Qt::yellow, 1.6726e-27, 0, pos[46], vel[46], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron3     ("Neutron3",   Qt::yellow, 1.6726e-27, 0, pos[47], vel[47], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron4     ("Neutron4",   Qt::yellow, 1.6726e-27, 0, pos[48], vel[48], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron5     ("Neutron5",   Qt::yellow, 1.6726e-27, 0, pos[49], vel[49], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron6     ("Neutron6",   Qt::yellow, 1.6726e-27, 0, pos[50], vel[50], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron1   ("Electron1", Qt::blue, 9.109e-31, -Q, pos[51], vel[51], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron2   ("Electron2", Qt::blue, 9.109e-31, -Q, pos[52], vel[52], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron3   ("Electron3", Qt::blue, 9.109e-31, -Q, pos[53], vel[53], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron4   ("Electron4", Qt::blue, 9.109e-31, -Q, pos[54], vel[54], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron5   ("Electron5", Qt::blue, 9.109e-31, -Q, pos[55], vel[55], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron6   ("Electron6", Qt::blue, 9.109e-31, -Q, pos[56], vel[56], Planet::NW, Planet::NU, H[0], Eta);
 
-    static const Planet Proton7     ("Proton7",   Qt::red, 1.6726e-27, Q, pos[57], vel[57], Planet::NW, Planet::NU);
-    static const Planet Proton8     ("Proton8",   Qt::red, 1.6726e-27, Q, pos[58], vel[58], Planet::NW, Planet::NU);
-    static const Planet Proton9     ("Proton9",   Qt::red, 1.6726e-27, Q, pos[59], vel[59], Planet::NW, Planet::NU);
-    static const Planet Proton10     ("Proton10",   Qt::red, 1.6726e-27, Q, pos[60], vel[60], Planet::NW, Planet::NU);
-    static const Planet Proton11     ("Proton11",   Qt::red, 1.6726e-27, Q, pos[61], vel[61], Planet::NW, Planet::NU);
-    static const Planet Proton12     ("Proton12",   Qt::red, 1.6726e-27, Q, pos[62], vel[62], Planet::NW, Planet::NU);
-    static const Planet Neutron7     ("Neutron7",   Qt::yellow, 1.6726e-27, 0, pos[63], vel[63], Planet::NW, Planet::NU);
-    static const Planet Neutron8     ("Neutron8",   Qt::yellow, 1.6726e-27, 0, pos[64], vel[64], Planet::NW, Planet::NU);
-    static const Planet Neutron9     ("Neutron9",   Qt::yellow, 1.6726e-27, 0, pos[65], vel[65], Planet::NW, Planet::NU);
-    static const Planet Neutron10     ("Neutron10",   Qt::yellow, 1.6726e-27, 0, pos[66], vel[66], Planet::NW, Planet::NU);
-    static const Planet Neutron11     ("Neutron11",   Qt::yellow, 1.6726e-27, 0, pos[67], vel[67], Planet::NW, Planet::NU);
-    static const Planet Neutron12     ("Neutron12",   Qt::yellow, 1.6726e-27, 0, pos[68], vel[68], Planet::NW, Planet::NU);
-    static const Planet Electron7   ("Electron7", Qt::blue, 9.109e-31, -Q, pos[69], vel[69], Planet::NW, Planet::NU);
-    static const Planet Electron8   ("Electron8", Qt::blue, 9.109e-31, -Q, pos[70], vel[70], Planet::NW, Planet::NU);
-    static const Planet Electron9   ("Electron9", Qt::blue, 9.109e-31, -Q, pos[71], vel[71], Planet::NW, Planet::NU);
-    static const Planet Electron10   ("Electron10", Qt::blue, 9.109e-31, -Q, pos[72], vel[72], Planet::NW, Planet::NU);
-    static const Planet Electron11   ("Electron11", Qt::blue, 9.109e-31, -Q, pos[73], vel[73], Planet::NW, Planet::NU);
-    static const Planet Electron12   ("Electron12", Qt::blue, 9.109e-31, -Q, pos[74], vel[74], Planet::NW, Planet::NU);
+    static const Planet Proton7     ("Proton7",   Qt::red, 1.6726e-27, Q, pos[57], vel[57], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton8     ("Proton8",   Qt::red, 1.6726e-27, Q, pos[58], vel[58], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton9     ("Proton9",   Qt::red, 1.6726e-27, Q, pos[59], vel[59], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton10     ("Proton10",   Qt::red, 1.6726e-27, Q, pos[60], vel[60], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton11     ("Proton11",   Qt::red, 1.6726e-27, Q, pos[61], vel[61], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Proton12     ("Proton12",   Qt::red, 1.6726e-27, Q, pos[62], vel[62], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron7     ("Neutron7",   Qt::yellow, 1.6726e-27, 0, pos[63], vel[63], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron8     ("Neutron8",   Qt::yellow, 1.6726e-27, 0, pos[64], vel[64], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron9     ("Neutron9",   Qt::yellow, 1.6726e-27, 0, pos[65], vel[65], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron10     ("Neutron10",   Qt::yellow, 1.6726e-27, 0, pos[66], vel[66], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron11     ("Neutron11",   Qt::yellow, 1.6726e-27, 0, pos[67], vel[67], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Neutron12     ("Neutron12",   Qt::yellow, 1.6726e-27, 0, pos[68], vel[68], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron7   ("Electron7", Qt::blue, 9.109e-31, -Q, pos[69], vel[69], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron8   ("Electron8", Qt::blue, 9.109e-31, -Q, pos[70], vel[70], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron9   ("Electron9", Qt::blue, 9.109e-31, -Q, pos[71], vel[71], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron10   ("Electron10", Qt::blue, 9.109e-31, -Q, pos[72], vel[72], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron11   ("Electron11", Qt::blue, 9.109e-31, -Q, pos[73], vel[73], Planet::NW, Planet::NU, H[0], Eta);
+    static const Planet Electron12   ("Electron12", Qt::blue, 9.109e-31, -Q, pos[74], vel[74], Planet::NW, Planet::NU, H[0], Eta);
 
 
-    static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB);
-    static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB);
-    static const Planet Galaxy2   ("Galaxy2", 	Qt::cyan, 50000L, 0, pos[13], vel[13], Planet::NW, Planet::BB);
-    static const Planet Galaxy3   ("Galaxy3", 	Qt::blue, 50000L, 0, pos[14], vel[14], Planet::NW, Planet::BB);
-    static const Planet Galaxy4   ("Galaxy4", 	Qt::yellow, 50000L, 0, pos[15], vel[15], Planet::NW, Planet::BB);
-    static const Planet Galaxy5   ("Galaxy5", 	Qt::magenta, 50000L, 0, pos[16], vel[16], Planet::NW, Planet::BB);
-    static const Planet Galaxy6   ("Galaxy6", 	Qt::darkRed, 50000L, 0, pos[17], vel[17], Planet::NW, Planet::BB);
-    static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, 0, pos[18], vel[18], Planet::NW, Planet::BB);
-    static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, 0, pos[19], vel[19], Planet::NW, Planet::BB);
+    static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0], vel[0], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy1   ("Galaxy1", 	Qt::red, 50000L, 0, pos[12], vel[12], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy2   ("Galaxy2", 	Qt::cyan, 50000L, 0, pos[13], vel[13], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy3   ("Galaxy3", 	Qt::blue, 50000L, 0, pos[14], vel[14], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy4   ("Galaxy4", 	Qt::yellow, 50000L, 0, pos[15], vel[15], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy5   ("Galaxy5", 	Qt::magenta, 50000L, 0, pos[16], vel[16], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy6   ("Galaxy6", 	Qt::darkRed, 50000L, 0, pos[17], vel[17], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, 0, pos[18], vel[18], Planet::NW, Planet::BB, H[1], Eta);
+    static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, 0, pos[19], vel[19], Planet::NW, Planet::BB, H[1], Eta);
 
-    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+12L, 0, pos[0], vel[0], Planet::NW, Planet::GR);
-    static const Planet Star1     ("Star1", 	Qt::red, 50000L, 0, pos[20], vel[20], Planet::NW, Planet::GR);
-    static const Planet Star2     ("Star2", 	Qt::red, 50000L, 0, pos[21], vel[21], Planet::NW, Planet::GR);
-    static const Planet Star3     ("Star3", 	Qt::red, 50000L, 0, pos[22], vel[22], Planet::NW, Planet::GR);
-    static const Planet Star4     ("Star4", 	Qt::red, 50000L, 0, pos[23], vel[23], Planet::NW, Planet::GR);
-    static const Planet Star5     ("Star5", 	Qt::red, 50000L, 0, pos[24], vel[24], Planet::NW, Planet::GR);
-    static const Planet Star6     ("Star6", 	Qt::red, 50000L, 0, pos[25], vel[25], Planet::NW, Planet::GR);
-    static const Planet Star7     ("Star7", 	Qt::red, 50000L, 0, pos[26], vel[26], Planet::NW, Planet::GR);
-    static const Planet Star8     ("Star8", 	Qt::red, 50000L, 0, pos[27], vel[27], Planet::NW, Planet::GR);
+    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2E+12L, 0, pos[0], vel[0], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star1     ("Star1", 	Qt::red, 50000L, 0, pos[20], vel[20], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star2     ("Star2", 	Qt::red, 50000L, 0, pos[21], vel[21], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star3     ("Star3", 	Qt::red, 50000L, 0, pos[22], vel[22], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star4     ("Star4", 	Qt::red, 50000L, 0, pos[23], vel[23], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star5     ("Star5", 	Qt::red, 50000L, 0, pos[24], vel[24], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star6     ("Star6", 	Qt::red, 50000L, 0, pos[25], vel[25], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star7     ("Star7", 	Qt::red, 50000L, 0, pos[26], vel[26], Planet::NW, Planet::GR, H[2], Eta);
+    static const Planet Star8     ("Star8", 	Qt::red, 50000L, 0, pos[27], vel[27], Planet::NW, Planet::GR, H[2], Eta);
 
     switch (eType)
 	{
@@ -643,17 +587,17 @@ Canvas::Canvas( Type eType, QWidget *parent)
 		planet.resize(2);
 
 		// store each planet using the Newton time formula
-        planet[0].reserve(2);
+        planet[0].reserve(10);
 		planet[0].push_back(Sun);
 		planet[0].push_back(Mercury);
-        //planet[0].push_back(Venus);
-        //planet[0].push_back(Earth);
-        //planet[0].push_back(Mars);
-        //planet[0].push_back(Jupiter);
-        //planet[0].push_back(Saturn);
-        //planet[0].push_back(Uranus);
-        //planet[0].push_back(Neptune);
-        //planet[0].push_back(Pluto);
+        planet[0].push_back(Venus);
+        planet[0].push_back(Earth);
+        planet[0].push_back(Mars);
+        planet[0].push_back(Jupiter);
+        planet[0].push_back(Saturn);
+        planet[0].push_back(Uranus);
+        planet[0].push_back(Neptune);
+        planet[0].push_back(Pluto);
 		
 		// copy & change each planet for the FT time formula
 		planet[1] = planet[0];
@@ -714,7 +658,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
             planet[1][i].f = Planet::Planet::FR2;
-            planet[1][i].h = H[1];
+            planet[1][i].hg = H[1];
             planet[1][i].c = planet[1][i].c.darker();
         }
 
@@ -752,7 +696,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
             planet[1][i].f = Planet::Planet::FR2;
-            planet[1][i].h = H[1];
+            planet[1][i].hg = H[1];
             planet[1][i].c = planet[1][i].c.darker();
         }
 
@@ -782,7 +726,6 @@ Canvas::Canvas( Type eType, QWidget *parent)
 
         // store the Sun & the photon using the Newton time formula
         planet[0].reserve(24);
-#if 1
         planet[0].push_back(Proton1);
         planet[0].push_back(Proton2);
         planet[0].push_back(Proton3);
@@ -801,7 +744,6 @@ Canvas::Canvas( Type eType, QWidget *parent)
         planet[0].push_back(Electron4);
         planet[0].push_back(Electron5);
         planet[0].push_back(Electron6);
-#endif
 
         planet[0].push_back(Proton7);
         planet[0].push_back(Proton8);
@@ -827,7 +769,6 @@ Canvas::Canvas( Type eType, QWidget *parent)
         for (size_t i = 0; i < planet[1].size(); i ++)
         {
             planet[1][i].f = Planet::Planet::FR1;
-            planet[1][i].h = Eta;
             planet[1][i].c = planet[1][i].c.darker();
         }
 
@@ -857,7 +798,6 @@ Canvas::Canvas( Type eType, QWidget *parent)
             for (size_t i = 0; i < planet[1].size(); i ++)
             {
                 planet[1][i].f = Planet::Planet::FR1;
-                planet[1][i].h = Eta;
                 planet[1][i].c = planet[1][i].c.darker();
             }
 
@@ -1075,7 +1015,7 @@ void Canvas::timerEvent(QTimerEvent *)
         update(r);
     }
 
-    //if (scale == 0.L)
+    if (scale == 0.L)
     {
         vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
@@ -1108,26 +1048,19 @@ void Canvas::timerEvent(QTimerEvent *)
     q->pScale->setText(o[0].str().c_str());
     q->pZoom->setText(o[1].str().c_str());
 
-    switch (eType)
+#if 0
     {
-    case NU:
-    case QU:
-        break;
+        QRect r((planet[0][0].p[0] / scale - 5 + width()/2), (planet[0][0].p[1] / scale - 5 + height()/2), 10, 10);
+        QPainter painter;
+        painter.begin( &buffer );
+        painter.setBrush(Qt::yellow);
+        painter.drawEllipse(r);
+        painter.end();
+        bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
-    default:
-        {
-            QRect r((planet[0][0].p[0] / scale - 5 + width()/2), (planet[0][0].p[1] / scale - 5 + height()/2), 10, 10);
-            QPainter painter;
-            painter.begin( &buffer );
-            painter.setBrush(Qt::yellow);
-            painter.drawEllipse(r);
-            painter.end();
-            bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
-
-            update(r);
-        }
-        break;
+        update(r);
     }
+#endif
 
     switch (eType)
     {

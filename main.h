@@ -243,12 +243,12 @@ struct Planet
     vector3 pp[2];						// current & old saved positions on the perihelion
     vector3 ps[5];						// current & old polar coordinates of pp
     real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
-    real h;                             // fudge factor
+    real hg, he;                             // fudge factor
 
     enum Type {PP, LB, BB, GR, V1, NU, QU} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
-    Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* f)(real, real, real) = NW, Type eType = PP, real h = H[0])
-        : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), f(f), eType(eType), h(h)
+    Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* f)(real, real, real), Type eType, real hg, real he)
+        : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), f(f), eType(eType), hg(hg), he(he)
 	{
         v[0] = vector3(pv[0], pv[1], pv[2]);
 	}
