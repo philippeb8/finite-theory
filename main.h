@@ -238,7 +238,7 @@ struct Planet
     vector3 v[2];						// current & saved velocity
     vector3 o;							// old position
     vector3 a;							// acceleration or force
-    real t[2];							// current & old time intervals according to Newton or FT
+    real tg[2], te[2];              	// current & old time intervals according to Newton or FT
     bool first;                         // first cycle
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
     vector3 pp[2];						// current & old saved positions on the perihelion
