@@ -131,7 +131,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
 #if 1
             // F = (2 * K * q_1 * q_2 * x * η_e^3)/(x * η_e + q_2 + q_1)^3 - (K * q_1 * q_2 * η_e^2)/(x * η_e + q_2 + q_1)^2
-            const ::real fg = G * planet[i].m * m / norm2;
+            const ::real fg = (2 * G * planet[i].m * m * norm * pow(hg, 3)) / pow(norm * hg + abs(planet[i].m) + abs(m), 3) - (G * planet[i].m * m * pow(hg, 2)) / pow(norm * hg + abs(planet[i].m) + abs(m), 2);
             const ::real fe = (2 * K * planet[i].q * q * norm * pow(he, 3)) / pow(norm * he + abs(planet[i].q) + abs(q), 3) - (K * planet[i].q * q * pow(he, 2)) / pow(norm * he + abs(planet[i].q) + abs(q), 2);
 
             b[0] -= fg * normal[0] / norm;
@@ -143,7 +143,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             b[2] += fe * normal[2] / norm;
 
             tg[0] += f(planet[i].m, norm, planet[i].hg);
-            //te[0] += f(planet[i].q, norm, planet[i].he);
+            te[0] += f(planet[i].q, norm, planet[i].he);
 #else
             b[0] -= G * planet[i].m * m / norm2 * normal[0] / norm;
             b[1] -= G * planet[i].m * m / norm2 * normal[1] / norm;
@@ -185,7 +185,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
     const vector3 s(p[0], p[1], p[2]);
 
     tg[0] = hg / (tg[0] + hg);
-    //te[0] = he / (te[0] + he);
+    te[0] = he / (te[0] + he);
 
     // save old time value
     if (! first)
@@ -200,11 +200,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         te[1] = te[0];
     }
 
+    ::real const t = tg[0] * te[0];
+
     // v = v + a*t
-    v[0] += a / m * upper * tg[0];// * te[0];
+    v[0] += a / m * upper * t;
 
     // p = p + v*t + (a*t^2)/2
-    p += v[0] * upper * tg[0];// * te[0];
+    p += v[0] * upper;
 
     switch (eType)
 	{
@@ -1253,8 +1255,8 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
     ntime[3] = 50000000000;
     ntime[4] = 1;
-    ntime[5] = 1e-20;
-    ntime[6] = 1e-25;
+    ntime[5] = 1e-19;
+    ntime[6] = 1e-22;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
