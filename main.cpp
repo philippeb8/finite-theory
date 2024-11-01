@@ -200,13 +200,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         te[1] = te[0];
     }
 
-    ::real const t = tg[0] * te[0];
-
+#if 1
     // v = v + a*t
-    v[0] += a / m * upper * t;
+    v[0] += a / m * upper * tg[0] * te[0];
 
     // p = p + v*t + (a*t^2)/2
     p += v[0] * upper;
+#endif
 
     switch (eType)
 	{
@@ -342,6 +342,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, -50000000000.L, 0.L},
         {50000000000.L, -50000000000.L, 0.L},
 
+        // galaxy:
         {-2.46e20L * 4/4, 0.L, 0.L},
         {-2.46e20L * 3/4, 0.L, 0.L},
         {-2.46e20L * 2/4, 0.L, 0.L},
@@ -435,6 +436,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
         {0.L, -50000.L, 0.L},
         {50000.L, -50000.L, 0.L},
 
+        // galaxy:
         {0.L, 7e4L * 4/4, 0.L},
         {0.L, 7e4L * 4/3, 0.L},
         {0.L, 7e4L * 4/2, 0.L},
@@ -579,7 +581,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
     static const Planet Galaxy7   ("Galaxy7", 	Qt::green, 50000L, 0, pos[18], vel[18], Planet::NW, Planet::BB, H[1], Eta);
     static const Planet Galaxy8   ("Galaxy8", 	Qt::darkBlue, 50000L, 0, pos[19], vel[19], Planet::NW, Planet::BB, H[1], Eta);
 
-    static const Planet Nucleus   ("Nucleus", 	Qt::black, 2e10L * 2e30L, 0, pos[0], vel[0], Planet::NW, Planet::GR, H[0], Eta);
+    static const Planet Buldge    ("Buldge", 	Qt::black, 2e10L * 2e30L, 0, pos[0], vel[0], Planet::NW, Planet::GR, H[0], Eta);
     static const Planet Star1     ("Star1", 	Qt::red, 2e30L, 0, pos[20], vel[20], Planet::NW, Planet::GR, H[0], Eta);
     static const Planet Star2     ("Star2", 	Qt::red, 2e30L, 0, pos[21], vel[21], Planet::NW, Planet::GR, H[0], Eta);
     static const Planet Star3     ("Star3", 	Qt::red, 2e30L, 0, pos[22], vel[22], Planet::NW, Planet::GR, H[0], Eta);
@@ -689,7 +691,7 @@ Canvas::Canvas( Type eType, QWidget *parent)
 
         // store the Sun & the planets using FT time formula
         planet[0].reserve(9);
-        planet[0].push_back(Nucleus);
+        planet[0].push_back(Buldge);
         planet[0].push_back(Star1);
         planet[0].push_back(Star2);
         planet[0].push_back(Star3);
@@ -1023,7 +1025,7 @@ void Canvas::timerEvent(QTimerEvent *)
         update(r);
     }
 
-    if (scale == 0.L)
+    //if (scale == 0.L)
     {
         vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
