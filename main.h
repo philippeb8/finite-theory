@@ -227,8 +227,11 @@ struct vector3
 
 struct Planet
 {
-    static real FR(real m, real d, real h);
-    static real NW(real m, real d, real h);
+    static real FT_Time(real m, real d, real h);
+    static real FT_Force(real G, real m1, real m2, real d, real h);
+
+    static real NW_Time(real m, real d, real h);
+    static real NW_Force(real G, real m1, real m2, real d, real h);
 
     char const * n;						// name
 	QColor c;							// color
@@ -237,19 +240,20 @@ struct Planet
 	vector3 p;							// position
     vector3 v[2];						// current & saved velocity
     vector3 o;							// old position
-    vector3 a;							// acceleration or force
+    vector3 netforce;   				// acceleration or force
     real tg[2], te[2];              	// current & old time intervals according to Newton or FT
     bool first;                         // first cycle
 	bool updated;						// the cycle of the planet or the photon arrival line has been completed
     vector3 pp[2];						// current & old saved positions on the perihelion
     vector3 ps[5];						// current & old polar coordinates of pp
-    real (* f)(real, real, real);   	// function pointer to Newton time formula or FT time formula
+    real (* time)(real, real, real);                    // function pointer to Newton time formula or FT time formula
+    real (* force)(real, real, real, real, real);   	// function pointer to Newton time formula or FT force formula
     real hg, he;                             // fudge factor
 
     enum Type {PP, LB, BB, GR, V1, NU, QU} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
-    Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* f)(real, real, real), Type eType, real hg, real he)
-        : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), f(f), eType(eType), hg(hg), he(he)
+    Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* time)(real, real, real), real (* force)(real, real, real, real, real), Type eType, real hg, real he)
+        : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), time(time), force(force), eType(eType), hg(hg), he(he)
 	{
         v[0] = vector3(pv[0], pv[1], pv[2]);
 	}
