@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.0.2"
+#define EDITION "5.1.0"
 
 #include "main.h"
 
@@ -196,11 +196,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         te[1] = te[0];
     }
 
+    const ::real dt = upper * tg[0] * te[0];
+
     // v = v + a*t
-    v[0] += netforce / m * upper * tg[0] * te[0];
+    v[0] += netforce / m * dt;
 
     // p = p + v*t + (a*t^2)/2
-    p += v[0] * upper;
+    p += v[0] * dt;
 #endif
 
     switch (eType)
@@ -258,7 +260,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
     first = false;
 }
 
-Dual::Dual(Canvas * pParent, int id) : p(pParent), i(id)
+Dual::Dual(Canvas * pParent) : p(pParent)
 {
     start();
 }
@@ -274,23 +276,22 @@ void Dual::run()
 			QThread::msleep(100);
 		
 		// move the same planet or photon according to Newton & FT
-        for (size_t j = 0; j < p->planet.size(); ++ j)
         {
-          vector<Planet> temporary = p->planet[j];
+          vector<Planet> temporary = p->planet;
 
-          for (size_t i = 0; i < p->planet[j].size(); ++ i)
-            temporary[i](p->planet[j], q->pTime->value());
+          for (size_t i = 0; i < p->planet.size(); ++ i)
+            temporary[i](p->planet, q->pTime->value());
 
-          p->planet[j] = temporary;
+          p->planet = temporary;
         }
 	}
 }
 
 const bool no_writing = false;
 
-Canvas::Canvas( Type eType, QWidget *parent)
+Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     : QWidget( parent/*, name, Qt::WStaticContents*/ ),
-      eType(eType), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() )
+      eType(eType), t(t), pen( Qt::red, 3 ), polyline(3), mousePressed( false ), buffer( width(), height() )
 {
 //	setAttribute(Qt::WA_PaintOutsidePaintEvent, true);
 
@@ -790,236 +791,200 @@ Canvas::Canvas( Type eType, QWidget *parent)
 	{
 	// perihelion precession disparity
 	case PP:
-		planet.resize(2);
-
 		// store each planet using the Newton time formula
-        planet[0].reserve(10);
-		planet[0].push_back(Sun);
-		planet[0].push_back(Mercury);
-        planet[0].push_back(Venus);
-        planet[0].push_back(Earth);
-        planet[0].push_back(Mars);
-        planet[0].push_back(Jupiter);
-        planet[0].push_back(Saturn);
-        planet[0].push_back(Uranus);
-        planet[0].push_back(Neptune);
-        planet[0].push_back(Pluto);
+        planet.reserve(10);
+        planet.push_back(Sun);
+        planet.push_back(Mercury);
+        planet.push_back(Venus);
+        planet.push_back(Earth);
+        planet.push_back(Mars);
+        planet.push_back(Jupiter);
+        planet.push_back(Saturn);
+        planet.push_back(Uranus);
+        planet.push_back(Neptune);
+        planet.push_back(Pluto);
 		
 		// copy & change each planet for the FT time formula
-		planet[1] = planet[0];
-		for (size_t i = 0; i < planet[1].size(); i ++)
-		{
-            planet[1][i].time = Planet::FT_Time;
-            planet[1][i].force = Planet::FT_Force;
-            planet[1][i].c = planet[1][i].c.darker();
-		}
+        if (t == 1)
+            for (size_t i = 0; i < planet.size(); i ++)
+            {
+                planet[i].time = Planet::FT_Time;
+                planet[i].force = Planet::FT_Force;
+            }
 
-		stats.resize(planet[0].size());
-
-		// prepare the UI
-		for (size_t i = 1; i < planet[0].size(); i ++)
-		{
-			QPixmap p(12, 8);
-			p.fill(planet[0][i].c);
-            q->pPlanet[0]->addItem(p, planet[0][i].n);
-		}
-
-        connect(q->pPlanet[0], SIGNAL(activated(int)), SLOT(slotPlanet(int)));
 		break;
 	
 	// gravitational light bending
 	case LB:
-		planet.resize(2);
+        // store the Sun & the photon using the Newton time formula
+        planet.reserve(2);
+        planet.push_back(Sun);
 
-		// store the Sun & the photon using the Newton time formula
-		planet[0].reserve(2);
-		planet[0].push_back(Sun);
-		planet[0].push_back(Photon1);
+        switch (t)
+        {
+        case 0: planet.push_back(Photon1); break;
+        case 1: planet.push_back(Photon2); break;
+        }
 
-		// store the Sun & the photon using the FT time formula
-		planet[1].reserve(2);
-		planet[1].push_back(Sun);
-		planet[1].push_back(Photon2);
-
-		stats.resize(planet[0].size());
-		break;
+        break;
 
     // big bang
     case BB:
-        planet.resize(2);
-
         // store the Sun & the planets using FT time formula
-        planet[0].reserve(9);
-        planet[0].push_back(Core);
-        planet[0].push_back(Galaxy1);
-        planet[0].push_back(Galaxy2);
-        planet[0].push_back(Galaxy3);
-        planet[0].push_back(Galaxy4);
-        planet[0].push_back(Galaxy5);
-        planet[0].push_back(Galaxy6);
-        planet[0].push_back(Galaxy7);
-        planet[0].push_back(Galaxy8);
+        planet.reserve(9);
+        planet.push_back(Core);
+        planet.push_back(Galaxy1);
+        planet.push_back(Galaxy2);
+        planet.push_back(Galaxy3);
+        planet.push_back(Galaxy4);
+        planet.push_back(Galaxy5);
+        planet.push_back(Galaxy6);
+        planet.push_back(Galaxy7);
+        planet.push_back(Galaxy8);
 
         // copy & change each planet for the FT time formula
-        planet[1] = planet[0];
-        for (size_t i = 0; i < planet[1].size(); i ++)
-        {
-            planet[1][i].time = Planet::Planet::FT_Time;
-            planet[1][i].force = Planet::Planet::FT_Force;
-            planet[1][i].c = planet[1][i].c.darker();
-        }
+        if (t == 1)
+            for (size_t i = 0; i < planet.size(); i ++)
+            {
+                planet[i].time = Planet::FT_Time;
+                planet[i].force = Planet::FT_Force;
+            }
 
-        stats.resize(planet[0].size());
-
-        // prepare the UI
-        for (size_t i = 1; i < planet[0].size(); i ++)
-        {
-            QPixmap p(12, 8);
-            p.fill(planet[0][i].c);
-            q->pPlanet[1]->addItem(p, planet[0][i].n);
-        }
-
-        connect(q->pPlanet[1], SIGNAL(activated(int)), SLOT(slotGalaxy(int)));
         break;
 
         // galactic rotation
     case GR:
-        planet.resize(2);
+        planet.reserve(9);
 
-        // store the buldge & the stars using NW time formula
-        planet[0].reserve(9);
-        planet[0].push_back(Buldge1);
-        planet[0].push_back(Star11);
-        planet[0].push_back(Star12);
-        planet[0].push_back(Star13);
-        planet[0].push_back(Star14);
-        planet[0].push_back(Star15);
-        planet[0].push_back(Star16);
-        planet[0].push_back(Star17);
-        planet[0].push_back(Star18);
-
-        // store the buldge & the stars using FT time formula
-        planet[1].reserve(9);
-        planet[1].push_back(Buldge2);
-        planet[1].push_back(Star21);
-        planet[1].push_back(Star22);
-        planet[1].push_back(Star23);
-        planet[1].push_back(Star24);
-        planet[1].push_back(Star25);
-        planet[1].push_back(Star26);
-        planet[1].push_back(Star27);
-        planet[1].push_back(Star28);
-
-        // darken stars for FT
-        for (size_t i = 0; i < planet[1].size(); i ++)
+        switch (t)
         {
-            planet[1][i].c = planet[1][i].c.darker();
+        case 0:
+            // store the buldge & the stars using NW time formula
+            planet.push_back(Buldge1);
+            planet.push_back(Star11);
+            planet.push_back(Star12);
+            planet.push_back(Star13);
+            planet.push_back(Star14);
+            planet.push_back(Star15);
+            planet.push_back(Star16);
+            planet.push_back(Star17);
+            planet.push_back(Star18);
+            break;
+
+        case 1:
+            // store the buldge & the stars using FT time formula
+            planet.push_back(Buldge2);
+            planet.push_back(Star21);
+            planet.push_back(Star22);
+            planet.push_back(Star23);
+            planet.push_back(Star24);
+            planet.push_back(Star25);
+            planet.push_back(Star26);
+            planet.push_back(Star27);
+            planet.push_back(Star28);
+            break;
         }
 
-        stats.resize(planet[0].size());
         break;
 
     // pioneer 10
     case V1:
-        planet.resize(2);
-
         // store the Sun & the photon using the Newton time formula
-        planet[0].reserve(2);
-        planet[0].push_back(Sun);
-        planet[0].push_back(Pioneer1);
+        planet.reserve(2);
+        planet.push_back(Sun);
 
-        // store the Sun & the photon using the FT time formula
-        planet[1].reserve(2);
-        planet[1].push_back(Sun);
-        planet[1].push_back(Pioneer2);
+        switch (t)
+        {
+        case 0: planet.push_back(Pioneer1); break;
+        case 1: planet.push_back(Pioneer2); break;
+        }
 
-        stats.resize(planet[0].size());
         break;
 
     // atomic
     case NU:
-        planet.resize(2);
+        planet.reserve(24);
 
-        // store the Sun & the photon using the Newton time formula
-        planet[0].reserve(24);
-        planet[0].push_back(Proton1);
-        planet[0].push_back(Proton2);
-        planet[0].push_back(Proton3);
-        planet[0].push_back(Proton4);
-        planet[0].push_back(Proton5);
-        planet[0].push_back(Proton6);
-        planet[0].push_back(Neutron1);
-        planet[0].push_back(Neutron2);
-        planet[0].push_back(Neutron3);
-        planet[0].push_back(Neutron4);
-        planet[0].push_back(Neutron5);
-        planet[0].push_back(Neutron6);
-        planet[0].push_back(Electron1);
-        planet[0].push_back(Electron2);
-        planet[0].push_back(Electron3);
-        planet[0].push_back(Electron4);
-        planet[0].push_back(Electron5);
-        planet[0].push_back(Electron6);
-
-        planet[0].push_back(Proton7);
-        planet[0].push_back(Proton8);
-        planet[0].push_back(Proton9);
-        planet[0].push_back(Proton10);
-        planet[0].push_back(Proton11);
-        planet[0].push_back(Proton12);
-        planet[0].push_back(Neutron7);
-        planet[0].push_back(Neutron8);
-        planet[0].push_back(Neutron9);
-        planet[0].push_back(Neutron10);
-        planet[0].push_back(Neutron11);
-        planet[0].push_back(Neutron12);
-        planet[0].push_back(Electron7);
-        planet[0].push_back(Electron8);
-        planet[0].push_back(Electron9);
-        planet[0].push_back(Electron10);
-        planet[0].push_back(Electron11);
-        planet[0].push_back(Electron12);
-
-        // copy & change each planet for the FT time formula
-        planet[1] = planet[0];
-        for (size_t i = 0; i < planet[1].size(); i ++)
+        switch (t)
         {
-            planet[1][i].time = Planet::Planet::FT_Time;
-            planet[1][i].force = Planet::Planet::FT_Force;
-            planet[1][i].c = planet[1][i].c.darker();
+        case 0:
+            // store the Sun & the photon using the Newton time formula
+            planet.push_back(Proton1);
+            planet.push_back(Proton2);
+            planet.push_back(Proton3);
+            planet.push_back(Proton4);
+            planet.push_back(Proton5);
+            planet.push_back(Proton6);
+            planet.push_back(Neutron1);
+            planet.push_back(Neutron2);
+            planet.push_back(Neutron3);
+            planet.push_back(Neutron4);
+            planet.push_back(Neutron5);
+            planet.push_back(Neutron6);
+            planet.push_back(Electron1);
+            planet.push_back(Electron2);
+            planet.push_back(Electron3);
+            planet.push_back(Electron4);
+            planet.push_back(Electron5);
+            planet.push_back(Electron6);
+            break;
+
+        case 1:
+            planet.push_back(Proton7);
+            planet.push_back(Proton8);
+            planet.push_back(Proton9);
+            planet.push_back(Proton10);
+            planet.push_back(Proton11);
+            planet.push_back(Proton12);
+            planet.push_back(Neutron7);
+            planet.push_back(Neutron8);
+            planet.push_back(Neutron9);
+            planet.push_back(Neutron10);
+            planet.push_back(Neutron11);
+            planet.push_back(Neutron12);
+            planet.push_back(Electron7);
+            planet.push_back(Electron8);
+            planet.push_back(Electron9);
+            planet.push_back(Electron10);
+            planet.push_back(Electron11);
+            planet.push_back(Electron12);
+            break;
         }
 
-        stats.resize(planet[0].size());
+        // copy & change each planet for the FT time formula
+        if (t == 1)
+            for (size_t i = 0; i < planet.size(); i ++)
+            {
+                planet[i].time = Planet::FT_Time;
+                planet[i].force = Planet::FT_Force;
+            }
+
         break;
 
         // quantum
         case QU:
-            planet.resize(2);
-
             // store the Sun & the photon using the Newton time formula
-            planet[0].reserve(9);
+            planet.reserve(9);
     #if 1
-            planet[0].push_back(Quark1);
-            planet[0].push_back(Quark2);
-            planet[0].push_back(Quark3);
-            planet[0].push_back(Quark4);
-            planet[0].push_back(Quark5);
-            planet[0].push_back(Quark6);
-            planet[0].push_back(Quark7);
-            planet[0].push_back(Quark8);
-            planet[0].push_back(Quark9);
+            planet.push_back(Quark1);
+            planet.push_back(Quark2);
+            planet.push_back(Quark3);
+            planet.push_back(Quark4);
+            planet.push_back(Quark5);
+            planet.push_back(Quark6);
+            planet.push_back(Quark7);
+            planet.push_back(Quark8);
+            planet.push_back(Quark9);
     #endif
 
             // copy & change each planet for the FT time formula
-            planet[1] = planet[0];
-            for (size_t i = 0; i < planet[1].size(); i ++)
-            {
-                planet[1][i].time = Planet::Planet::FT_Time;
-                planet[1][i].force = Planet::Planet::FT_Force;
-                planet[1][i].c = planet[1][i].c.darker();
-            }
+            if (t == 1)
+                for (size_t i = 0; i < planet.size(); i ++)
+                {
+                    planet[i].time = Planet::FT_Time;
+                    planet[i].force = Planet::FT_Force;
+                }
 
-            stats.resize(planet[0].size());
             break;
     }
 	
@@ -1033,13 +998,11 @@ Canvas::Canvas( Type eType, QWidget *parent)
 	startTimer(100);
 
 	// launch a thread for each planet or photon
-    if (planet.size())
-        new Dual(this, planet[0].size());
+    new Dual(this);
 }
 
 Canvas::~Canvas()
 {
-	exit(-1);
 }
 
 void Canvas::slotPlanet(int i)
@@ -1047,7 +1010,8 @@ void Canvas::slotPlanet(int i)
 	Scribble * p = static_cast<Scribble *>(topLevelWidget());
 	
 	++ i;
-	
+
+#if 0
     switch (eType)
     {
     case PP:
@@ -1164,6 +1128,7 @@ void Canvas::slotPlanet(int i)
 #endif
         break;
     }
+#endif
 }
 
 void Canvas::slotGalaxy(int i)
@@ -1176,29 +1141,16 @@ void Canvas::slotGalaxy(int i)
     {
     case BB:
     case V1:
-        for (size_t j = 0; j < planet.size(); ++ j)
-            for (int x = 0; x < 3; ++ x)
-            {
-                ostringstream s;
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
 
-                s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<::real>::digits10);
-                s << planet[j][i].p[x];
+            s.setf(ios::scientific, ios::floatfield);
+            s << std::setprecision(numeric_limits<::real>::digits10);
+            s << planet[i].p[x];
 
-                p->pLabel[eType][j][x]->setText(s.str().c_str());
-            }
-
-        for (size_t j = 0; j < planet.size(); ++ j)
-            for (int x = 0; x < 3; ++ x)
-            {
-                ostringstream s;
-
-                s.setf(ios::scientific, ios::floatfield);
-                s << std::setprecision(numeric_limits<::real>::digits10);
-                s << planet[j][i].v[1][x];
-
-                p->pLabel[eType][j + 2][x]->setText(s.str().c_str());
-            }
+            p->pLabel[eType][t][x]->setText(s.str().c_str());
+        }
 
         for (int x = 0; x < 3; ++ x)
         {
@@ -1206,7 +1158,18 @@ void Canvas::slotGalaxy(int i)
 
             s.setf(ios::scientific, ios::floatfield);
             s << std::setprecision(numeric_limits<::real>::digits10);
-            s << planet[1][i].v[1][x] - planet[0][i].v[1][x];
+            s << planet[i].v[1][x];
+
+            p->pLabel[eType][t + 2][x]->setText(s.str().c_str());
+        }
+
+        for (int x = 0; x < 3; ++ x)
+        {
+            ostringstream s;
+
+            s.setf(ios::scientific, ios::floatfield);
+            s << std::setprecision(numeric_limits<::real>::digits10);
+            s << planet[i].v[1][x] - planet[t].v[1][x];
 
             p->pLabel[eType][4][x]->setText(s.str().c_str());
         }
@@ -1233,20 +1196,18 @@ void Canvas::timerEvent(QTimerEvent *)
         update(r);
     }
 
+#if 1
     //if (scale == 0.L)
     {
         vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
-        for (size_t i = 1; i < planet.size(); ++ i)
+        for (size_t j = 0; j < planet.size(); ++ j)
         {
-            for (size_t j = 0; j < planet[i].size(); ++ j)
-            {
-                if (abs(planet[i][j].p[0]) > max[0])
-                    max[0] = abs(planet[i][j].p[0]);
+            if (abs(planet[j].p[0]) > max[0])
+                max[0] = abs(planet[j].p[0]);
 
-                if (abs(planet[i][j].p[1]) > max[1])
-                    max[1] = abs(planet[i][j].p[1]);
-            }
+            if (abs(planet[j].p[1]) > max[1])
+                max[1] = abs(planet[j].p[1]);
         }
 
         ::real new_scale = numeric_limits<::real>::min();
@@ -1257,6 +1218,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
         scale = new_scale;
     }
+#endif
 
     //if (new_scale != scale && ! isinf(new_scale) && ! isnan(new_scale) && new_scale != numeric_limits<::real>::min())
     ostringstream o[2];
@@ -1268,7 +1230,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
 #if 0
     {
-        QRect r((planet[0][0].p[0] / scale - 5 + width()/2), (planet[0][0].p[1] / scale - 5 + height()/2), 10, 10);
+        QRect r((planet[0].p[0] / scale - 5 + width()/2), (planet[0].p[1] / scale - 5 + height()/2), 10, 10);
         QPainter painter;
         painter.begin( &buffer );
         painter.setBrush(Qt::yellow);
@@ -1278,22 +1240,20 @@ void Canvas::timerEvent(QTimerEvent *)
 
         update(r);
     }
-#endif
 
     switch (eType)
     {
     case PP:
     case LB:
-        for (size_t i = 0; i < planet[0].size(); ++ i)
+        for (size_t i = 0; i < planet.size(); ++ i)
         {
-            for (size_t j = 0; j < planet.size(); ++ j)
-                if (planet[j][i].updated)
-                {
-                    for (int x = 0; x < 3; ++ x)
-                        stats[i].precession[j][x] = planet[j][i].ps[3][x] - planet[j][i].ps[4][x];
-                }
+            if (planet[i].updated)
+            {
+                for (int x = 0; x < 3; ++ x)
+                    stats[i].precession[t][x] = planet[i].ps[3][x] - planet[i].ps[4][x];
+            }
 
-            if (planet[0][i].updated && planet[1][i].updated)
+            if (planet[i].updated && planet[i].updated)
             {
                 for (int x = 0; x < 3; ++ x)
                     stats[i].mean[x].insert(stats[i].precession[1][x] - stats[i].precession[0][x]);
@@ -1301,75 +1261,73 @@ void Canvas::timerEvent(QTimerEvent *)
         }
         break;
     }
+#endif
 
-    for (size_t j = 0; j < planet.size(); ++ j)
+    for (size_t i = 0; i < planet.size(); ++ i)
     {
-        for (size_t i = 0; i < planet[j].size(); ++ i)
+        ::real const radius = (planet[i].m / planet[0].m) + 1;
+
+        QRect e((planet[i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
+
+        planet[i].o[0] = planet[i].p[0];
+        planet[i].o[1] = planet[i].p[1];
+        planet[i].o[2] = planet[i].p[2];
+
+        vector3 normal(planet[i].netforce[0], planet[i].netforce[1], planet[i].netforce[2]);
+
+        const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+        const ::real norm = sqrt(norm2);
+
+        QRect r((planet[i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
+        QPainter painter;
+        painter.begin( &buffer );
+        painter.setPen(planet[i].c);
+        painter.setBrush(planet[i].c);
+        painter.eraseRect(e);
+        painter.drawEllipse(r);
+
+#if 0
         {
-            ::real const radius = (planet[j][i].m / planet[j][0].m) + 1;
+            QPointF start(planet[i].o[0] / (scale * zoom) + width()/2, planet[i].o[1] / (scale * zoom) + height()/2);
+            QPointF end((planet[i].o[0]) / (scale * zoom) + width()/2 + 20 / zoom * normal[0] / norm, (planet[i].o[1]) / (scale * zoom) + height()/2 + 20 / zoom * normal[1] / norm);
 
-            QRect e((planet[j][i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[j][i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
+            painter.drawLine(start, end);
 
-			planet[j][i].o[0] = planet[j][i].p[0];
-			planet[j][i].o[1] = planet[j][i].p[1];
-			planet[j][i].o[2] = planet[j][i].p[2];
+            double arrowHeadLength = 4 / zoom;
+            double arrowHeadAngle = M_PI / 4;
 
-            vector3 normal(planet[j][i].netforce[0], planet[j][i].netforce[1], planet[j][i].netforce[2]);
+            double angle = std::atan2(end.y() - start.y(), end.x() - start.x());
 
-            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const ::real norm = sqrt(norm2);
+            QPointF arrowP1 = end - QPointF(arrowHeadLength * std::cos(angle - arrowHeadAngle),
+                                            arrowHeadLength * std::sin(angle - arrowHeadAngle));
+            QPointF arrowP2 = end - QPointF(arrowHeadLength * std::cos(angle + arrowHeadAngle),
+                                            arrowHeadLength * std::sin(angle + arrowHeadAngle));
 
-            QRect r((planet[j][i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[j][i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
-            QPainter painter;
-			painter.begin( &buffer );
-			painter.setPen(planet[j][i].c);
-			painter.setBrush(planet[j][i].c);
-			painter.eraseRect(e);
-            painter.drawEllipse(r);
-
-#if 0
-            {
-                QPointF start(planet[j][i].o[0] / (scale * zoom) + width()/2, planet[j][i].o[1] / (scale * zoom) + height()/2);
-                QPointF end((planet[j][i].o[0]) / (scale * zoom) + width()/2 + 20 / zoom * normal[0] / norm, (planet[j][i].o[1]) / (scale * zoom) + height()/2 + 20 / zoom * normal[1] / norm);
-
-                painter.drawLine(start, end);
-
-                double arrowHeadLength = 4 / zoom;
-                double arrowHeadAngle = M_PI / 4;
-
-                double angle = std::atan2(end.y() - start.y(), end.x() - start.x());
-
-                QPointF arrowP1 = end - QPointF(arrowHeadLength * std::cos(angle - arrowHeadAngle),
-                                                arrowHeadLength * std::sin(angle - arrowHeadAngle));
-                QPointF arrowP2 = end - QPointF(arrowHeadLength * std::cos(angle + arrowHeadAngle),
-                                                arrowHeadLength * std::sin(angle + arrowHeadAngle));
-
-                QPolygonF arrowHead;
-                arrowHead << end << arrowP1 << arrowP2;
-                painter.drawPolygon(arrowHead);
-            }
+            QPolygonF arrowHead;
+            arrowHead << end << arrowP1 << arrowP2;
+            painter.drawPolygon(arrowHead);
+        }
 #endif
 
-            painter.end();
-			r |= e;
-			bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
+        painter.end();
+        r |= e;
+        bitBlt( this, r.x(), r.y(), &buffer, r.x(), r.y(), r.width(), r.height() );
 
-			update(r);
+        update(r);
 
-            if (planet[j][i].updated)
-            {
-                //if (size_t(q->pPlanet[j]->currentIndex() + 1) == i)
-                    slotPlanet(i - 1);
+        if (planet[i].updated)
+        {
+            //if (size_t(q->pPlanet[j]->currentIndex() + 1) == i)
+                slotPlanet(i - 1);
 
-                planet[j][i].updated = false;
+            planet[i].updated = false;
 
 #if 0
-                if (size_t(q->pPlanet[1]->currentIndex() + 1) == i)
-                    slotGalaxy(i - 1);
+            if (size_t(q->pPlanet[1]->currentIndex() + 1) == i)
+                slotGalaxy(i - 1);
 
-                planet[1][i].updated = false;
+            planet[1][i].updated = false;
 #endif
-            }
         }
     }
 }
@@ -1457,6 +1415,19 @@ void Canvas::paintEvent( QPaintEvent *e )
 
 //------------------------------------------------------
 
+DualCanvas::DualCanvas(Canvas::Type eType, QWidget *parent)
+    : QWidget(parent)
+{
+    left = new Canvas(eType, 0, this);
+    right = new Canvas(eType, 1, this);
+
+    QHBoxLayout *layout = new QHBoxLayout(this);
+    layout->addWidget(left);
+    layout->addWidget(right);
+}
+
+//------------------------------------------------------
+
 Scribble::Scribble( QWidget *parent, const char *name )
     : QMainWindow( parent ), nc(0)
 {
@@ -1466,7 +1437,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[3] = 50000000000;
     ntime[4] = 1;
     ntime[5] = 1e-19;
-    ntime[6] = 1e-22;
+    ntime[6] = 1e-19;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1602,7 +1573,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
             break;
         }
 
-        canvas[i] = new Canvas((Canvas::Type) (i), pTab[i]);
+        canvas[i] = new DualCanvas((Canvas::Type) (i), pTab[i]);
 		canvas[i]->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding));
 
         QBoxLayout * l = new QVBoxLayout(pTab[i]);

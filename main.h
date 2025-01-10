@@ -266,12 +266,11 @@ class Canvas;
 class Dual : public QThread
 {
 public:
-	Dual(Canvas *, int);
+    Dual(Canvas *);
 	virtual void run();
 	
 protected:
-	Canvas * p;
-	int i;
+    Canvas * p;
 };
 
 
@@ -283,7 +282,7 @@ class Canvas : public QWidget
 public:
     enum Type {PP, LB, BB, GR, V1, NU, QU} eType;
 
-    Canvas( Type eType, QWidget *parent = 0);
+    Canvas( Type eType, size_t t, QWidget *parent = 0);
     ~Canvas();
     void clearScreen();
 	
@@ -300,6 +299,8 @@ protected:
 	void timerEvent( QTimerEvent *e );
     void wheelEvent( QWheelEvent *e );
 
+    size_t t;
+
     QPen pen;
     QPolygon polyline;
 
@@ -307,7 +308,7 @@ protected:
 
     QPixmap buffer;
 
-    std::vector< std::vector<Planet> > planet;
+    std::vector<Planet> planet;
 
     real scale = 0.L, zoom = 0.2L;
 
@@ -325,7 +326,25 @@ protected:
 		}
 	};
 	
-	std::vector<Stats> stats;
+    std::vector<Stats> stats;
+};
+
+class DualCanvas : public QWidget
+{
+    Q_OBJECT
+
+public:
+    DualCanvas(Canvas::Type eType, QWidget *parent = 0);
+
+    void clearScreen()
+    {
+        left->clearScreen();
+        right->clearScreen();
+    }
+
+protected:
+    Canvas * left;
+    Canvas * right;
 };
 
 class Scribble : public QMainWindow
@@ -357,7 +376,7 @@ public:
     real ntime[ntabs];
 
 	QTabWidget *pTabWidget;
-    Canvas* canvas[ntabs];
+    DualCanvas* canvas[ntabs];
     QWidget * pTab[ntabs];
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
