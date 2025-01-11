@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.1"
+#define EDITION "5.1.2"
 
 #include "main.h"
 
@@ -1395,9 +1395,19 @@ DualCanvas::DualCanvas(Canvas::Type eType, QWidget *parent)
     left = new Canvas(eType, 0, this);
     right = new Canvas(eType, 1, this);
 
-    QHBoxLayout *layout = new QHBoxLayout(this);
-    layout->addWidget(left);
-    layout->addWidget(right);
+    QLabel * title[] = {new QLabel("Newton", this), new QLabel("Finite Theory", this)};
+
+    QVBoxLayout *vlayout[] = {new QVBoxLayout(), new QVBoxLayout()};
+
+    QHBoxLayout *hlayout = new QHBoxLayout(this);
+
+    vlayout[0]->addWidget(title[0]);
+    vlayout[0]->addWidget(left, 1);
+    vlayout[1]->addWidget(title[1]);
+    vlayout[1]->addWidget(right, 1);
+
+    hlayout->addLayout(vlayout[0]);
+    hlayout->addLayout(vlayout[1]);
 }
 
 //------------------------------------------------------
