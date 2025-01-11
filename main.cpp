@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.0"
+#define EDITION "5.1.1"
 
 #include "main.h"
 
@@ -905,51 +905,25 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     case NU:
         planet.reserve(24);
 
-        switch (t)
-        {
-        case 0:
-            // store the Sun & the photon using the Newton time formula
-            planet.push_back(Proton1);
-            planet.push_back(Proton2);
-            planet.push_back(Proton3);
-            planet.push_back(Proton4);
-            planet.push_back(Proton5);
-            planet.push_back(Proton6);
-            planet.push_back(Neutron1);
-            planet.push_back(Neutron2);
-            planet.push_back(Neutron3);
-            planet.push_back(Neutron4);
-            planet.push_back(Neutron5);
-            planet.push_back(Neutron6);
-            planet.push_back(Electron1);
-            planet.push_back(Electron2);
-            planet.push_back(Electron3);
-            planet.push_back(Electron4);
-            planet.push_back(Electron5);
-            planet.push_back(Electron6);
-            break;
-
-        case 1:
-            planet.push_back(Proton7);
-            planet.push_back(Proton8);
-            planet.push_back(Proton9);
-            planet.push_back(Proton10);
-            planet.push_back(Proton11);
-            planet.push_back(Proton12);
-            planet.push_back(Neutron7);
-            planet.push_back(Neutron8);
-            planet.push_back(Neutron9);
-            planet.push_back(Neutron10);
-            planet.push_back(Neutron11);
-            planet.push_back(Neutron12);
-            planet.push_back(Electron7);
-            planet.push_back(Electron8);
-            planet.push_back(Electron9);
-            planet.push_back(Electron10);
-            planet.push_back(Electron11);
-            planet.push_back(Electron12);
-            break;
-        }
+        // store the Sun & the photon using the Newton time formula
+        planet.push_back(Proton1);
+        planet.push_back(Proton2);
+        planet.push_back(Proton3);
+        planet.push_back(Proton4);
+        planet.push_back(Proton5);
+        planet.push_back(Proton6);
+        planet.push_back(Neutron1);
+        planet.push_back(Neutron2);
+        planet.push_back(Neutron3);
+        planet.push_back(Neutron4);
+        planet.push_back(Neutron5);
+        planet.push_back(Neutron6);
+        planet.push_back(Electron1);
+        planet.push_back(Electron2);
+        planet.push_back(Electron3);
+        planet.push_back(Electron4);
+        planet.push_back(Electron5);
+        planet.push_back(Electron6);
 
         // copy & change each planet for the FT time formula
         if (t == 1)
@@ -1197,7 +1171,7 @@ void Canvas::timerEvent(QTimerEvent *)
     }
 
 #if 1
-    //if (scale == 0.L)
+    if (scale == 0.L)
     {
         vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
@@ -1265,9 +1239,9 @@ void Canvas::timerEvent(QTimerEvent *)
 
     for (size_t i = 0; i < planet.size(); ++ i)
     {
-        ::real const radius = (planet[i].m / planet[0].m) + 1;
+        ::real const radius = (planet[i].m / planet[0].m) / (zoom) + 4;
 
-        QRect e((planet[i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
+        QRect e((planet[i].o[0] / (scale * zoom) - radius + width()/2), (planet[i].o[1] / (scale * zoom) - radius + height()/2), (2 * radius), (2 * radius));
 
         planet[i].o[0] = planet[i].p[0];
         planet[i].o[1] = planet[i].p[1];
@@ -1278,7 +1252,7 @@ void Canvas::timerEvent(QTimerEvent *)
         const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
         const ::real norm = sqrt(norm2);
 
-        QRect r((planet[i].o[0] / (scale * zoom) - radius / zoom + width()/2), (planet[i].o[1] / (scale * zoom) - radius / zoom + height()/2), (2 * radius / zoom), (2 * radius / zoom));
+        QRect r((planet[i].o[0] / (scale * zoom) - radius + width()/2), (planet[i].o[1] / (scale * zoom) - radius + height()/2), (2 * radius), (2 * radius));
         QPainter painter;
         painter.begin( &buffer );
         painter.setPen(planet[i].c);
@@ -1755,7 +1729,7 @@ int main( int argc, char **argv )
 
     Scribble scribble;
 
-    scribble.resize( 500, 360 );
+    scribble.showMaximized();
     scribble.setWindowTitle("Finite Theory of the Universe " EDITION);
 	a.setStyle("windows");
 	
