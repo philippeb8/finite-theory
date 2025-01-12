@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.6"
+#define EDITION "5.1.7"
 
 #include "main.h"
 
@@ -395,10 +395,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {1e-15L, 0.L, -1e-15L},
             {a * 1 * 1, 0.L, 0.L},
             {-a * 1 * 1, 0.L, 0.L},
-            {0.L, a * 1 * 1, 0.L},
-            {0.L, -a * 1 * 1, 0.L},
-            {0.L, 0.L, a * 1 * 1},
-            {0.L, 0.L, -a * 1 * 1},
+            {0.L, a * 2 * 2, 0.L},
+            {0.L, -a * 2 * 2, 0.L},
+            {0.L, 0.L, a * 3 * 3},
+            {0.L, 0.L, -a * 3 * 3},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -487,10 +487,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {1e-15L, 0.L, -1e-15L},
             {a * 1 * 1, 0.L, 0.L},
             {-a * 1 * 1, 0.L, 0.L},
-            {0.L, a * 1 * 1, 0.L},
-            {0.L, -a * 1 * 1, 0.L},
-            {0.L, 0.L, a * 1 * 1},
-            {0.L, 0.L, -a * 1 * 1},
+            {0.L, a * 2 * 2, 0.L},
+            {0.L, -a * 2 * 2, 0.L},
+            {0.L, 0.L, a * 3 * 3},
+            {0.L, 0.L, -a * 3 * 3},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -584,8 +584,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 5e5L, 0.L},
             {0.L, -5e5L, 0.L},
-            {5e5L, 0.L, 0.L},
-            {-5e5L, 0.L, 0.L},
+            {5e3L, 0.L, 0.L},
+            {-5e3L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
 
@@ -676,8 +676,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 5e5L, 0.L},
             {0.L, -5e5L, 0.L},
-            {5e5L, 0.L, 0.L},
-            {-5e5L, 0.L, 0.L},
+            {5e3L, 0.L, 0.L},
+            {-5e3L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
 
@@ -926,6 +926,25 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             planet.push_back(Electron1);
             planet.push_back(Electron2);
 
+#if 0
+            ::real constexpr scale = 1e-14L;
+
+            double random[] = {dist(gen) * scale, dist(gen) * scale};
+
+            planet.push_back(Proton1);
+            planet.back().p[0] += random[0];
+            planet.back().p[1] += random[1];
+            planet.push_back(Neutron1);
+            planet.back().p[0] += random[0];
+            planet.back().p[1] += random[1];
+            planet.push_back(Electron3);
+            planet.back().p[0] += random[0];
+            planet.back().p[1] += random[1];
+            planet.push_back(Electron4);
+            planet.back().p[0] += random[0];
+            planet.back().p[1] += random[1];
+#endif
+
             // copy & change each planet for the FT time formula
             if (t == 1)
                 for (size_t i = 0; i < planet.size(); i ++)
@@ -940,7 +959,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     // quantum
     case QU:
         {
-            ::real const scale = 1e-15L;
+            ::real constexpr scale = 1e-14L;
 
             // store the Sun & the photon using the Newton time formula
             planet.reserve(400);
@@ -1454,7 +1473,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[2] = 1;
     ntime[3] = 50000000000;
     ntime[4] = 1;
-    ntime[5] = 1e-19;
+    ntime[5] = 1e-22;
     ntime[6] = 1e-19;
 
     QMenu *file = new QMenu( "&File", this );
