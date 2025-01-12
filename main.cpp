@@ -358,13 +358,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {2e-16L, 0.L, 0.L},
             {3e-16L, 0.L, 0.L},
 
-            {0e-16L, 1e-16L, 0.L},
-            {2e-16L, 1e-16L, 0.L},
-            {3e-16L, 1e-16L, 0.L},
+            {-1e-15L, 1e-15L, 0.L},
+            {0e-15L, 1e-15L, 0.L},
+            {1e-15L, 1e-15L, 0.L},
 
-            {0e-16L, -1e-16L, 0.L},
-            {2e-16L, -1e-16L, 0.L},
-            {3e-16L, -1e-16L, 0.L},
+            {1e-15L, -1e-15L, 0.L},
+            {0e-15L, -1e-15L, 0.L},
+            {-1e-15L, -1e-15L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -446,17 +446,17 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {17048116800000.L, 0.L, 0.L},
 
             // quarks positions:
-            {0e-16L, 0.L, 0.L},
-            {2e-16L, 0.L, 0.L},
-            {3e-16L, 0.L, 0.L},
+            {0e-15L, 0.L, 0.L},
+            {2e-15L, 0.L, 0.L},
+            {3e-15L, 0.L, 0.L},
 
-            {0e-16L, 1e-16L, 0.L},
-            {2e-16L, 1e-16L, 0.L},
-            {3e-16L, 1e-16L, 0.L},
+            {-1e-15L, 1e-15L, 0.L},
+            {0e-15L, 1e-15L, 0.L},
+            {1e-15L, 1e-15L, 0.L},
 
-            {0e-16L, -1e-16L, 0.L},
-            {2e-16L, -1e-16L, 0.L},
-            {3e-16L, -1e-16L, 0.L},
+            {1e-15L, -1e-15L, 0.L},
+            {0e-15L, -1e-15L, 0.L},
+            {-1e-15L, -1e-15L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -714,9 +714,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Quark5   ("Quark5", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark6   ("Quark6", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][35], vel[0][35], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
-    static const Planet Quark7   ("Quark7", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark8   ("Quark8", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark9   ("Quark9", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][38], vel[0][38], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark7   ("Quark7", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark8   ("Quark8", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark9   ("Quark9", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][38], vel[0][38], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
     static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[0][39], vel[0][39], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
     static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[0][40], vel[0][40], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
@@ -938,18 +938,18 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
         // quantum
         case QU:
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(9);
-    #if 1
+            planet.reserve(12);
+#if 0
             planet.push_back(Quark1);
             planet.push_back(Quark2);
             planet.push_back(Quark3);
+#endif
             planet.push_back(Quark4);
             planet.push_back(Quark5);
             planet.push_back(Quark6);
             planet.push_back(Quark7);
             planet.push_back(Quark8);
             planet.push_back(Quark9);
-    #endif
 
             // copy & change each planet for the FT time formula
             if (t == 1)
