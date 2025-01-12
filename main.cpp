@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.5"
+#define EDITION "5.1.6"
 
 #include "main.h"
 
