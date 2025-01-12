@@ -53,12 +53,13 @@ class QDoubleSpinBox;
 
 typedef double real;
 
-const real C = 299792458.L;
-const real G = 6.67428e-11L;
-const real K = 8.987551e9L;
-const real Eta = 1e-8; //0.0013342L;
-const real Q = 1.602176634e-19L;
-const real H[] = {C*C/(G), 0., 1e20};
+constexpr real C = 299792458.L;
+constexpr real G = 6.67428e-11L;
+constexpr real K = 8.987551e9L;
+constexpr real Eta = 1e-3; //0.0013342L;
+constexpr real Q = 1.602176634e-19L;
+constexpr real H[] = {C*C/(G), 0., 1e20};
+constexpr real a = 5.29e-11;
 
 struct vector3
 {

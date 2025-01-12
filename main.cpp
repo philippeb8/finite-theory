@@ -25,12 +25,13 @@
 //#include <sys/sysinfo.h>
 
 #include <cmath>
+#include <mutex>
+#include <random>
 #include <limits>
 #include <iomanip>
 #include <sstream>
 #include <iostream>
 #include <typeinfo>
-#include <mutex>
 
 #include <QtWidgets/QApplication>
 #include <qevent.h>
@@ -134,6 +135,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
             ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
             ::real norm = sqrt(norm2);
+
+            if (m < 1.L)
+            {
+                const ::real n = std::max(round(sqrt(norm/a)), 1.);
+
+                norm = a * n * n;
+            }
 
             if (norm == 0)
                 norm = numeric_limits<::real>::min();
@@ -312,6 +320,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
 	Scribble * q = static_cast<Scribble *>(topLevelWidget());
 	
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> dist(0.0, 1.0);
+
 	// initial position of each planet and photon
     static const ::real pos[2][75][3] =
 	{
@@ -381,12 +393,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, -1e-15L, 1e-15L},
             {1e-15L, 0.L, 1e-15L},
             {1e-15L, 0.L, -1e-15L},
-            {5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {-5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {0.L, 5.29177e-11 * 2 * 2, 0.L},
-            {0.L, -5.29177e-11 * 2 * 2, 0.L},
-            {0.L, 0.L, 5.29177e-11 * 3 * 3},
-            {0.L, 0.L, -5.29177e-11 * 3 * 3},
+            {a * 1 * 1, 0.L, 0.L},
+            {-a * 1 * 1, 0.L, 0.L},
+            {0.L, a * 1 * 1, 0.L},
+            {0.L, -a * 1 * 1, 0.L},
+            {0.L, 0.L, a * 1 * 1},
+            {0.L, 0.L, -a * 1 * 1},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -400,12 +412,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {5e-10L + 0.L, -1e-15L, 1e-15L},
             {5e-10L + 1e-15L, 0.L, 1e-15L},
             {5e-10L + 1e-15L, 0.L, -1e-15L},
-            {5e-10L + 5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {5e-10L + -5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {5e-10L + 0.L, 5.29177e-11 * 2 * 2, 0.L},
-            {5e-10L + 0.L, -5.29177e-11 * 2 * 2, 0.L},
-            {5e-10L + 0.L, 0.L, 5.29177e-11 * 3 * 3},
-            {5e-10L + 0.L, 0.L, -5.29177e-11 * 3 * 3},
+            {5e-10L + a * 1 * 1, 0.L, 0.L},
+            {5e-10L + -a * 1 * 1, 0.L, 0.L},
+            {5e-10L + 0.L, a * 2 * 2, 0.L},
+            {5e-10L + 0.L, -a * 2 * 2, 0.L},
+            {5e-10L + 0.L, 0.L, a * 3 * 3},
+            {5e-10L + 0.L, 0.L, -a * 3 * 3},
         },
         // finite theory
         {
@@ -473,12 +485,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, -1e-15L, 1e-15L},
             {1e-15L, 0.L, 1e-15L},
             {1e-15L, 0.L, -1e-15L},
-            {5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {-5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {0.L, 5.29177e-11 * 2 * 2, 0.L},
-            {0.L, -5.29177e-11 * 2 * 2, 0.L},
-            {0.L, 0.L, 5.29177e-11 * 3 * 3},
-            {0.L, 0.L, -5.29177e-11 * 3 * 3},
+            {a * 1 * 1, 0.L, 0.L},
+            {-a * 1 * 1, 0.L, 0.L},
+            {0.L, a * 1 * 1, 0.L},
+            {0.L, -a * 1 * 1, 0.L},
+            {0.L, 0.L, a * 1 * 1},
+            {0.L, 0.L, -a * 1 * 1},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -492,12 +504,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {5e-10L + 0.L, -1e-15L, 1e-15L},
             {5e-10L + 1e-15L, 0.L, 1e-15L},
             {5e-10L + 1e-15L, 0.L, -1e-15L},
-            {5e-10L + 5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {5e-10L + -5.29177e-11 * 1 * 1, 0.L, 0.L},
-            {5e-10L + 0.L, 5.29177e-11 * 2 * 2, 0.L},
-            {5e-10L + 0.L, -5.29177e-11 * 2 * 2, 0.L},
-            {5e-10L + 0.L, 0.L, 5.29177e-11 * 3 * 3},
-            {5e-10L + 0.L, 0.L, -5.29177e-11 * 3 * 3},
+            {5e-10L + a * 1 * 1, 0.L, 0.L},
+            {5e-10L + -a * 1 * 1, 0.L, 0.L},
+            {5e-10L + 0.L, a * 2 * 2, 0.L},
+            {5e-10L + 0.L, -a * 2 * 2, 0.L},
+            {5e-10L + 0.L, 0.L, a * 3 * 3},
+            {5e-10L + 0.L, 0.L, -a * 3 * 3},
         }
     };
 	
@@ -574,8 +586,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, -5e5L, 0.L},
             {5e5L, 0.L, 0.L},
             {-5e5L, 0.L, 0.L},
-            {0.L, 0.L, 5e5L},
-            {0.L, 0.L, -5e5L},
+            {0.L, 0.L, 0.L},
+            {0.L, 0.L, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
@@ -666,8 +678,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, -5e5L, 0.L},
             {5e5L, 0.L, 0.L},
             {-5e5L, 0.L, 0.L},
-            {0.L, 0.L, 5e5L},
-            {0.L, 0.L, -5e5L},
+            {0.L, 0.L, 0.L},
+            {0.L, 0.L, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
@@ -712,9 +724,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Quark2   ("Quark2", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark3   ("Quark3", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
-    static const Planet Quark4   ("Quark4", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][33], vel[0][33], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark6   ("Quark6", 	Qt::red, 3.92e-30, Q*2/3, pos[0][35], vel[0][35], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark4   ("Quark4", 	Qt::red, 3.92e-30, Q*2/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark6   ("Quark6", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
     static const Planet Quark7   ("Quark7", 	Qt::red, 3.92e-30, Q*2/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark8   ("Quark8", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
@@ -905,50 +917,63 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
     // atomic
     case NU:
-        // store the Sun & the photon using the Newton time formula
-        planet.reserve(400);
+        {
+            // store the Sun & the photon using the Newton time formula
+            planet.reserve(4);
 
-        for (::real x = -1e-9L; x < 1e-9L; x += 1e-10L)
-            for (::real y = -1e-9L; y < 1e-9L; y += 1e-10L)
-            {
-                planet.push_back(Proton1);
-                planet.back().p[0] += x;
-                planet.back().p[1] += y;
-                planet.push_back(Neutron1);
-                planet.back().p[0] += x;
-                planet.back().p[1] += y;
-                planet.push_back(Electron1);
-                planet.back().p[0] += x;
-                planet.back().p[1] += y;
-            }
+            planet.push_back(Proton1);
+            planet.push_back(Neutron1);
+            planet.push_back(Electron1);
+            planet.push_back(Electron2);
 
-        // copy & change each planet for the FT time formula
-        if (t == 1)
-            for (size_t i = 0; i < planet.size(); i ++)
-            {
-                planet[i].time = Planet::FT_Time;
-                planet[i].force = Planet::FT_Force;
-            }
+            // copy & change each planet for the FT time formula
+            if (t == 1)
+                for (size_t i = 0; i < planet.size(); i ++)
+                {
+                    planet[i].time = Planet::FT_Time;
+                    planet[i].force = Planet::FT_Force;
+                }
 
-        break;
+            break;
+        }
 
-        // quantum
-        case QU:
+    // quantum
+    case QU:
+        {
+            ::real const scale = 1e-15L;
+
             // store the Sun & the photon using the Newton time formula
             planet.reserve(400);
 
-            for (::real x = -1e-9L; x < 1e-9L; x += 1e-10L)
-                for (::real y = -1e-9L; y < 1e-9L; y += 1e-10L)
+            for (::real x = - scale; x < scale; x += scale / 10)
+                for (::real y = - scale; y < scale; y += scale / 10)
                 {
-                    planet.push_back(Quark1);
-                    planet.back().p[0] += x;
-                    planet.back().p[1] += y;
-                    planet.push_back(Quark2);
-                    planet.back().p[0] += x;
-                    planet.back().p[1] += y;
-                    planet.push_back(Quark3);
-                    planet.back().p[0] += x;
-                    planet.back().p[1] += y;
+                    double random[] = {dist(gen) * scale, dist(gen) * scale};
+
+                    if (static_cast<long>((x + y) / 1e-10L) % 2)
+                    {
+                        planet.push_back(Quark1);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                        planet.push_back(Quark2);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                        planet.push_back(Quark3);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                    }
+                    else
+                    {
+                        planet.push_back(Quark4);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                        planet.push_back(Quark5);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                        planet.push_back(Quark6);
+                        planet.back().p[0] += x + random[0];
+                        planet.back().p[1] += y + random[1];
+                    }
                 }
 
             // copy & change each planet for the FT time formula
@@ -960,6 +985,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                 }
 
             break;
+        }
     }
 	
 //    if ((qApp->argc() > 0) && !buffer.load(qApp->argv()[1]))
