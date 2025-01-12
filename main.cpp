@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.4"
+#define EDITION "5.1.5"
 
 #include "main.h"
 
@@ -132,9 +132,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             // vector and norm between the moving particle and the other one
             vector3 normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
-            const ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            const ::real norm = sqrt(norm2);
+            ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
+            ::real norm = sqrt(norm2);
 
+            if (norm == 0)
+                norm = numeric_limits<::real>::min();
 #if 1
             // calculate gravitational and electric forces
             const ::real fg = force(G, planet[i].m, m, norm, hg);
@@ -706,9 +708,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, 0, pos[0][28], vel[0][28], Planet::FT_Time, Planet::FT_Force, Planet::V1, H[0], Eta);
     static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, 0, pos[0][29], vel[0][29], Planet::NW_Time, Planet::NW_Force, Planet::V1, H[0], Eta);
 
-    static const Planet Quark1   ("Quark1", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark2   ("Quark2", 	Qt::red, 3.92e-30, Q*2/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark3   ("Quark3", 	Qt::red, 3.92e-30, Q*2/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark1   ("Quark1", 	Qt::red, 3.92e-30, Q*2/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark2   ("Quark2", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark3   ("Quark3", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
     static const Planet Quark4   ("Quark4", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][33], vel[0][33], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
@@ -1156,6 +1158,7 @@ void Canvas::timerEvent(QTimerEvent *)
     if (! isVisible())
         return;
 
+#if 1
     {
         QRect r(0, 0, width(), height());
         QPainter painter;
@@ -1167,6 +1170,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
         update(r);
     }
+#endif
 
 #if 1
     if (q->pCheck->isChecked())
@@ -1203,8 +1207,8 @@ void Canvas::timerEvent(QTimerEvent *)
     o[0] << "Scale: " << scale;
     o[1] << "Zoom: " << zoom;
 
-    q->pScale->setText(o[0].str().c_str());
-    q->pZoom->setText(o[1].str().c_str());
+    q->pScale[t]->setText(o[0].str().c_str());
+    q->pZoom[t]->setText(o[1].str().c_str());
 
 #if 0
     {
@@ -1474,14 +1478,21 @@ Scribble::Scribble( QWidget *parent, const char *name )
     tools->addWidget(pCheck);
     tools->addSeparator();
 
-    pScale = new QLabel( tools );
+    pScale[0] = new QLabel( tools );
+    pScale[1] = new QLabel( tools );
 
-    tools->addWidget(pScale);
+    tools->addWidget(pScale[0]);
+    tools->addSeparator();
+    tools->addWidget(pScale[1]);
     tools->addSeparator();
 
-    pZoom = new QLabel( tools );
+    pZoom[0] = new QLabel( tools );
+    pZoom[1] = new QLabel( tools );
 
-    tools->addWidget(pZoom);
+    tools->addWidget(pZoom[0]);
+    tools->addSeparator();
+    tools->addWidget(pZoom[1]);
+    tools->addSeparator();
 
     addToolBar(tools);
 	

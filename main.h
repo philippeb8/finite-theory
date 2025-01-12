@@ -385,8 +385,8 @@ public:
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
     QCheckBox *pCheck;
-    QLabel *pScale;
-    QLabel *pZoom;
+    QLabel *pScale[2];
+    QLabel *pZoom[2];
     QComboBox *pPlanet[2];
     QToolButton *bPColor, *bSave, *bClear;
 };
