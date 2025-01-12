@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.3"
+#define EDITION "5.1.4"
 
 #include "main.h"
 
@@ -126,7 +126,7 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         for (size_t i = 0; i < planet.size(); i ++)
         {
             // if same particle then skip
-            if (planet[i].n == n)
+            if (planet[i].id == id)
                 continue;
 
             // vector and norm between the moving particle and the other one
@@ -354,17 +354,17 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {17048116800000.L, 0.L, 0.L},
 
             // quarks positions:
-            {0e-16L, 0.L, 0.L},
-            {2e-16L, 0.L, 0.L},
-            {3e-16L, 0.L, 0.L},
+            {-1e-16L, -1e-16L, 0.L},
+            {0e-16L, 0e-16L, 0.L},
+            {1e-16L, 1e-16L, 0.L},
 
-            {-1e-13L, 1e-13L, 0.L},
-            {0e-13L, 1e-13L, 0.L},
-            {1e-13L, 1e-13L, 0.L},
+            {-1e-13L, 0e-13L, 0.L},
+            {0e-13L, 0e-13L, 0.L},
+            {1e-13L, 0e-13L, 0.L},
 
-            {1e-13L, -1e-13L, 0.L},
-            {0e-13L, -1e-13L, 0.L},
-            {-1e-13L, -1e-13L, 0.L},
+            {1e-13L, -0e-13L, 0.L},
+            {0e-13L, -0e-13L, 0.L},
+            {-1e-13L, -0e-13L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -446,9 +446,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {17048116800000.L, 0.L, 0.L},
 
             // quarks positions:
-            {0e-15L, 0.L, 0.L},
-            {0e-15L, 0.L, 0.L},
-            {0e-15L, 0.L, 0.L},
+            {-1e-16L, -1e-16L, 0.L},
+            {0e-16L, 0e-16L, 0.L},
+            {1e-16L, 1e-16L, 0.L},
 
             {-1e-13L, 1e-13L, 0.L},
             {0e-13L, 1e-13L, 0.L},
@@ -706,17 +706,17 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Pioneer1   ("Pioneer1", 	Qt::darkGreen, 258.8L, 0, pos[0][28], vel[0][28], Planet::FT_Time, Planet::FT_Force, Planet::V1, H[0], Eta);
     static const Planet Pioneer2   ("Pioneer2", 	Qt::darkRed, 258.8L, 0, pos[0][29], vel[0][29], Planet::NW_Time, Planet::NW_Force, Planet::V1, H[0], Eta);
 
-    static const Planet Quark1   ("Quark1", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark2   ("Quark2", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark3   ("Quark3", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark1   ("Quark1", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark2   ("Quark2", 	Qt::red, 3.92e-30, Q*2/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark3   ("Quark3", 	Qt::red, 3.92e-30, Q*2/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
-    static const Planet Quark4   ("Quark4", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][33], vel[0][33], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark5   ("Quark5", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark6   ("Quark6", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][35], vel[0][35], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark4   ("Quark4", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][33], vel[0][33], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark6   ("Quark6", 	Qt::red, 3.92e-30, Q*2/3, pos[0][35], vel[0][35], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
-    static const Planet Quark7   ("Quark7", 	Qt::blue, 3.92e-30, Q*2/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark8   ("Quark8", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark9   ("Quark9", 	Qt::red, 8.38e-30, -Q*1/3, pos[0][38], vel[0][38], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark7   ("Quark7", 	Qt::red, 3.92e-30, Q*2/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark8   ("Quark8", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark9   ("Quark9", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][38], vel[0][38], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
     static const Planet Proton1     ("Proton1",   Qt::red, 1.6726e-27, Q, pos[0][39], vel[0][39], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
     static const Planet Proton2     ("Proton2",   Qt::red, 1.6726e-27, Q, pos[0][40], vel[0][40], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
@@ -903,27 +903,22 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
     // atomic
     case NU:
-        planet.reserve(24);
-
         // store the Sun & the photon using the Newton time formula
-        planet.push_back(Proton1);
-        planet.push_back(Proton2);
-        planet.push_back(Proton3);
-        planet.push_back(Proton4);
-        planet.push_back(Proton5);
-        planet.push_back(Proton6);
-        planet.push_back(Neutron1);
-        planet.push_back(Neutron2);
-        planet.push_back(Neutron3);
-        planet.push_back(Neutron4);
-        planet.push_back(Neutron5);
-        planet.push_back(Neutron6);
-        planet.push_back(Electron1);
-        planet.push_back(Electron2);
-        planet.push_back(Electron3);
-        planet.push_back(Electron4);
-        planet.push_back(Electron5);
-        planet.push_back(Electron6);
+        planet.reserve(400);
+
+        for (::real x = -1e-9L; x < 1e-9L; x += 1e-10L)
+            for (::real y = -1e-9L; y < 1e-9L; y += 1e-10L)
+            {
+                planet.push_back(Proton1);
+                planet.back().p[0] += x;
+                planet.back().p[1] += y;
+                planet.push_back(Neutron1);
+                planet.back().p[0] += x;
+                planet.back().p[1] += y;
+                planet.push_back(Electron1);
+                planet.back().p[0] += x;
+                planet.back().p[1] += y;
+            }
 
         // copy & change each planet for the FT time formula
         if (t == 1)
@@ -938,18 +933,21 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
         // quantum
         case QU:
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(12);
-#if 0
-            planet.push_back(Quark1);
-            planet.push_back(Quark2);
-            planet.push_back(Quark3);
-#endif
-            planet.push_back(Quark4);
-            planet.push_back(Quark5);
-            planet.push_back(Quark6);
-            planet.push_back(Quark7);
-            planet.push_back(Quark8);
-            planet.push_back(Quark9);
+            planet.reserve(400);
+
+            for (::real x = -1e-9L; x < 1e-9L; x += 1e-10L)
+                for (::real y = -1e-9L; y < 1e-9L; y += 1e-10L)
+                {
+                    planet.push_back(Quark1);
+                    planet.back().p[0] += x;
+                    planet.back().p[1] += y;
+                    planet.push_back(Quark2);
+                    planet.back().p[0] += x;
+                    planet.back().p[1] += y;
+                    planet.push_back(Quark3);
+                    planet.back().p[0] += x;
+                    planet.back().p[1] += y;
+                }
 
             // copy & change each planet for the FT time formula
             if (t == 1)
@@ -1190,7 +1188,8 @@ void Canvas::timerEvent(QTimerEvent *)
             if (pow(10, ceil(log10(abs(max[x] / 200)))) > new_scale)
                 new_scale = pow(10, ceil(log10(abs(max[x] / 200))));
 
-        scale = new_scale;
+        if (new_scale != numeric_limits<::real>::min())
+            scale = new_scale;
     }
 
     if (initial == 0.L)

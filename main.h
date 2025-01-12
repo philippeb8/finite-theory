@@ -234,8 +234,11 @@ struct Planet
     static real NW_Time(real m, real d, real h);
     static real NW_Force(real G, real m1, real m2, real d, real h);
 
+    static inline size_t counter = 0;
+
     char const * n;						// name
-	QColor c;							// color
+    size_t id = counter ++;             // id
+    QColor c;							// color
 	real m;								// mass
     real q;                             // charge
 	vector3 p;							// position
