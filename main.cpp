@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.2"
+#define EDITION "5.1.3"
 
 #include "main.h"
 
@@ -358,13 +358,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {2e-16L, 0.L, 0.L},
             {3e-16L, 0.L, 0.L},
 
-            {-1e-15L, 1e-15L, 0.L},
-            {0e-15L, 1e-15L, 0.L},
-            {1e-15L, 1e-15L, 0.L},
+            {-1e-13L, 1e-13L, 0.L},
+            {0e-13L, 1e-13L, 0.L},
+            {1e-13L, 1e-13L, 0.L},
 
-            {1e-15L, -1e-15L, 0.L},
-            {0e-15L, -1e-15L, 0.L},
-            {-1e-15L, -1e-15L, 0.L},
+            {1e-13L, -1e-13L, 0.L},
+            {0e-13L, -1e-13L, 0.L},
+            {-1e-13L, -1e-13L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -447,16 +447,16 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
             // quarks positions:
             {0e-15L, 0.L, 0.L},
-            {2e-15L, 0.L, 0.L},
-            {3e-15L, 0.L, 0.L},
+            {0e-15L, 0.L, 0.L},
+            {0e-15L, 0.L, 0.L},
 
-            {-1e-15L, 1e-15L, 0.L},
-            {0e-15L, 1e-15L, 0.L},
-            {1e-15L, 1e-15L, 0.L},
+            {-1e-13L, 1e-13L, 0.L},
+            {0e-13L, 1e-13L, 0.L},
+            {1e-13L, 1e-13L, 0.L},
 
-            {1e-15L, -1e-15L, 0.L},
-            {0e-15L, -1e-15L, 0.L},
-            {-1e-15L, -1e-15L, 0.L},
+            {1e-13L, -1e-13L, 0.L},
+            {0e-13L, -1e-13L, 0.L},
+            {-1e-13L, -1e-13L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -1171,7 +1171,7 @@ void Canvas::timerEvent(QTimerEvent *)
     }
 
 #if 1
-    if (scale == 0.L)
+    if (q->pCheck->isChecked())
     {
         vector3 max = {numeric_limits<::real>::min(), numeric_limits<::real>::min(), numeric_limits<::real>::min()};
 
@@ -1191,6 +1191,11 @@ void Canvas::timerEvent(QTimerEvent *)
                 new_scale = pow(10, ceil(log10(abs(max[x] / 200))));
 
         scale = new_scale;
+    }
+
+    if (initial == 0.L)
+    {
+        initial = scale;
     }
 #endif
 
@@ -1239,7 +1244,7 @@ void Canvas::timerEvent(QTimerEvent *)
 
     for (size_t i = 0; i < planet.size(); ++ i)
     {
-        ::real const radius = (planet[i].m / planet[0].m) / (zoom) + 4;
+        ::real const radius = (planet[i].m / planet[0].m) / (scale * zoom / initial) + 4;
 
         QRect e((planet[i].o[0] / (scale * zoom) - radius + width()/2), (planet[i].o[1] / (scale * zoom) - radius + height()/2), (2 * radius), (2 * radius));
 
@@ -1464,6 +1469,12 @@ Scribble::Scribble( QWidget *parent, const char *name )
     tools->addWidget(pPlanet[0]);
     tools->addWidget(pPlanet[1]);
 
+    pCheck = new QCheckBox( "Auto Zoom", tools );
+    pCheck->setChecked(true);
+
+    tools->addWidget(pCheck);
+    tools->addSeparator();
+
     pScale = new QLabel( tools );
 
     tools->addWidget(pScale);
@@ -1602,7 +1613,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
         pTab[i]->setLayout(l);
         pTab[i]->show();
 	}
-	
+
 	pTabWidget->addTab(pTab[0], "Perihelion Precession");
 	pTabWidget->addTab(pTab[1], "Light Bending");
     pTabWidget->addTab(pTab[2], "Big Bang");

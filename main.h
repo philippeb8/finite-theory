@@ -31,6 +31,7 @@
 #include <qpen.h>
 #include <qpoint.h>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QCheckBox>
 #include <qpixmap.h>
 #include <QtWidgets/QWidget>
 #include <qstring.h>
@@ -310,7 +311,7 @@ protected:
 
     std::vector<Planet> planet;
 
-    real scale = 0.L, zoom = 0.2L;
+    real initial = 0.L, scale = 0.L, zoom = 0.2L;
 
     struct Stats
 	{
@@ -380,6 +381,7 @@ public:
     QWidget * pTab[ntabs];
     QLabel *pLabel[ntabs][8][3];
     QDoubleSpinBox *pTime;
+    QCheckBox *pCheck;
     QLabel *pScale;
     QLabel *pZoom;
     QComboBox *pPlanet[2];
