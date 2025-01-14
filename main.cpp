@@ -136,12 +136,14 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
             ::real norm = sqrt(norm2);
 
+#if 1
             if (m < 1.L)
             {
                 const ::real n = std::max(round(sqrt(norm/a)), 1.);
 
                 norm = a * n * n;
             }
+#endif
 
             if (norm == 0)
                 norm = numeric_limits<::real>::min();
@@ -959,17 +961,21 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     // quantum
     case QU:
         {
-            ::real constexpr scale = 1e-14L;
+            ::real constexpr scale = 1e-15L;
 
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(400);
+            planet.reserve(6);
 
+            ::real const x = 0, y = 0;
+
+#if 0
             for (::real x = - scale; x < scale; x += scale / 10)
                 for (::real y = - scale; y < scale; y += scale / 10)
+#endif
                 {
-                    double random[] = {dist(gen) * scale, dist(gen) * scale};
+                    double random[] = {dist(gen) * scale, dist(gen) * scale, dist(gen) * scale, dist(gen) * scale};
 
-                    if (static_cast<long>((x + y) / 1e-10L) % 2)
+                    //if (static_cast<long>((x + y) / 1e-10L) % 2)
                     {
                         planet.push_back(Quark1);
                         planet.back().p[0] += x + random[0];
@@ -981,17 +987,17 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                         planet.back().p[0] += x + random[0];
                         planet.back().p[1] += y + random[1];
                     }
-                    else
+                    //else
                     {
                         planet.push_back(Quark4);
-                        planet.back().p[0] += x + random[0];
-                        planet.back().p[1] += y + random[1];
+                        planet.back().p[0] += x + random[2];
+                        planet.back().p[1] += y + random[3];
                         planet.push_back(Quark5);
-                        planet.back().p[0] += x + random[0];
-                        planet.back().p[1] += y + random[1];
+                        planet.back().p[0] += x + random[2];
+                        planet.back().p[1] += y + random[3];
                         planet.push_back(Quark6);
-                        planet.back().p[0] += x + random[0];
-                        planet.back().p[1] += y + random[1];
+                        planet.back().p[0] += x + random[2];
+                        planet.back().p[1] += y + random[3];
                     }
                 }
 
@@ -1474,7 +1480,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[3] = 50000000000;
     ntime[4] = 1;
     ntime[5] = 1e-22;
-    ntime[6] = 1e-19;
+    ntime[6] = 1e-20;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
