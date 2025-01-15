@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.7"
+#define EDITION "5.1.8"
 
 #include "main.h"
 
@@ -126,31 +126,21 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
         // iterate through all planets
         for (size_t i = 0; i < planet.size(); i ++)
         {
-            // if same particle then skip
+            // if same entity then skip
             if (planet[i].id == id)
                 continue;
 
-            // vector and norm between the moving particle and the other one
-            vector3 normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
+            // vector and norm between the moving entity and the other one
+            vector3 const normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
-            ::real norm2 = pow(normal[0], 2) + pow(normal[1], 2) + pow(normal[2], 2);
-            ::real norm = sqrt(norm2);
+            ::real const norm2 = normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]; // distance squared
+            ::real const n = std::max(round(sqrt(sqrt(norm2)/a)), 1.); // quantized energy level
+            ::real const norm = a * n * n; // discrete distance
 
-#if 1
-            if (m < 1.L)
-            {
-                const ::real n = std::max(round(sqrt(norm/a)), 1.);
-
-                norm = a * n * n;
-            }
-#endif
-
-            if (norm == 0)
-                norm = numeric_limits<::real>::min();
 #if 1
             // calculate gravitational and electric forces
-            const ::real fg = force(G, planet[i].m, m, norm, hg);
-            const ::real fe = force(K, planet[i].q, q, norm, he);
+            ::real const fg = force(G, planet[i].m, m, norm, hg);
+            ::real const fe = force(K, planet[i].q, q, norm, he);
 
             netforce[0] -= fg * normal[0] / norm;
             netforce[1] -= fg * normal[1] / norm;
@@ -215,6 +205,15 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
 
     // p = p + v*t + (a*t^2)/2
     p += v[0] * dt;
+
+#if 0
+    {
+        static mutex x;
+        scoped_lock l(x);
+
+        cout << n << ": {" << p[0] << ", " << p[1] << ", " << p[2] << "}, " << "{" << v[0][0] << ", " << v[0][1] << ", " << v[0][2] << "}" << endl;
+    }
+#endif
 #endif
 
     switch (eType)
@@ -370,13 +369,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {17048116800000.L, 0.L, 0.L},
 
             // quarks positions:
-            {-1e-16L, -1e-16L, 0.L},
-            {0e-16L, 0e-16L, 0.L},
-            {1e-16L, 1e-16L, 0.L},
+            {5.41035e-11 + 4.49183e-10, -1.18697e-10 + -9.91138e-10, 0},
+            {5.41035e-11 + -5.41035e-11, -1.18697e-10 + 1.18697e-10, 0},
+            {5.41035e-11 + -5.41035e-11, -1.18697e-10 + 1.18697e-10, 0},
 
-            {-1e-13L, 0e-13L, 0.L},
-            {0e-13L, 0e-13L, 0.L},
-            {1e-13L, 0e-13L, 0.L},
+            {5.41035e-11 + -5.37561e-11, -1.18697e-10 + 1.09574e-10, 0},
+            {5.41035e-11 + -4.85478e-11, -1.18697e-10 + 1.20417e-10, 0},
+            {5.41035e-11 + -5.41035e-11, -1.18697e-10 + 1.18697e-10, 0},
 
             {1e-13L, -0e-13L, 0.L},
             {0e-13L, -0e-13L, 0.L},
@@ -462,13 +461,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {17048116800000.L, 0.L, 0.L},
 
             // quarks positions:
-            {-1e-16L, -1e-16L, 0.L},
-            {0e-16L, 0e-16L, 0.L},
-            {1e-16L, 1e-16L, 0.L},
+            {4.49183e-10, -9.91138e-10, 0},
+            {-5.41035e-11, 1.18697e-10, 0},
+            {-5.41035e-11, 1.18697e-10, 0},
 
-            {-1e-13L, 1e-13L, 0.L},
-            {0e-13L, 1e-13L, 0.L},
-            {1e-13L, 1e-13L, 0.L},
+            {-5.37561e-11, 1.09574e-10, 0},
+            {-4.85478e-11, 1.20417e-10, 0},
+            {-5.41035e-11, 1.18697e-10, 0},
 
             {1e-13L, -1e-13L, 0.L},
             {0e-13L, -1e-13L, 0.L},
@@ -559,13 +558,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {11992.L, 0.L, 0.L},
 
             // quarks velocities:
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {32000 + 291299, -55000 + -646492, 0},
+            {32000 + -66047.5, -55000 + 129952, 0},
+            {32000 + -66048, -55000 + 129952, 0},
 
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {32000 + -116641, -55000 + 398716, 0},
+            {32000 + -15606.4, -55000 + -211825, 0},
+            {32000 + 66046.2, -55000 + -129951, 0},
 
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
@@ -651,13 +650,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {11992.L, 0.L, 0.L},
 
             // quarks velocities:
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {291299, -646492, 0},
+            {-66047.5, 129952, 0},
+            {-66048, 129952, 0},
 
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {-116641, 398716, 0},
+            {-15606.4, -211825, 0},
+            {66046.2, -129951, 0},
 
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
@@ -726,9 +725,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Quark2   ("Quark2", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark3   ("Quark3", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
-    static const Planet Quark4   ("Quark4", 	Qt::red, 3.92e-30, Q*2/3, pos[0][30], vel[0][30], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][31], vel[0][31], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
-    static const Planet Quark6   ("Quark6", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][32], vel[0][32], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark4   ("Quark4", 	Qt::red, 3.92e-30, Q*2/3, pos[0][33], vel[0][33], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark5   ("Quark5", 	Qt::red, 3.92e-30, Q*2/3, pos[0][34], vel[0][34], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
+    static const Planet Quark6   ("Quark6", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][35], vel[0][35], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
 
     static const Planet Quark7   ("Quark7", 	Qt::red, 3.92e-30, Q*2/3, pos[0][36], vel[0][36], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
     static const Planet Quark8   ("Quark8", 	Qt::blue, 8.38e-30, -Q*1/3, pos[0][37], vel[0][37], Planet::NW_Time, Planet::NW_Force, Planet::QU, H[0], Eta);
@@ -964,7 +963,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             ::real constexpr scale = 1e-15L;
 
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(6);
+            planet.reserve(5);
 
             ::real const x = 0, y = 0;
 
@@ -977,9 +976,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
                     //if (static_cast<long>((x + y) / 1e-10L) % 2)
                     {
-                        planet.push_back(Quark1);
-                        planet.back().p[0] += x + random[0];
-                        planet.back().p[1] += y + random[1];
+                        //planet.push_back(Quark1);
+                        //planet.back().p[0] += x + random[0];
+                        //planet.back().p[1] += y + random[1];
                         planet.push_back(Quark2);
                         planet.back().p[0] += x + random[0];
                         planet.back().p[1] += y + random[1];
