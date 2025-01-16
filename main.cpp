@@ -133,26 +133,26 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             // vector and norm between the moving entity and the other one
             vector3 const normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
-            ::real const norm2 = normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]; // distance squared
-            ::real const n = std::max(round(sqrt(sqrt(norm2)/a)), 1.); // quantized energy level
-            ::real const norm = a * n * n; // discrete distance
+            ::real const norm = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]); // distance
+            ::real const n = std::max(round(sqrt(norm/r_0)), 1.); // quantized energy level
+            ::real const dnorm = r_0 * n * n; // discrete distance
 
 #if 1
             // calculate gravitational and electric forces
-            ::real const fg = force(G, planet[i].m, m, norm, hg);
-            ::real const fe = force(K, planet[i].q, q, norm, he);
+            ::real const fg = force(G, planet[i].m, m, dnorm, hg);
+            ::real const fe = force(alpha, planet[i].q, q, dnorm, he) - sigma;
 
-            netforce[0] -= fg * normal[0] / norm;
-            netforce[1] -= fg * normal[1] / norm;
-            netforce[2] -= fg * normal[2] / norm;
+            netforce[0] -= fg * normal[0] / dnorm;
+            netforce[1] -= fg * normal[1] / dnorm;
+            netforce[2] -= fg * normal[2] / dnorm;
 
-            netforce[0] += fe * normal[0] / norm;
-            netforce[1] += fe * normal[1] / norm;
-            netforce[2] += fe * normal[2] / norm;
+            netforce[0] += fe * normal[0] / dnorm;
+            netforce[1] += fe * normal[1] / dnorm;
+            netforce[2] += fe * normal[2] / dnorm;
 
             // calculate gravitational and electric time dilation increments
-            tg[0] += time(planet[i].m, norm, hg);
-            te[0] += time(planet[i].q, norm, he);
+            tg[0] += time(planet[i].m, dnorm, hg);
+            te[0] += time(planet[i].q, dnorm, he);
 #endif
         }
         break;
@@ -558,13 +558,13 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {11992.L, 0.L, 0.L},
 
             // quarks velocities:
-            {32000 + 291299, -55000 + -646492, 0},
-            {32000 + -66047.5, -55000 + 129952, 0},
-            {32000 + -66048, -55000 + 129952, 0},
+            {33000 + 291299, -57000 + -646492, 0},
+            {33000 + -66047.5, -57000 + 129952, 0},
+            {33000 + -66048, -57000 + 129952, 0},
 
-            {32000 + -116641, -55000 + 398716, 0},
-            {32000 + -15606.4, -55000 + -211825, 0},
-            {32000 + 66046.2, -55000 + -129951, 0},
+            {33000 + -116641, -57000 + 398716, 0},
+            {33000 + -15606.4, -57000 + -211825, 0},
+            {33000 + 66046.2, -57000 + -129951, 0},
 
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
@@ -960,10 +960,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     // quantum
     case QU:
         {
-            ::real constexpr scale = 1e-15L;
+            ::real constexpr scale = 1e-10L;
 
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(5);
+            planet.reserve(6);
 
             ::real const x = 0, y = 0;
 
@@ -974,7 +974,6 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                 {
                     double random[] = {dist(gen) * scale, dist(gen) * scale, dist(gen) * scale, dist(gen) * scale};
 
-                    //if (static_cast<long>((x + y) / 1e-10L) % 2)
                     {
                         //planet.push_back(Quark1);
                         //planet.back().p[0] += x + random[0];
@@ -985,9 +984,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                         planet.push_back(Quark3);
                         planet.back().p[0] += x + random[0];
                         planet.back().p[1] += y + random[1];
-                    }
-                    //else
-                    {
+
                         planet.push_back(Quark4);
                         planet.back().p[0] += x + random[2];
                         planet.back().p[1] += y + random[3];
