@@ -134,13 +134,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             vector3 const normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
             ::real const norm = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]); // distance
-            ::real const n = std::max(round(sqrt(norm/r_0)), 1.); // quantized energy level
-            ::real const dnorm = r_0 * n * n; // discrete distance
+            ::real const n = std::max(round(sqrt(norm/a)), 1.); // quantized energy level
+            ::real const dnorm = a * n * n; // discrete distance
 
 #if 1
             // calculate gravitational and electric forces
             ::real const fg = force(G, planet[i].m, m, dnorm, hg);
-            ::real const fe = force(alpha, planet[i].q, q, dnorm, he) - sigma;
+            ::real const fe = force(K, planet[i].q, q, dnorm, he);
 
             netforce[0] -= fg * normal[0] / dnorm;
             netforce[1] -= fg * normal[1] / dnorm;
@@ -960,7 +960,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     // quantum
     case QU:
         {
-            ::real constexpr scale = 1e-10L;
+            ::real constexpr scale = 1e-14L;
 
             // store the Sun & the photon using the Newton time formula
             planet.reserve(6);
