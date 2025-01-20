@@ -61,8 +61,8 @@ constexpr real Q = 1.602176634e-19L;
 constexpr real H[] = {C*C/(G), 0., 1e20L};
 constexpr real a = 5.29e-11L;
 constexpr real r_0 = 1e-15L;
-constexpr real alpha = 0.2L;
-constexpr real sigma = 1.44e-9L;
+constexpr real alpha = 0.2L * 1.60218e-10L * 4/3;
+constexpr real sigma = 0.9L * 1.60218e-10L;
 
 struct vector3
 {

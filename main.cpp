@@ -134,13 +134,13 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             vector3 const normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
             ::real const norm = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]); // distance
-            ::real const n = std::max(round(sqrt(norm/a)), 1.); // quantized energy level
-            ::real const dnorm = a * n * n; // discrete distance
+            ::real const n = std::max(round(sqrt(norm/1e-15)), 1.); // quantized energy level
+            ::real const dnorm = 1e-15 * n * n; // discrete distance
 
 #if 1
             // calculate gravitational and electric forces
             ::real const fg = force(G, planet[i].m, m, dnorm, hg);
-            ::real const fe = force(K, planet[i].q, q, dnorm, he);
+            ::real const fe = force(alpha, planet[i].q, q, dnorm, he) - sigma;
 
             netforce[0] -= fg * normal[0] / dnorm;
             netforce[1] -= fg * normal[1] / dnorm;
@@ -377,9 +377,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {5.41035e-11 + -4.85478e-11, -1.18697e-10 + 1.20417e-10, 0},
             {5.41035e-11 + -5.41035e-11, -1.18697e-10 + 1.18697e-10, 0},
 
-            {1e-13L, -0e-13L, 0.L},
-            {0e-13L, -0e-13L, 0.L},
-            {-1e-13L, -0e-13L, 0.L},
+            {0.5e-15L, -0.5e-15L, 0.L},
+            {0e-15L, -0e-15L, 0.L},
+            {-0.5e-15L, 0.5e-15L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -469,9 +469,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-4.85478e-11, 1.20417e-10, 0},
             {-5.41035e-11, 1.18697e-10, 0},
 
-            {1e-13L, -1e-13L, 0.L},
-            {0e-13L, -1e-13L, 0.L},
-            {-1e-13L, -1e-13L, 0.L},
+            {0.5e-15L, -0.5e-15L, 0.L},
+            {0e-15L, -0e-15L, 0.L},
+            {-0.5e-15L, 0.5e-15L, 0.L},
 
             // protons, neutrons and electrons:
             {1e-15L, 0.L, 0.L},
@@ -566,9 +566,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {33000 + -15606.4, -57000 + -211825, 0},
             {33000 + 66046.2, -57000 + -129951, 0},
 
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {0L, 0L, 0L},
+            {0L, 0L, 0L},
+            {0L, 0L, 0L},
 
             // protons, neutrons and electrons:
             {0.L, 0.L, 0.L},
@@ -658,9 +658,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-15606.4, -211825, 0},
             {66046.2, -129951, 0},
 
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {33000 + -116641, -57000 + 398716, 0},
+            {33000 + -15606.4, -57000 + -211825, 0},
+            {33000 + 66046.2, -57000 + -129951, 0},
 
             // protons, neutrons and electrons:
             {0.L, 0.L, 0.L},
@@ -970,7 +970,6 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 #if 0
             for (::real x = - scale; x < scale; x += scale / 10)
                 for (::real y = - scale; y < scale; y += scale / 10)
-#endif
                 {
                     double random[] = {dist(gen) * scale, dist(gen) * scale, dist(gen) * scale, dist(gen) * scale};
 
@@ -996,6 +995,17 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                         planet.back().p[1] += y + random[3];
                     }
                 }
+#endif
+
+            planet.push_back(Quark7);
+            planet.back().p[0] += x;
+            planet.back().p[1] += y;
+            planet.push_back(Quark8);
+            planet.back().p[0] += x;
+            planet.back().p[1] += y;
+            planet.push_back(Quark9);
+            planet.back().p[0] += x;
+            planet.back().p[1] += y;
 
             // copy & change each planet for the FT time formula
             if (t == 1)
