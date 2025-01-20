@@ -999,12 +999,14 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
             planet.reserve(3 * 2 * 2);
 
-            ::real constexpr scale = 1e-13L;
+            ::real constexpr scale = 1e-15L;
 
+#if 1
             for (::real x = - scale; x < scale; x += scale / 2)
                 for (::real y = - scale; y < scale; y += scale / 2)
+#endif
                 {
-                    double random[] = {dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100};
+                    ::real random[] = {dist(gen) * 0.5e-15, dist(gen) * 0.5e-15, dist(gen) * 0.5e-15, dist(gen) * 0.5e-15, dist(gen) * 0.5e-15, dist(gen) * 0.5e-15};
 
                     planet.push_back(Quark7);
                     planet.back().p[0] += x + random[0];
