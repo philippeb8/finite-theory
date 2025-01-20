@@ -960,14 +960,14 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     // quantum
     case QU:
         {
-            ::real constexpr scale = 1e-14L;
-
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(6);
-
             ::real const x = 0, y = 0;
 
 #if 0
+            planet.reserve(6 * 20 * 20);
+
+            ::real constexpr scale = 1e-14L;
+
             for (::real x = - scale; x < scale; x += scale / 10)
                 for (::real y = - scale; y < scale; y += scale / 10)
                 {
@@ -997,15 +997,25 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                 }
 #endif
 
-            planet.push_back(Quark7);
-            planet.back().p[0] += x;
-            planet.back().p[1] += y;
-            planet.push_back(Quark8);
-            planet.back().p[0] += x;
-            planet.back().p[1] += y;
-            planet.push_back(Quark9);
-            planet.back().p[0] += x;
-            planet.back().p[1] += y;
+            planet.reserve(3 * 2 * 2);
+
+            ::real constexpr scale = 1e-13L;
+
+            for (::real x = - scale; x < scale; x += scale / 2)
+                for (::real y = - scale; y < scale; y += scale / 2)
+                {
+                    double random[] = {dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100, dist(gen) * scale / 100};
+
+                    planet.push_back(Quark7);
+                    planet.back().p[0] += x + random[0];
+                    planet.back().p[1] += y + random[1];
+                    planet.push_back(Quark8);
+                    planet.back().p[0] += x + random[2];
+                    planet.back().p[1] += y + random[3];
+                    planet.push_back(Quark9);
+                    planet.back().p[0] += x + random[4];
+                    planet.back().p[1] += y + random[5];
+                }
 
             // copy & change each planet for the FT time formula
             if (t == 1)
