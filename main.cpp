@@ -999,7 +999,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
 
             planet.reserve(3 * 2 * 2);
 
-            ::real constexpr scale = 1e-15L;
+            ::real constexpr scale = 1e-12L;
 
 #if 1
             for (::real x = - scale; x < scale; x += scale / 2)
