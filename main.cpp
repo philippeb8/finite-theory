@@ -583,10 +583,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
-            {0.L, 5e5L, 0.L},
-            {0.L, -5e5L, 0.L},
-            {5e3L, 0.L, 0.L},
-            {-5e3L, 0.L, 0.L},
+            {0.L, 2.188e6L / 1, 0.L},
+            {0.L, 2.188e6L / -1, 0.L},
+            {2.188e6L / 2, 0.L, 0.L},
+            {2.188e6L / -2, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
 
@@ -675,10 +675,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
-            {0.L, 5e5L, 0.L},
-            {0.L, -5e5L, 0.L},
-            {5e3L, 0.L, 0.L},
-            {-5e3L, 0.L, 0.L},
+            {0.L, 2.188e6L / 1, 0.L},
+            {0.L, 2.188e6L / -1, 0.L},
+            {2.188e6L / 2, 0.L, 0.L},
+            {2.188e6L / -2, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
 
@@ -920,12 +920,14 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     case NU:
         {
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(4);
+            planet.reserve(6);
 
             planet.push_back(Proton1);
             planet.push_back(Neutron1);
             planet.push_back(Electron1);
             planet.push_back(Electron2);
+            planet.push_back(Electron3);
+            planet.push_back(Electron4);
 
 #if 0
             ::real constexpr scale = 1e-14L;
