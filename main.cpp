@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.8"
+#define EDITION "5.1.9"
 
 #include "main.h"
 
@@ -326,7 +326,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static std::uniform_real_distribution<> dist(0.0, 1.0);
 
 	// initial position of each planet and photon
-    static const ::real pos[2][75][3] =
+    static const ::real pos[2][77][3] =
 	{
         // newton
         {
@@ -398,8 +398,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-a * 1 * 1, 0.L, 0.L},
             {0.L, a * 2 * 2, 0.L},
             {0.L, -a * 2 * 2, 0.L},
-            {0.L, 0.L, a * 3 * 3},
-            {0.L, 0.L, -a * 3 * 3},
+            {a * 3 * 3, 0.L, 0L},
+            {-a * 3 * 3, 0.L, 0L},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -419,6 +419,10 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {5e-10L + 0.L, -a * 2 * 2, 0.L},
             {5e-10L + 0.L, 0.L, a * 3 * 3},
             {5e-10L + 0.L, 0.L, -a * 3 * 3},
+
+            // partciles collider:
+            {-1e-15L, 0.L, 0.L},
+            {1e-15L, 0.L, 0.L},
         },
         // finite theory
         {
@@ -490,8 +494,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-a * 1 * 1, 0.L, 0.L},
             {0.L, a * 2 * 2, 0.L},
             {0.L, -a * 2 * 2, 0.L},
-            {0.L, 0.L, a * 3 * 3},
-            {0.L, 0.L, -a * 3 * 3},
+            {a * 3 * 3, 0.L, 0L},
+            {-a * 3 * 3, 0.L, 0L},
 
             {5e-10L + 1e-15L, 0.L, 0.L},
             {5e-10L + -1e-15L, 0.L, 0.L},
@@ -511,11 +515,15 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {5e-10L + 0.L, -a * 2 * 2, 0.L},
             {5e-10L + 0.L, 0.L, a * 3 * 3},
             {5e-10L + 0.L, 0.L, -a * 3 * 3},
+
+            // partciles collider:
+            {-1e-15L, 0.L, 0.L},
+            {1e-15L, 0.L, 0.L},
         }
     };
 	
 	// initial velocity of each planet and photon
-    static const ::real vel[2][75][3] =
+    static const ::real vel[2][77][3] =
 	{
         // newton:
         {
@@ -587,8 +595,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 2.188e5L * -1, 0.L},
             {2.188e5L * 2, 0.L, 0.L},
             {2.188e5L * -2, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {0.L, 2.188e5L * 3, 0.L},
+            {0.L, 2.188e5L * -3, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
@@ -607,7 +615,11 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-5e5 + 5e5L, 0.L, 0.L},
             {-5e5 + -5e5L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 5e5L},
-            {-5e5 + 0.L, 0.L, -5e5L}
+            {-5e5 + 0.L, 0.L, -5e5L},
+
+            // partciles collider:
+            {0.028L * c, 0.L, 0.L},
+            {- 0.028L * c, 0.L, 0.L},
         },
         // finite theory:
         {
@@ -679,8 +691,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 2.188e5L * -1, 0.L},
             {2.188e5L * 2, 0.L, 0.L},
             {2.188e5L * -2, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
-            {0.L, 0.L, 0.L},
+            {0.L, 2.188e5L * 3, 0.L},
+            {0.L, 2.188e5L * -3, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
@@ -699,7 +711,11 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {-5e5 + 5e5L, 0.L, 0.L},
             {-5e5 + -5e5L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 5e5L},
-            {-5e5 + 0.L, 0.L, -5e5L}
+            {-5e5 + 0.L, 0.L, -5e5L},
+
+            // partciles collider:
+            {0.028L * c, 0.L, 0.L},
+            {- 0.028L * c, 0.L, 0.L},
         }
     };
 
@@ -770,6 +786,9 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     static const Planet Electron10   ("Electron10", Qt::blue, 9.109e-31, -Q, pos[0][72], vel[0][72], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
     static const Planet Electron11   ("Electron11", Qt::blue, 9.109e-31, -Q, pos[0][73], vel[0][73], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
     static const Planet Electron12   ("Electron12", Qt::blue, 9.109e-31, -Q, pos[0][74], vel[0][74], Planet::NW_Time, Planet::NW_Force, Planet::NU, H[0], Eta);
+
+    static const Planet Electron13   ("Electron13", Qt::blue, 9.109e-31, -Q, pos[0][75], vel[0][75], Planet::NW_Time, Planet::NW_Force, Planet::CO, H[0], Eta);
+    static const Planet Electron14   ("Electron14", Qt::blue, 9.109e-31, -Q, pos[0][76], vel[0][76], Planet::NW_Time, Planet::NW_Force, Planet::CO, H[0], Eta);
 
 
     static const Planet Core	  ("Core", 		Qt::black, 2E+11L, 0, pos[0][0], vel[0][0], Planet::NW_Time, Planet::NW_Force, Planet::BB, H[1], Eta);
@@ -920,7 +939,7 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
     case NU:
         {
             // store the Sun & the photon using the Newton time formula
-            planet.reserve(6);
+            planet.reserve(8);
 
             planet.push_back(Proton1);
             planet.push_back(Neutron1);
@@ -928,6 +947,8 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             planet.push_back(Electron2);
             planet.push_back(Electron3);
             planet.push_back(Electron4);
+            planet.push_back(Electron5);
+            planet.push_back(Electron6);
 
 #if 0
             ::real constexpr scale = 1e-14L;
@@ -1020,6 +1041,26 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
                     planet.back().p[0] += x + random[4];
                     planet.back().p[1] += y + random[5];
                 }
+
+            // copy & change each planet for the FT time formula
+            if (t == 1)
+                for (size_t i = 0; i < planet.size(); i ++)
+                {
+                    planet[i].time = Planet::FT_Time;
+                    planet[i].force = Planet::FT_Force;
+                }
+
+            break;
+        }
+
+    // particles collider
+    case CO:
+        {
+            // store the Sun & the photon using the Newton time formula
+            planet.reserve(2);
+
+            planet.push_back(Electron13);
+            planet.push_back(Electron14);
 
             // copy & change each planet for the FT time formula
             if (t == 1)
@@ -1501,6 +1542,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     ntime[4] = 1;
     ntime[5] = 1e-22;
     ntime[6] = 1e-20;
+    ntime[7] = 1e-20;
 
     QMenu *file = new QMenu( "&File", this );
     file->addAction( "&Restart", this, SLOT(slotRestart()), Qt::CTRL+Qt::Key_R );
@@ -1702,6 +1744,7 @@ Scribble::Scribble( QWidget *parent, const char *name )
     pTabWidget->addTab(pTab[4], "Pioneer 10");
     pTabWidget->addTab(pTab[5], "Nuclear");
     pTabWidget->addTab(pTab[6], "Quantum");
+    pTabWidget->addTab(pTab[7], "Collider");
     //pTab[1]->hide();
 
     setCentralWidget( pTabWidget );
@@ -1805,6 +1848,17 @@ void Scribble::slotQU()
     pTime->setValue( ntime[nc] );
 }
 
+void Scribble::slotCO()
+{
+    ntime[nc] = pTime->value();
+
+    nc = 7;
+    pPlanet[0]->setEnabled(false);
+    pPlanet[1]->setEnabled(false);
+    pTabWidget->setCurrentWidget(pTab[nc]);
+    pTime->setValue( ntime[nc] );
+}
+
 void Scribble::slotChanged(int i)
 {
     switch (i)
@@ -1816,6 +1870,7 @@ void Scribble::slotChanged(int i)
     case 4: slotV1(); break;
     case 5: slotNU(); break;
     case 6: slotQU(); break;
+    case 7: slotCO(); break;
     }
 }
 

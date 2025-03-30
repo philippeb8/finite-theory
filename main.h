@@ -53,12 +53,12 @@ class QDoubleSpinBox;
 
 typedef double real;
 
-constexpr real C = 299792458.L;
+constexpr real c = 299792458.L;
 constexpr real G = 6.67428e-11L;
 constexpr real K = 8.987551e9L;
 constexpr real Eta = 1e-3; //0.0013342L;
 constexpr real Q = 1.602176634e-19L;
-constexpr real H[] = {C*C/(G), 0., 1e20L};
+constexpr real H[] = {c*c/(G), 0., 1e20L};
 constexpr real a = 5.29e-11L;
 constexpr real r_0 = 1e-15L;
 constexpr real alpha = 0.2L * 1.60218e-10L * 4/3;
@@ -258,7 +258,7 @@ struct Planet
     real (* force)(real, real, real, real, real);   	// function pointer to Newton time formula or FT force formula
     real hg, he;                             // fudge factor
 
-    enum Type {PP, LB, BB, GR, V1, NU, QU} eType;		// is for the perihelion precession disparity or the gravitational light bending
+    enum Type {PP, LB, BB, GR, V1, NU, QU, CO} eType;		// is for the perihelion precession disparity or the gravitational light bending
 
     Planet(char const * n, const QColor & c, real m, real q, const real pp[3], const real pv[3], real (* time)(real, real, real), real (* force)(real, real, real, real, real), Type eType, real hg, real he)
         : n(n), c(c), m(m), q(q), p(pp[0], pp[1], pp[2]), first(true), updated(false), time(time), force(force), eType(eType), hg(hg), he(he)
@@ -288,7 +288,7 @@ class Canvas : public QWidget
 	friend class Dual;
 
 public:
-    enum Type {PP, LB, BB, GR, V1, NU, QU} eType;
+    enum Type {PP, LB, BB, GR, V1, NU, QU, CO} eType;
 
     Canvas( Type eType, size_t t, QWidget *parent = 0);
     ~Canvas();
@@ -374,11 +374,12 @@ protected slots:
     void slotV1();
     void slotNU();
     void slotQU();
+    void slotCO();
     void slotChanged(int);
 	void slotAbout();
 	
 public:
-    static const unsigned ntabs = 7;
+    static constexpr unsigned ntabs = 8;
 
     unsigned nc;
     real ntime[ntabs];
