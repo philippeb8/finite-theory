@@ -56,8 +56,10 @@ typedef double real;
 constexpr real c = 299792458.L;
 constexpr real G = 6.67428e-11L;
 constexpr real K = 8.987551e9L;
+constexpr real K_m = 1e-7L;
 constexpr real Eta = 1e-3; //0.0013342L;
 constexpr real Q = 1.602176634e-19L;
+constexpr real Q_m = 3.291e-9L; // C*m/s
 constexpr real H[] = {c*c/(G), 0., 1e20L};
 constexpr real a = 5.29e-11L;
 constexpr real r_0 = 1e-15L;

@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.9"
+#define EDITION "5.1.10"
 
 #include "main.h"
 
@@ -134,13 +134,15 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             vector3 const normal((p[0] - planet[i].p[0]), (p[1] - planet[i].p[1]), (p[2] - planet[i].p[2]));
 
             ::real const norm = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]); // distance
-            ::real const n = std::max(round(sqrt(norm/1e-15)), 1.); // quantized energy level
+            ::real const n = ceil(sqrt(norm/1e-15)); // quantized energy level
+            //::real const n = std::max(round(sqrt(norm/1e-15)), 1.); // quantized energy level
             ::real const dnorm = 1e-15 * n * n; // discrete distance
 
 #if 1
             // calculate gravitational and electric forces
             ::real const fg = force(G, planet[i].m, m, dnorm, hg);
             ::real const fe = force(alpha, planet[i].q, q, dnorm, he) - sigma;
+            ::real const fm = force(alpha / ::c / ::c, planet[i].q, q, dnorm, he * ::c) - sigma;
 
             netforce[0] -= fg * normal[0] / dnorm;
             netforce[1] -= fg * normal[1] / dnorm;
@@ -149,6 +151,11 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & up
             netforce[0] += fe * normal[0] / dnorm;
             netforce[1] += fe * normal[1] / dnorm;
             netforce[2] += fe * normal[2] / dnorm;
+
+            // magnetic force always attractive given spin:
+            netforce[0] += fm * normal[0] / dnorm;
+            netforce[1] += fm * normal[1] / dnorm;
+            netforce[2] += fm * normal[2] / dnorm;
 
             // calculate gravitational and electric time dilation increments
             tg[0] += time(planet[i].m, dnorm, hg);
@@ -591,12 +598,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
-            {0.L, 2.188e5L * 1, 0.L},
-            {0.L, 2.188e5L * -1, 0.L},
-            {2.188e5L * 2, 0.L, 0.L},
-            {2.188e5L * -2, 0.L, 0.L},
-            {0.L, 2.188e5L * 3, 0.L},
-            {0.L, 2.188e5L * -3, 0.L},
+            {0.L, c / 1370.L * 1, 0.L},
+            {0.L, c / 1370.L * -1, 0.L},
+            {c / 1370.L * 2, 0.L, 0.L},
+            {c / 1370.L * -2, 0.L, 0.L},
+            {0.L, c / 1370.L * 3, 0.L},
+            {0.L, c / 1370.L * -3, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
@@ -687,12 +694,12 @@ Canvas::Canvas( Type eType, size_t t, QWidget *parent)
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
             {0.L, 0.L, 0.L},
-            {0.L, 2.188e5L * 1, 0.L},
-            {0.L, 2.188e5L * -1, 0.L},
-            {2.188e5L * 2, 0.L, 0.L},
-            {2.188e5L * -2, 0.L, 0.L},
-            {0.L, 2.188e5L * 3, 0.L},
-            {0.L, 2.188e5L * -3, 0.L},
+            {0.L, c / 1370.L * 1, 0.L},
+            {0.L, c / 1370.L * -1, 0.L},
+            {c / 1370.L * 2, 0.L, 0.L},
+            {c / 1370.L * -2, 0.L, 0.L},
+            {0.L, c / 1370.L * 3, 0.L},
+            {0.L, c / 1370.L * -3, 0.L},
 
             {-5e5 + 0.L, 0.L, 0.L},
             {-5e5 + 0.L, 0.L, 0.L},
