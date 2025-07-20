@@ -1,6 +1,6 @@
 /**
     Finite Theory Simulator
-    Copyright (C) 2011 Phil Bouchard <philippeb8@gmail.com>
+    Copyright (c) 2011 Phil Bouchard <philippeb8@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define EDITION "5.1.8"
+#define EDITION "5.2.0"
 
 #include "main.h"
 
@@ -151,9 +151,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & dt
 
 #if 1
             // magnetic
-            netacceleration[0] -= abs(fe) * v[0][0] / (C * C) * normal[0] / dnorm;
-            netacceleration[1] -= abs(fe) * v[0][1] / (C * C) * normal[1] / dnorm;
-            netacceleration[2] -= abs(fe) * v[0][2] / (C * C) * normal[2] / dnorm;
+            netacceleration[0] -= abs(fe) * v[0][0] / (::c * ::c) * normal[0] / dnorm;
+            netacceleration[1] -= abs(fe) * v[0][1] / (::c * ::c) * normal[1] / dnorm;
+            netacceleration[2] -= abs(fe) * v[0][2] / (::c * ::c) * normal[2] / dnorm;
 #endif
 
             // gravitoelectric
@@ -163,9 +163,9 @@ inline void Planet::operator () (const vector<Planet> &planet, const ::real & dt
 
 #if 1
             // gravitomagnetic
-            netacceleration[0] -= abs(fg) * v[0][0] / (C * C) * normal[0] / dnorm;
-            netacceleration[1] -= abs(fg) * v[0][1] / (C * C) * normal[1] / dnorm;
-            netacceleration[2] -= abs(fg) * v[0][2] / (C * C) * normal[2] / dnorm;
+            netacceleration[0] -= abs(fg) * v[0][0] / (::c * ::c) * normal[0] / dnorm;
+            netacceleration[1] -= abs(fg) * v[0][1] / (::c * ::c) * normal[1] / dnorm;
+            netacceleration[2] -= abs(fg) * v[0][2] / (::c * ::c) * normal[2] / dnorm;
 #endif
 
 #if 1

@@ -3,7 +3,7 @@ LANGUAGE  = C++
 CONFIG	 += thread c++17
 QT       += core gui widgets
 
-QMAKE_LFLAGS += -lboost_system -ggdb3
+#QMAKE_LFLAGS += -ggdb3
 
 #QMAKE_CC              = i686-pc-mingw32-gcc
 #QMAKE_CXX             = i686-pc-mingw32-g++
