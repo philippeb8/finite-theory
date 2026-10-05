@@ -30,6 +30,10 @@ g++ -O2 -std=c++17 core_test.cpp -o core_test && ./core_test
 Both FT routes are **finite at r = 0**, so the integrator needs no softening
 length — the `f` factor regularises the Coulomb singularity by itself.
 
+## Demo
+
+![Demo](ftsim.gif)
+
 ## Units
 
 | quantity | unit | value |
