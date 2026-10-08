@@ -69,9 +69,25 @@
 //      f_n = ETA n^2 / (ETA n^2 + Z^2)
 //      E_n = -(Z^2 / 2n^2) * f_n^2   Hartree      (1 Ha = 27.211386 eV)
 //
-//  so the FT shift goes as 1/n^4.  Hydrogen 1s-2s (measured to ~10 Hz)
-//  bounds ETA > 6.17e14 in this Bohr picture (2.30e15 with QM <1/r^2>).
-//  The manuscript's lambda_e = c^2/sqrt(K G) = 3.8327e25 passes by ~10^10.  The quantisation is IMPOSED here,
+//  so the FT shift goes as 1/n^4.
+//
+//  RETROFIT OF lambda_e.  For S states the FT 1/r^2 term is exactly degenerate
+//  with the proton finite-size term (both go as 1/n^3), so in electronic
+//  hydrogen it appears as a LARGER apparent proton radius:
+//      r_p^2(apparent) = r_p^2 + k a r_c,   r_c = e/lambda_e
+//  k = 6.00 (1S-3S), 6.33 (2S-4P), 4.00 (2S-2P Lamb), 6.02 (2S-8D) after the
+//  Rydberg is eliminated with 1S-2S.  Muonic hydrogen (a 186x smaller) is
+//  immune.  A joint fit of r_p and r_c to the muonic radius 0.84087(39) fm
+//  and five electronic measurements (Beyer 2017, Fleurbaey 2018, Bezginov
+//  2019, Grinin 2020, Brandt 2022) gives
+//      r_c = (5.1 +/- 1.5)e-23 m   ->  lambda_e = 3.2e3 C/m,  ETA = 1.04e12
+//      95% limit r_c < 8.0e-23 m   ->  lambda_e > 2.0e3 C/m,  ETA > 6.6e11
+//  The 3.4 sigma is the proton-radius-puzzle remnant and should be read as
+//  an upper limit, not a detection: chi2/dof stays 8-12/3 whichever
+//  experiment is dropped.  This supersedes the earlier "10 Hz" floor of
+//  6.2e14, which wrongly compared 1S-2S precision against theory while
+//  R_inf and r_p are themselves extracted from hydrogen.  The manuscript's
+//  lambda_e = c^2/sqrt(KG) (ETA 3.8e25) is 13 orders above the retrofit.  The quantisation is IMPOSED here,
 //  not derived: the FT force alone has a degree-1 numerator and therefore
 //  exactly one root, so it cannot generate a series of radii.
 //
@@ -317,6 +333,7 @@
 #include <QWheelEvent>
 #include <QMouseEvent>
 #include <QToolTip>
+#include <QTabBar>
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
@@ -363,7 +380,7 @@ struct Species {
     bool        nucleon;
 };
 enum SpeciesId { SP_E = 0, SP_P, SP_N, SP_MU, SP_TAU, SP_NUE, SP_NUMU, SP_NUTAU,
-                 SP_U, SP_D, SP_S, SP_C, SP_B, SP_T, SP_COUNT };
+                 SP_U, SP_D, SP_S, SP_C, SP_B, SP_T, SP_STAR, SP_PLANET, SP_COUNT };
 static const Species SPECIES[SP_COUNT] = {
     {"electron", "-1",   -1.0,       1.0,          -5.005798e-01, "#3FB4CF", false},
     {"proton",   "+1",   +1.0,       1836.152673,  +7.605161e-04, "#C56A00", true },
@@ -379,6 +396,9 @@ static const Species SPECIES[SP_COUNT] = {
     {"charm",    "+2/3",  2.0 / 3.0, 2485.328,     +1.341205e-04, "#E89B2F", false},
     {"bottom",   "-1/3", -1.0 / 3.0, 8180.056,     -2.037476e-05, "#7E45A0", false},
     {"top",      "+2/3",  2.0 / 3.0, 337945.9,     +9.863512e-07, "#D9772A", false},
+    // neutral astronomical bodies (mass only): 1 M_sun and 1 M_earth in m_e
+    {"star",     " 0",    0.0,       2.1833749e60,  0.0,          "#FFD966", false},
+    {"planet",   " 0",    0.0,       6.5560967e54,  0.0,          "#5DADE2", false},
 };
 static constexpr double V_CAP = 68.518;   // 0.5 c in v_Bohr
 
@@ -407,11 +427,11 @@ static bool isQuark(int sp) { return sp >= SP_U && sp <= SP_T; }
 static const char *SYM[SP_COUNT] = {
     "e", "p", "n", "\xCE\xBC", "\xCF\x84",
     "\xCE\xBD", "\xCE\xBD", "\xCE\xBD",
-    "u", "d", "s", "c", "b", "t"};
+    "u", "d", "s", "c", "b", "t", "S", "P"};
 static const char *SUB[SP_COUNT] = {
     "", "", "", "", "",
     "e", "\xCE\xBC", "\xCF\x84",
-    "", "", "", "", "", ""};
+    "", "", "", "", "", "", "", ""};
 
 struct Particle {
     QPointF pos, vel, acc;
@@ -672,6 +692,70 @@ public:
 
     void clear() { p.clear(); nextHadron = 0; t = 0.0; }
 
+    double hadronRadiusFm = 0.8409;   // triangle radius for uud/udd; proton rms charge radius
+
+    // astronomical units in simulator units (a0, m_e, a0/v_Bohr)
+    static constexpr double AU_A0   = 2.8269900e21;
+    static constexpr double KPC_A0  = 5.8311279e29;
+    static constexpr double MSUN_ME = 2.1833749e60;
+    static constexpr double YEAR_T  = 1.3046345e24;
+
+    Particle body(int sp, double m, QPointF at, QPointF v = QPointF(0, 0))
+    {
+        Particle a; a.pos = at; a.vel = v; a.q = 0.0; a.m = m;
+        a.species = sp; a.nucleon = false; return a;
+    }
+
+    // give every body except 'center' the circular speed the CURRENT force
+    // law implies at its radius (counter-clockwise), so a scene starts on
+    // orbits whatever route, eta_g or gain is selected
+    void circularize(int center)
+    {
+        computeAcc();
+        const QPointF c = p[center].pos;
+        for (int i = 0; i < int(p.size()); ++i) {
+            if (i == center) continue;
+            QPointF d = p[i].pos - c; double r = std::hypot(d.x(), d.y());
+            if (r <= 0) continue;
+            QPointF u = d / r;
+            double ar = -(p[i].acc.x() * u.x() + p[i].acc.y() * u.y());  // inward
+            double v  = (ar > 0) ? std::sqrt(ar * r) : 0.0;
+            p[i].vel = p[center].vel + QPointF(-u.y() * v, u.x() * v);
+        }
+    }
+
+    // bulge + N tracer stars (1e3 M_sun) on a disk, 0.5 .. R_kpc
+    void buildGalaxy(double Mbulge_sun, int nStars, double R_kpc, quint32 seed)
+    {
+        clear();
+        QRandomGenerator rng(seed);
+        p.push_back(body(SP_STAR, Mbulge_sun * MSUN_ME, QPointF(0, 0)));
+        for (int i = 0; i < nStars; ++i) {
+            double r  = KPC_A0 * (0.5 + (R_kpc - 0.5) * std::sqrt(rng.generateDouble()));
+            double th = 2.0 * M_PI * rng.generateDouble();
+            // 1e3 M_sun tracers: with 1e6 M_sun, tracer-tracer encounters
+            // at dt = 1e30 scatter ~1/5 of the disk within 0.5 Gyr
+            p.push_back(body(SP_STAR, 1e3 * MSUN_ME, QPointF(r * std::cos(th), r * std::sin(th))));
+        }
+        circularize(0);
+    }
+
+    // Sun + the eight planets at their mean distances, phases random
+    void buildSolar(quint32 seed)
+    {
+        clear();
+        QRandomGenerator rng(seed);
+        p.push_back(body(SP_STAR, MSUN_ME, QPointF(0, 0)));
+        static const double au[8] = {0.387, 0.723, 1.000, 1.524, 5.203, 9.537, 19.19, 30.07};
+        static const double me[8] = {0.0553, 0.815, 1.0, 0.107, 317.8, 95.2, 14.5, 17.1};  // Earth masses
+        for (int k = 0; k < 8; ++k) {
+            double th = 2.0 * M_PI * rng.generateDouble();
+            p.push_back(body(SP_PLANET, me[k] * SPECIES[SP_PLANET].m,
+                             QPointF(au[k] * AU_A0 * std::cos(th), au[k] * AU_A0 * std::sin(th))));
+        }
+        circularize(0);
+    }
+
     // append n particles of any species.  Protons land in the cluster disk on
     // the proton- and mixed-cluster layouts, neutrons on the mixed one; all
     // else goes uniformly into the box.
@@ -712,9 +796,8 @@ public:
                    quint32 seed)
     {
         if (n <= 0) return;
-        static constexpr double R_FM = 0.8409;
         static constexpr double A0_OVER_FM = 52917.721090;
-        const double R = R_FM / A0_OVER_FM;              // in a0
+        const double R = hadronRadiusFm / A0_OVER_FM;    // in a0
         const int q3[3] = { SP_U, proton ? SP_U : SP_D, SP_D };
 
         QRandomGenerator rng(seed);
@@ -1314,10 +1397,11 @@ public:
         return pan + QPointF(d.x() / scale, -d.y() / scale);
     }
 
+    double homeScale = 40.0;           // what double-click returns to
     void resetView()
     {
         pan = QPointF(0, 0);
-        scale = 40.0;
+        scale = homeScale;
         emit viewChanged(scale);
         update();
     }
@@ -1335,7 +1419,7 @@ protected:
         const double steps = ev->angleDelta().y() / 120.0;
         if (steps == 0.0) return;
         double next = scale * std::pow(1.15, steps);
-        next = qBound(1e-3, next, 1e12);
+        next = qBound(1e-45, next, 1e12);
         scale = next;
 
         // put the anchor back under the cursor
@@ -1477,8 +1561,8 @@ protected:
                                    "double-click = reset]")
                                .arg(scale, 0, 'g', 4)
                                .arg(pan.x(), 0, 'g', 3).arg(pan.y(), 0, 'g', 3));
-        g.drawText(10, 18, QString("t = %1   N = %2   ETA = %3")
-                               .arg(sim->t, 0, 'f', 3)
+        g.drawText(10, 18, QString("t = %1 (%2)   N = %3   ETA = %4")
+                               .arg(sim->t, 0, 'g', 4).arg(siTime(sim->t))
                                .arg(sim->p.size())
                                .arg(sim->eta, 0, 'g', 4));
         g.drawText(10, 36, QString("KE = %1   PE = %2   E = %3")
@@ -1543,10 +1627,22 @@ protected:
         const double m = L / b;
         return ((m >= 5.0) ? 5.0 : (m >= 2.0) ? 2.0 : 1.0) * b;
     }
+    static QString siTime(double tsim)
+    {
+        const double s = tsim * 2.4188843e-17;
+        if (s >= 3.15576e7) return QString("%1 yr").arg(s / 3.15576e7, 0, 'g', 4);
+        if (s >= 86400)     return QString("%1 d").arg(s / 86400, 0, 'g', 4);
+        if (s >= 1.0)       return QString("%1 s").arg(s, 0, 'g', 4);
+        if (s >= 1e-9)      return QString("%1 ns").arg(s * 1e9, 0, 'g', 4);
+        if (s >= 1e-15)     return QString("%1 fs").arg(s * 1e15, 0, 'g', 4);
+        return QString("%1 as").arg(s * 1e18, 0, 'g', 4);
+    }
     static QString siLabel(double metres)
     {
         struct P { double f; const char *s; };
         static const P pre[] = {
+            {3.0857e19, "kpc"}, {3.0857e16, "pc"}, {9.4607e15, "ly"},
+            {1.495979e11, "AU"}, {1e3, "km"},
             {1.0, "m"}, {1e-3, "mm"}, {1e-6, "\u00B5m"}, {1e-9, "nm"},
             {1e-10, "\u00C5"}, {1e-12, "pm"}, {1e-15, "fm"},
             {1e-18, "am"}, {1e-21, "zm"}, {1e-24, "ym"}};
@@ -1818,15 +1914,29 @@ class Window : public QWidget {
 
 public:
     Sim    sim;
+
+    // one frozen simulation + its settings per scale tab; switching tabs
+    // parks the current one and resumes the other where it was left
+    struct TabState {
+        bool    init = false;
+        Sim     sim;
+        double  eta = 1, etaG = 7.8e46, dt = 2e-4, box = 5, scale = 40, home = 40;
+        QPointF pan;
+        int     etaPreset = 4, route = 0, kin = 3, layout = 2;
+        bool    qcd = false, constituent = false;
+    } tabState[4];
+    int curTab = -1;
     View  *view;
     QTimer timer;
 
     QSpinBox       *sbSpecN;
-    QPushButton    *btClear;
+    QPushButton    *btClear, *btRestart;
+    QDoubleSpinBox *sbHadR;
     QComboBox      *cbSpecies;
     QPushButton    *btAddSpecies;
     QDoubleSpinBox *sbEta, *sbDt, *sbBox, *sbV, *sbEtaG, *sbGain, *sbFill;
     QComboBox      *cbEtaPreset;
+    QTabBar        *tabs;
     QComboBox      *cbRoute, *cbIon, *cbLayout, *cbQuantMode;
     QDoubleSpinBox *sbStep;
     QCheckBox      *chTrails, *chGravity, *chResolve, *chQuant, *chStrong;
@@ -1873,18 +1983,17 @@ public:
         // presets, in simulator units ETA = eta * a0 / e   (eta in C/m)
         cbEtaPreset = new QComboBox;
         cbEtaPreset->addItem("lambda_e = c^2/sqrt(KG)  manuscript   3.8327e25", 3.832733e25);
-        cbEtaPreset->addItem("H 1S-2S floor, QM <1/r^2>          2.300e15",  2.300e15);
-        cbEtaPreset->addItem("H 1S-2S floor, Bohr picture        6.168e14",  6.168e14);
+        cbEtaPreset->addItem("retrofit: H e/mu proton radii       1.044e12",  1.043742e12);
+        cbEtaPreset->addItem("spectroscopy 95% floor             6.606e11",  6.606457e11);
         cbEtaPreset->addItem("nuclear: r_c = 1 fm                5.2918e4",  52917.72109);
         cbEtaPreset->addItem("visible on screen: r_c = 1 a0      1",         1.0);
         cbEtaPreset->addItem("custom", -1.0);
         cbEtaPreset->setCurrentIndex(4);                 // matches sbEta = 1
         sbEta->setSingleStep(0.1);
-        sbDt = new QDoubleSpinBox; sbDt->setDecimals(6);
-        sbDt->setDecimals(15);
-        sbDt->setRange(1e-15, 1.0);  sbDt->setValue(2e-4);
-        sbDt->setSingleStep(1e-4);
-        sbBox = new QDoubleSpinBox; sbBox->setRange(0.5, 50); sbBox->setValue(5.0);
+        sbDt = new SciSpinBox; sbDt->setDecimals(300);
+        sbDt->setRange(1e-15, 1e36);  sbDt->setValue(2e-4);
+        sbBox = new SciSpinBox; sbBox->setDecimals(300);
+        sbBox->setRange(1e-6, 1e36); sbBox->setValue(5.0);
         sbV   = new QDoubleSpinBox; sbV->setRange(0.0, 5.0);  sbV->setValue(0.3);
         sbV->setSingleStep(0.05);
 
@@ -1965,17 +2074,23 @@ public:
                          "all four, spaced 4 a0"});
         cbIon->setCurrentIndex(4);
         chResolve = new QCheckBox("resolve nucleons (unbound)");
+        sbHadR = new SciSpinBox; sbHadR->setDecimals(300);
+        sbHadR->setRange(1e-12, 100.0); sbHadR->setValue(0.8409);
         btIon = new QPushButton("Load ion(s)");
 
         // logarithmic: scale = 10^(v/100 - 1)  ->  v in [0,1300] = 0.1 .. 1e12
         slZoom = new QSlider(Qt::Horizontal);
-        slZoom->setRange(0, 1300);
+        slZoom->setRange(-4400, 1300);   // 1e-45 .. 1e12 px per a0
         slZoom->setValue(int(100.0 * (std::log10(40.0) + 1.0)));
 
         btReset = new QPushButton("Reset");
         btReset->setToolTip(tipHtml(
-            "Restart from the default scene - 20 electrons, 20 protons,\n"
-            "20 neutrons - with a new random seed and the current layout."));
+            "Restore the current tab's defaults (eta presets, dt, box,\n"
+            "zoom) and rebuild its scene. Use Restart to keep settings."));
+        btRestart = new QPushButton("Restart");
+        btRestart->setToolTip(tipHtml(
+            "Rebuild the current tab's scene with a new random seed and\n"
+            "keep every setting as it is - presets, dt, zoom, route."));
         btClear = new QPushButton("Clear");
         btClear->setToolTip(tipHtml(
             "Empty the scene, then build it from the 'add species' list."));
@@ -2039,19 +2154,25 @@ public:
                "The FT 1/r^2 term grows as mu^2 there. In QM it also splits\n"
                "2S from 2P: at ETA = 8.7673e5 it would add ~357 meV to the\n"
                "muonic Lamb shift, which is measured as 202.3706(23) meV and\n"
-               "fully explained without it. That bounds ETA > ~1.4e11 - still\n"
-               "weaker than ordinary H 1S-2S (ETA > 6.2e14 Bohr, 2.3e15 QM),\n"
-               "whose 10 Hz\n"
-               "precision outweighs the mu^2 amplification.");
+               "fully explained without it. That bounds ETA > ~1.4e11, close\n"
+               "to the electronic/muonic proton-radius retrofit (ETA > 6.6e11).");
         addRow(form, "eta preset", cbEtaPreset,
                "eta is a charge per length (C/m), entered as ETA = eta*a0/e.\n\n"
                "lambda_e = c^2/sqrt(K G)   ETA 3.8327e25   eta 1.1604e17 C/m\n"
                "  the manuscript's value, lambda_g/lambda_eg (Sec. 2.5.5).\n"
                "  Equal to Planck charge / Planck length exactly (hbar\n"
                "  cancels). Crossover 2.6e-26 a0: FT invisible here.\n"
-               "H 1S-2S floor, QM          ETA 2.300e15   eta 6.96e6 C/m\n"
-               "H 1S-2S floor, Bohr        ETA 6.168e14   eta 1.87e6 C/m\n"
-               "  smallest eta hydrogen spectroscopy (10 Hz) allows\n"
+               "retrofit                   ETA 1.044e12   eta 3.2e3 C/m\n"
+               "  joint fit of r_p and r_c = e/eta to the muonic proton\n"
+               "  radius and five electronic H measurements: the FT 1/r^2\n"
+               "  term mimics a larger proton in electronic H (k ~ 6 for\n"
+               "  1S-3S, 4 for the Lamb shift) and not in muonic H.\n"
+               "  r_c = (5.1 +/- 1.5)e-23 m, 3.4 sigma - the proton-radius\n"
+               "  puzzle remnant; treat as an upper limit, not a detection.\n"
+               "95% floor                  ETA 6.606e11   eta 2.0e3 C/m\n"
+               "  r_c < 8.0e-23 m from the same fit. Supersedes the old\n"
+               "  '10 Hz' floor, which ignored that R_inf and r_p are\n"
+               "  themselves extracted from hydrogen.\n"
                "nuclear, r_c = 1 fm         ETA 5.2918e4   - excluded\n"
                "visible, r_c = 1 a0         ETA 1          - excluded\n\n"
                "c*eps0 is NOT offered: it is 1/Z0 = 2.654e-3 siemens, not\n"
@@ -2322,6 +2443,15 @@ public:
                "Li2+   3  4   0.3333   3            0.69813\n"
                "Be3+   4  5   0.2500   4            0.39270\n\n"
                "'all four' spaces them 4 a0 apart.");
+        addRow(form, "hadron radius (fm)", sbHadR,
+               "Radius of the quark triangle for the uud / udd entries and\n"
+               "the Quark tab (quark-quark spacing = radius x sqrt 3).\n"
+               "Default 0.8409 fm, the proton rms charge radius.\n\n"
+               "For the FT attraction a like pair must sit inside\n"
+               "r_c = sqrt(|q_i q_j|)/ETA: for u-u that is (2/3)/ETA a0, e.g.\n"
+               "3.4e-23 m at the retrofit ETA, 0.67 fm at ETA = 5.29e4.\n"
+               "Cornell (QCD on) and Coulomb both grow as 1/r^2 inside, so a\n"
+               "much smaller radius needs a much smaller dt.");
         addRow(form, chResolve,
                "Place the nucleons individually instead of one composite\n"
                "particle of charge +Ze.\n\n"
@@ -2334,6 +2464,7 @@ public:
 
         auto *btns = new QHBoxLayout;
         btns->addWidget(btReset);
+        btns->addWidget(btRestart);
         btns->addWidget(btClear);
         btns->addWidget(btPause);
 
@@ -2399,9 +2530,45 @@ public:
         split->setStretchFactor(1, 0);
         split->setChildrenCollapsible(false);
 
-        auto *root = new QHBoxLayout(this);
+        // ---- top-level scale tabs ----
+        tabs = new QTabBar;
+        tabs->addTab("Galactic");  tabs->addTab("Solar");
+        tabs->addTab("Atomic");    tabs->addTab("Quark");
+        tabs->setToolTip(tipHtml("Each tab keeps its own scene: switching away freezes it,\n"
+                                 "switching back resumes it where it was."));
+        tabs->setTabToolTip(0, tipHtml(
+            "1e10 M_sun bulge + 200 tracer stars of 1e3 M_sun on a disk to\n"
+            "15 kpc, each started on the circular orbit the current force\n"
+            "law gives. The force route is left as the profile set it.\n"
+            "CAUTION: with the symmetric pair scale S = sqrt(M m) the\n"
+            "bulge/tracer crossover sits at 0.0016 kpc, not M/eta_g = 5 kpc,\n"
+            "so the tracers orbit Keplerian (107 km/s at 3.7 kpc, 54 at 15)\n"
+            "whatever eta_g. The paper's Eq. 103 uses S = M alone.\n"
+            "ETA_G preset 'galactic fit': r_c = M/eta_g = 5 kpc, the per-galaxy\n"
+            "fitted value of Sec. 4.4.1 (c^2/G puts r_c at 7e13 m, invisible).\n"
+            "dt = 1e30 (~300 steps per orbit at 8 kpc). Ruler reads kpc."));
+        tabs->setTabToolTip(1, tipHtml(
+            "Sun + eight planets at mean distance, circular, random phases.\n"
+            "eta_g = c^2/G: the FT correction is GM/(c^2 r) ~ 1e-8 at Earth,\n"
+            "so this is Newtonian to the eye. dt = 1e21 (~300 steps per\n"
+            "Mercury orbit). Ruler reads AU."));
+        tabs->setTabToolTip(2, tipHtml(
+            "20 electrons, 20 protons, 20 neutrons in the current layout.\n"
+            "ETA preset 'visible' (ETA = 1, r_c = 1 a0) so the FT structure\n"
+            "shows; dt = 0.02. Choose 'retrofit' (1.04e12, from the\n"
+            "electronic/muonic proton-radius fit) for the bounded value,\n"
+            "where f = 1 here to 1e-12."));
+        tabs->setTabToolTip(3, tipHtml(
+            "One resolved uud proton: constituent masses, Cornell confinement,\n"
+            "SR kinematics (speed limit c), dt = 1e-12, zoomed to ~1 fm.\n"
+            "ETA preset 'retrofit': at r_c = 5e-23 m the FT correction to\n"
+            "quark binding at 1 fm is ~1e-7 relative, so QCD does the work."));
+
+        auto *root = new QVBoxLayout(this);
         root->setContentsMargins(4, 4, 4, 4);
-        root->addWidget(split);
+        root->addWidget(tabs);
+        root->addWidget(split, 1);
+        connect(tabs, &QTabBar::currentChanged, this, &Window::switchTab);
 
         // ---- top-level Presets menu ----
         auto *mb = new QMenuBar(this);
@@ -2416,6 +2583,9 @@ public:
         connect(aFT, &QAction::triggered, this, [this] { applyProfile(true);  });
 
         connect(btReset, &QPushButton::clicked, this, &Window::doReset);
+        connect(sbHadR, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+                this, [this](double v) { sim.hadronRadiusFm = v; });
+        connect(btRestart, &QPushButton::clicked, this, &Window::restartScene);
         connect(btClear, &QPushButton::clicked, this, [this] {
             syncSettings(); sim.clear(); view->update();
         });
@@ -2550,9 +2720,9 @@ public:
             view->update();
         });
         connect(cbLayout, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                this, [this](int) { doReset(); });
+                this, [this](int) { restartScene(); });
         connect(sbFill, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-                this, [this](double v) { sim.clusterFill = v; doReset(); });
+                this, [this](double v) { sim.clusterFill = v; restartScene(); });
         connect(sbEtaG, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
                 this, [this](double v) { sim.etaG = v; sim.computeAcc(); });
         connect(sbGain, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
@@ -2585,7 +2755,8 @@ public:
         connect(&timer, &QTimer::timeout, this, &Window::tick);
         timer.setInterval(16);
 
-        doReset();
+        tabs->setCurrentIndex(2);          // emits currentChanged -> switchTab(2)
+        if (sim.p.empty()) switchTab(2);   // in case index 2 was already current
         timer.start();
         setWindowTitle("Finite Theory - N charge simulator");
     }
@@ -2620,6 +2791,7 @@ private slots:
         sim.magGain     = sbMagGain->value();
         sim.strong      = chStrong->isChecked();
         sim.strongGain  = sbSGain->value();
+        sim.hadronRadiusFm = sbHadR->value();
         sim.qcd         = chQCD->isChecked();
         {
             static const Sim::Kin K[] = {Sim::Kin::F2SC, Sim::Kin::F2Lin,
@@ -2659,21 +2831,125 @@ private slots:
         cbLayout->blockSignals(true);                // one reset, below
         cbLayout->setCurrentIndex(ft ? 2 : 0);       // mixed cluster / random
         cbLayout->blockSignals(false);
-        setWindowTitle(QString("Finite Theory - N charge simulator   [%1]")
-                           .arg(ft ? "FT at all levels" : "SR at all levels"));
-        doReset();
+        profileName = ft ? "FT at all levels" : "SR at all levels";
+        for (auto &t : tabState) t.init = false;   // other tabs rebuild under the new profile
+        applyScale(curTab);
     }
 
-    void doReset()
+private:                                  // data and helpers: not slots
+    QString profileName = "FT at all levels";
+
+    void setZoom(double s)
     {
+        view->homeScale = s; view->scale = s; view->pan = QPointF(0, 0);
+        slZoom->blockSignals(true);
+        slZoom->setValue(int(100.0 * (std::log10(s) + 1.0)));
+        slZoom->blockSignals(false);
+    }
+
+    // B may be a base of W (QCheckBox::setChecked lives in QAbstractButton)
+    template <class W, class B, class V> static void quiet(W *w, void (B::*set)(V), V v)
+    { w->blockSignals(true); (w->*set)(v); w->blockSignals(false); }
+
+private slots:
+
+    // ---- scale tabs: scene, time step, zoom and the presets that fit ----
+    // Physics choices (route, momentum factor, k) stay with the profile; a
+    // tab only changes what the Presets menu does not.  The force route is
+    // never touched: under FT it stays Potential at every scale.  Note for
+    // galactic: the symmetric pair scale S = sqrt(M m) (Newton's-third-law
+    // fix) puts the bulge/tracer crossover at sqrt(M m)/eta_g = 0.0016 kpc,
+    // not at M/eta_g = 5 kpc, so tracers orbit Keplerian on either route.
+    void parkTab(int k)
+    {
+        if (k < 0 || k > 3) return;
+        TabState &t = tabState[k];
+        t.init = true;          t.sim = sim;
+        t.eta = sbEta->value(); t.etaG = sbEtaG->value();
+        t.dt = sbDt->value();   t.box = sbBox->value();
+        t.scale = view->scale;  t.home = view->homeScale;  t.pan = view->pan;
+        t.etaPreset = cbEtaPreset->currentIndex();
+        t.route = cbRoute->currentIndex();  t.kin = cbKin->currentIndex();
+        t.layout = cbLayout->currentIndex();
+        t.qcd = chQCD->isChecked();         t.constituent = chConstituent->isChecked();
+    }
+
+    // leave the running scene frozen in its tab; resume (or build) the other
+    void switchTab(int k)
+    {
+        if (k == curTab) return;
+        parkTab(curTab);
+        curTab = k;
+        TabState &t = tabState[k];
+        if (!t.init) { applyScale(k); return; }
+        sim = t.sim;
+        quiet(sbEta,  &QDoubleSpinBox::setValue, t.eta);
+        quiet(sbEtaG, &QDoubleSpinBox::setValue, t.etaG);
+        quiet(sbDt,   &QDoubleSpinBox::setValue, t.dt);
+        quiet(sbBox,  &QDoubleSpinBox::setValue, t.box);
+        quiet(cbEtaPreset, &QComboBox::setCurrentIndex, t.etaPreset);
+        quiet(cbRoute,     &QComboBox::setCurrentIndex, t.route);
+        quiet(cbKin,       &QComboBox::setCurrentIndex, t.kin);
+        quiet(cbLayout,    &QComboBox::setCurrentIndex, t.layout);
+        quiet(chQCD,         &QCheckBox::setChecked, t.qcd);
+        quiet(chConstituent, &QCheckBox::setChecked, t.constituent);
+        view->homeScale = t.home; view->scale = t.scale; view->pan = t.pan;
+        slZoom->blockSignals(true);
+        slZoom->setValue(int(100.0 * (std::log10(t.scale) + 1.0)));
+        slZoom->blockSignals(false);
         syncSettings();
-        // default starting scene; build anything else with 'add species'
-        sim.reset(DEFAULT_NE, DEFAULT_NP, DEFAULT_NN,
-                  sbBox->value(), sbV->value(), seed++);
-        if (sim.quantised) sim.assignLevels();
-        if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
+        sim.computeAcc();
+        static const char *names[4] = {"Galactic", "Solar", "Atomic", "Quark"};
+        setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
+                           .arg(names[k]).arg(profileName));
         view->update();
     }
+
+    // Tab defaults: presets, dt, box, zoom.  Then the scene.
+    void applyScale(int k)
+    {
+        syncSettings();
+        switch (k) {
+        case 0:  sbEtaG->setValue(7.4773e39);        // r_c = M_bulge/eta_g = 5 kpc
+                 sbDt->setValue(1e30);  sbBox->setValue(15 * Sim::KPC_A0);
+                 setZoom(250.0 / (15 * Sim::KPC_A0)); break;
+        case 1:  sbEtaG->setValue(7.822540e46);      // c^2/G
+                 sbDt->setValue(1e21);  sbBox->setValue(31 * Sim::AU_A0);
+                 setZoom(250.0 / (6 * Sim::AU_A0)); break;   // inner system
+        case 2:  cbEtaPreset->setCurrentIndex(4);    // visible on screen, ETA = 1
+                 sbDt->setValue(0.02);  sbBox->setValue(5.0);
+                 setZoom(40.0); break;
+        default: cbEtaPreset->setCurrentIndex(1);    // retrofit
+                 chConstituent->setChecked(true);
+                 chQCD->setChecked(true);
+                 if (cbKin->currentIndex() != 5) cbKin->setCurrentIndex(5);   // SR: limit c
+                 sbDt->setValue(1e-12); sbBox->setValue(1e-4);
+                 setZoom(150.0 / 1.6e-5); break;
+        }
+        restartScene();
+    }
+
+    // Scene only: rebuild the current tab's bodies with a new seed, keeping
+    // every control, the time step and the view exactly as they are.
+    void restartScene()
+    {
+        syncSettings();
+        const int k = tabs->currentIndex();
+        static const char *names[4] = {"Galactic", "Solar", "Atomic", "Quark"};
+        switch (k) {
+        case 0:  sim.buildGalaxy(1e10, 200, 15.0, seed++); break;
+        case 1:  sim.buildSolar(seed++); break;
+        case 2:  sim.reset(DEFAULT_NE, DEFAULT_NP, DEFAULT_NN, sbBox->value(), sbV->value(), seed++);
+                 if (sim.quantised) sim.assignLevels(); break;
+        default: sim.clear(); sim.addHadron(true, 1, 0.0, 0.0, seed++); break;
+        }
+        if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
+        setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
+                           .arg(names[qBound(0, k, 3)]).arg(profileName));
+        view->update();
+    }
+
+    void doReset() { applyScale(curTab); }   // defaults + scene for the current tab
 
     void tick()
     {
