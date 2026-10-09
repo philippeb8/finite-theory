@@ -334,6 +334,8 @@
 #include <QMouseEvent>
 #include <QToolTip>
 #include <QTabBar>
+#include <QGridLayout>
+#include <QDial>
 #include <QAction>
 #include <QMenu>
 #include <QMenuBar>
@@ -469,6 +471,32 @@ public:
     double magGain  = 1.0;      // display amplifier, 1 = true strength
 
     bool   gravMag  = true;     // gravitomagnetic field of moving masses
+
+    // EXTERNAL UNIFORM FIELDS (atomic units).  The motion is planar, so:
+    //   E, g   in-plane vectors (magnitude + in-plane angle from +x)
+    //   B, B_g only their z-component acts (magnitude * cos(tilt from +z));
+    //          an in-plane B or B_g would push out of the plane, which is
+    //          not simulated
+    //   a  = q/m (E + v x B)      E in 5.14220675e11 V/m, B in 2.35051757e5 T
+    //   a += g                    g in 9.0e22 m/s^2 (acts on every mass)
+    //   a += v x B_g              B_g in 4.1341e16 s^-1; equivalent to a
+    //                             frame rotating at Omega = B_g/2 (Coriolis)
+    double extEx = 0, extEy = 0, extBz = 0;
+    double extGx = 0, extGy = 0, extBgz = 0;
+    bool hasExternal() const
+    { return extEx || extEy || extBz || extGx || extGy || extBgz; }
+
+    void externalPass()
+    {
+        for (auto &a : p) {
+            if (a.m <= 0.0) continue;
+            const double qm = a.q / a.m;
+            a.acc += QPointF(qm * (extEx + a.vel.y() * extBz),
+                             qm * (extEy - a.vel.x() * extBz));
+            a.acc += QPointF(extGx + a.vel.y() * extBgz,
+                             extGy - a.vel.x() * extBgz);
+        }
+    }
     double gmK      = 4.0;      // coupling: 4 GR, 1.5 manuscript Eq.19, 1 naive
 
     std::vector<Particle> p;
@@ -1198,6 +1226,7 @@ public:
             }
         }
         if (magnetic || spinOn || gravMag) magneticPass();
+        if (hasExternal()) externalPass();
     }
 
     // half kick.  The force F = m a changes the momentum p = G(v) m v, and v
@@ -1360,6 +1389,10 @@ public:
                 if (qcd && p[i].hadron >= 0 && p[i].hadron == p[j].hadron)
                     u += qcdGain * qcdPotential(r);
             }
+        // uniform E and g have potentials -q E.r and -m g.r; B and B_g do no work
+        for (const auto &a : p)
+            u -= a.q * (extEx * a.pos.x() + extEy * a.pos.y())
+               + a.m * (extGx * a.pos.x() + extGy * a.pos.y());
         return u + dipolePotential();
     }
 };
@@ -1578,6 +1611,7 @@ protected:
 
         if (sim->quantised) drawLevels(g);
         drawLegend(g);
+        drawFields(g);
     }
 
     // level table, top-right: E_n with f^2, and the shift against pure Bohr
@@ -1709,6 +1743,50 @@ protected:
     }
 
     // ---- legend, bottom-left -------------------------------------------
+    // compass for the external fields, top-right under the level table
+    void drawFields(QPainter &g)
+    {
+        if (!sim->hasExternal()) return;
+        struct F { const char *n; QColor c; double x, y; bool axial; };
+        const F fs[4] = {
+            {"E",   QColor("#3FB4CF"), sim->extEx, sim->extEy, false},
+            {"B",   QColor("#B48CFF"), 0, sim->extBz, true},
+            {"g",   QColor("#7FD4A0"), sim->extGx, sim->extGy, false},
+            {"B_g", QColor("#E0A050"), 0, sim->extBgz, true}};
+        const int R = 18, W = 4 * (2 * R + 14) + 10, H = 2 * R + 34;
+        const int x0 = width() - W - 10, y0 = height() - H - 10;
+        g.save();
+        g.setPen(QPen(QColor("#1E2D4A"), 1));
+        g.setBrush(QColor(12, 26, 51, 215));
+        g.drawRoundedRect(QRectF(x0, y0, W, H), 4, 4);
+        for (int k = 0; k < 4; ++k) {
+            const QPointF c(x0 + 10 + R + k * (2 * R + 14), y0 + 10 + R);
+            g.setBrush(Qt::NoBrush);
+            g.setPen(QPen(QColor("#2A3B5A"), 1));
+            g.drawEllipse(c, R, R);
+            g.setPen(QPen(fs[k].c, 2));
+            if (!fs[k].axial) {
+                const double m = std::hypot(fs[k].x, fs[k].y);
+                if (m > 0) {
+                    const QPointF tip = c + QPointF(fs[k].x / m * (R - 3), -fs[k].y / m * (R - 3));
+                    g.drawLine(c, tip);
+                    const QPointF u = (tip - c) / (R - 3), n(-u.y(), u.x());
+                    g.drawLine(tip, tip - u * 6 + n * 4);
+                    g.drawLine(tip, tip - u * 6 - n * 4);
+                }
+            } else if (fs[k].y > 0) {           // out of the screen: dot
+                g.setBrush(fs[k].c); g.drawEllipse(c, 3, 3);
+            } else if (fs[k].y < 0) {           // into the screen: cross
+                g.drawLine(c + QPointF(-6, -6), c + QPointF(6, 6));
+                g.drawLine(c + QPointF(-6, 6), c + QPointF(6, -6));
+            }
+            g.setPen(QColor("#E8EDF5"));
+            g.drawText(QRectF(c.x() - R - 6, c.y() + R + 2, 2 * R + 12, 14),
+                       Qt::AlignHCenter, fs[k].n);
+        }
+        g.restore();
+    }
+
     void drawLegend(QPainter &g)
     {
         int cnt[SP_COUNT] = {0};
@@ -1931,6 +2009,9 @@ public:
 
     QSpinBox       *sbSpecN;
     QPushButton    *btClear, *btRestart;
+    QSlider        *slField[4];
+    QDial          *dlField[4];
+    QLabel         *lbField[4];
     QDoubleSpinBox *sbHadR;
     QComboBox      *cbSpecies;
     QPushButton    *btAddSpecies;
@@ -2100,6 +2181,60 @@ public:
             "can still zoom and pan while paused."));
 
         auto *form = new QFormLayout;
+
+        // ---- external uniform fields: magnitude slider + angle dial each ----
+        // slider s in [-600, 40] -> magnitude 10^(s/10) in atomic units,
+        // s = -600 means off.  Spans 1e-60 .. 1e4 so every tab has range.
+        auto *fieldBox  = new QGroupBox("External uniform fields");
+        auto *fieldGrid = new QGridLayout(fieldBox);
+        static const char *fName[4] = {"E", "B", "g", "B_g"};
+        static const char *fTip[4] = {
+            "Uniform ELECTRIC field acting on every charge: a = q E / m.\n"
+            "Magnitude in atomic units (1 = 5.142e11 V/m); log slider\n"
+            "1e-60 .. 1e4, far left = off. Dial: in-plane direction,\n"
+            "0 deg = +x, counter-clockwise. Potential -q E.r is in E.",
+            "Uniform MAGNETIC field: a = q (v x B) / m.\n"
+            "Magnitude in atomic units (1 = 2.3505e5 T). The motion is\n"
+            "planar, so only B_z acts: dial = tilt from +z, B_z = |B| cos.\n"
+            "0 deg = out of the screen, 180 = into it, 90/270 = in-plane\n"
+            "(no in-plane effect). Charges gyrate at omega = q B_z / m.",
+            "Uniform GRAVITOELECTRIC field g, acting on every mass\n"
+            "including neutrons and neutrinos: a = g.\n"
+            "Magnitude in atomic units (1 = 9.0e22 m/s^2; Earth's 9.81\n"
+            "m/s^2 is 1.09e-22). Dial: in-plane direction from +x.",
+            "Uniform GRAVITOMAGNETIC field: a = v x B_g, on every mass.\n"
+            "Magnitude in atomic units (1 = 4.134e16 s^-1). Equivalent to\n"
+            "a frame rotating at Omega = B_g/2 (Coriolis); Earth's frame\n"
+            "dragging at the surface is ~1e-14 s^-1 = 2.4e-31 a.u.\n"
+            "Dial = tilt from +z, as for B."};
+        for (int k = 0; k < 4; ++k) {
+            auto *nm = new QLabel(QString("<b>%1</b>").arg(fName[k]));
+            slField[k] = new QSlider(Qt::Horizontal);
+            slField[k]->setRange(-600, 40);  slField[k]->setValue(-600);
+            dlField[k] = new QDial;
+            dlField[k]->setRange(0, 359);    dlField[k]->setWrapping(true);
+            dlField[k]->setNotchesVisible(true); dlField[k]->setNotchTarget(15);
+            dlField[k]->setFixedSize(40, 40);
+            lbField[k] = new QLabel("off");
+            lbField[k]->setMinimumWidth(150);
+            const QString tip = tipHtml(fTip[k]);
+            for (QWidget *w : {(QWidget*)nm, (QWidget*)slField[k],
+                               (QWidget*)dlField[k], (QWidget*)lbField[k]})
+                w->setToolTip(tip);
+            fieldGrid->addWidget(nm,          2 * k, 0, 2, 1);
+            fieldGrid->addWidget(slField[k],  2 * k, 1);
+            fieldGrid->addWidget(lbField[k],  2 * k + 1, 1);
+            fieldGrid->addWidget(dlField[k],  2 * k, 2, 2, 1);
+            connect(slField[k], &QSlider::valueChanged, this, [this] { applyFields(); });
+            connect(dlField[k], &QDial::valueChanged,   this, [this] { applyFields(); });
+        }
+        auto *btFieldsOff = new QPushButton("Fields off");
+        fieldGrid->addWidget(btFieldsOff, 8, 0, 1, 3);
+        connect(btFieldsOff, &QPushButton::clicked, this, [this] {
+            for (auto *sl : slField) { sl->blockSignals(true); sl->setValue(-600); sl->blockSignals(false); }
+            applyFields();
+        });
+        form->addRow(fieldBox);
 
         addRow(form, "add species", cbSpecies,
                "Every particle type is added from this list.\n\n"
@@ -2837,6 +2972,48 @@ private slots:
     }
 
 private:                                  // data and helpers: not slots
+    static double sliderMag(int s) { return (s <= -600) ? 0.0 : std::pow(10.0, s / 10.0); }
+
+    // read the four slider/dial pairs into the simulation and label them
+    void applyFields()
+    {
+        static const double SI[4]  = {5.14220675e11, 2.35051757e5, 9.0e22, 4.1341e16};
+        static const char  *U[4]   = {"V/m", "T", "m/s\u00B2", "s\u207B\u00B9"};
+        double m[4], th[4];
+        for (int k = 0; k < 4; ++k) {
+            m[k]  = sliderMag(slField[k]->value());
+            th[k] = dlField[k]->value() * M_PI / 180.0;
+            lbField[k]->setText(m[k] == 0.0 ? QString("off")
+                : QString("%1 a.u. = %2 %3   %4\u00B0")
+                      .arg(m[k], 0, 'g', 3).arg(m[k] * SI[k], 0, 'g', 3)
+                      .arg(QString::fromUtf8(U[k])).arg(dlField[k]->value()));
+        }
+        sim.extEx  = m[0] * std::cos(th[0]);  sim.extEy = m[0] * std::sin(th[0]);
+        sim.extBz  = m[1] * std::cos(th[1]);
+        sim.extGx  = m[2] * std::cos(th[2]);  sim.extGy = m[2] * std::sin(th[2]);
+        sim.extBgz = m[3] * std::cos(th[3]);
+        sim.computeAcc();
+        view->update();
+    }
+
+    // put the widgets back to what a restored tab's simulation holds
+    void fieldsFromSim()
+    {
+        auto set = [this](int k, double mag, double deg) {
+            const int s = (mag <= 0.0) ? -600
+                        : qBound(-600, int(std::lround(10.0 * std::log10(mag))), 40);
+            slField[k]->blockSignals(true); slField[k]->setValue(s); slField[k]->blockSignals(false);
+            int d = int(std::lround(deg)) % 360; if (d < 0) d += 360;
+            dlField[k]->blockSignals(true); dlField[k]->setValue(d); dlField[k]->blockSignals(false);
+        };
+        auto deg = [](double y, double x) { return std::atan2(y, x) * 180.0 / M_PI; };
+        set(0, std::hypot(sim.extEx, sim.extEy), deg(sim.extEy, sim.extEx));
+        set(1, std::fabs(sim.extBz),  sim.extBz  < 0 ? 180.0 : 0.0);
+        set(2, std::hypot(sim.extGx, sim.extGy), deg(sim.extGy, sim.extGx));
+        set(3, std::fabs(sim.extBgz), sim.extBgz < 0 ? 180.0 : 0.0);
+        applyFields();
+    }
+
     QString profileName = "FT at all levels";
 
     void setZoom(double s)
@@ -2893,6 +3070,7 @@ private slots:
         quiet(cbLayout,    &QComboBox::setCurrentIndex, t.layout);
         quiet(chQCD,         &QCheckBox::setChecked, t.qcd);
         quiet(chConstituent, &QCheckBox::setChecked, t.constituent);
+        fieldsFromSim();                  // fields travel with the tab's simulation
         view->homeScale = t.home; view->scale = t.scale; view->pan = t.pan;
         slZoom->blockSignals(true);
         slZoom->setValue(int(100.0 * (std::log10(t.scale) + 1.0)));
