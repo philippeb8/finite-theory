@@ -334,6 +334,7 @@
 #include <QMouseEvent>
 #include <QToolTip>
 #include <QTabBar>
+#include <QPolygonF>
 #include <QGridLayout>
 #include <QDial>
 #include <QAction>
@@ -346,6 +347,8 @@
 #include <vector>
 #include <cmath>
 #include <deque>
+#include <algorithm>
+#include <random>
 
 // ---------------------------------------------------------------------------
 // physics
@@ -382,7 +385,8 @@ struct Species {
     bool        nucleon;
 };
 enum SpeciesId { SP_E = 0, SP_P, SP_N, SP_MU, SP_TAU, SP_NUE, SP_NUMU, SP_NUTAU,
-                 SP_U, SP_D, SP_S, SP_C, SP_B, SP_T, SP_STAR, SP_PLANET, SP_COUNT };
+                 SP_U, SP_D, SP_S, SP_C, SP_B, SP_T, SP_STAR, SP_PLANET, SP_POS,
+                 SP_EF, SP_BF, SP_COUNT };
 static const Species SPECIES[SP_COUNT] = {
     {"electron", "-1",   -1.0,       1.0,          -5.005798e-01, "#3FB4CF", false},
     {"proton",   "+1",   +1.0,       1836.152673,  +7.605161e-04, "#C56A00", true },
@@ -401,6 +405,10 @@ static const Species SPECIES[SP_COUNT] = {
     // neutral astronomical bodies (mass only): 1 M_sun and 1 M_earth in m_e
     {"star",     " 0",    0.0,       2.1833749e60,  0.0,          "#FFD966", false},
     {"planet",   " 0",    0.0,       6.5560967e54,  0.0,          "#5DADE2", false},
+    {"positron", "+1",   +1.0,       1.0,          +5.005798e-01, "#E0607A", false},
+    // photon field points: kinematic, no charge, no mass, no force (see Sim)
+    {"E point",  " 0",    0.0,       0.0,           0.0,          "#3FB4CF", false},
+    {"B point",  " 0",    0.0,       0.0,           0.0,          "#B48CFF", false},
 };
 static constexpr double V_CAP = 68.518;   // 0.5 c in v_Bohr
 
@@ -429,11 +437,11 @@ static bool isQuark(int sp) { return sp >= SP_U && sp <= SP_T; }
 static const char *SYM[SP_COUNT] = {
     "e", "p", "n", "\xCE\xBC", "\xCF\x84",
     "\xCE\xBD", "\xCE\xBD", "\xCE\xBD",
-    "u", "d", "s", "c", "b", "t", "S", "P"};
+    "u", "d", "s", "c", "b", "t", "S", "P", "e", "E", "B"};
 static const char *SUB[SP_COUNT] = {
     "", "", "", "", "",
     "e", "\xCE\xBC", "\xCF\x84",
-    "", "", "", "", "", "", "", ""};
+    "", "", "", "", "", "", "", "", "+", "", ""};
 
 struct Particle {
     QPointF pos, vel, acc;
@@ -448,6 +456,8 @@ struct Particle {
     int     level  = 0;   // principal quantum number, 0 = not quantised
     int     anchor = -1;  // index of the nucleus it is bound to
     double  phase  = 0.0; // orbital phase, radians
+    int     phId   = -1;  // photon field point: owning photon id
+    long    gi     = 0;   //   and grid index along the beam (u = gi * du)
     std::deque<QPointF> trail;
 };
 
@@ -718,7 +728,375 @@ public:
         computeAcc();
     }
 
-    void clear() { p.clear(); nextHadron = 0; t = 0.0; }
+    void clear() { p.clear(); photons.clear(); fieldPts.clear(); nextHadron = 0; t = 0.0; }
+
+    // ===================== PAIR PRODUCTION =====================
+    // Photon = classical plane-wave packet moving at c.  Its E and B are
+    // DRAWN as oscillating markers; they are not charges and exert no force.
+    // Energy unit m_e c^2 = 0.511 MeV  <->  f = 1.2355900e20 Hz.
+    //
+    //   gamma -> e+ e- needs E_gamma >= 2 m_e c^2 (f >= 2.4711799e20 Hz) AND a
+    //   third body to take momentum: a nucleus (Bethe-Heitler) or a strong
+    //   field (nonlinear Breit-Wheeler).  A lone photon in vacuum cannot pair:
+    //   no frame has the pair at rest with the photon's momentum.
+    //   e+ e- at rest annihilate into TWO photons of 1.2355900e20 Hz each,
+    //   back to back - one photon cannot carry zero momentum.
+    //
+    //   Strong field: chi = (E_gamma/m c^2)(E_eff/E_S),
+    //     E_eff = |E + c k x B|  (Lorentz force per unit charge at v = c k),
+    //     E_S = m^2 c^3/(e hbar) = 1.3233e18 V/m = 2.5734e6 a.u. (Schwinger).
+    //   Rate (Ritus/Erber, constant crossed field), per second:
+    //     chi << 1:  W = (3 sqrt3/(16 sqrt2)) alpha (m c^2/hbar) chi e^{-8/(3chi)} / eps
+    //     chi >> 1:  W = 0.38 alpha (m c^2/hbar) chi^(2/3) / eps
+    //   so conversion switches on at chi ~ 0.1-1, i.e. at E_eff ~ E_S/eps:
+    //   below the Schwinger field for any eps > 1, far below for TeV photons.
+    //   GEM fields cannot separate the pair: g and B_g give e+ and e- the
+    //   same acceleration (equivalence principle) - only E and B can.
+    struct Photon { QPointF pos, dir; double eps = 0; bool alive = true; int id = 0; };
+    std::vector<Photon> photons;
+    int nextPhotonId = 0;
+
+    // PHOTON FIELD POINTS - real Particle objects (drawn, labelled, trailed
+    // like every other particle) that follow the attached plane wave:
+    //     E(x,t) = E0 cos(kx - wt) y^        B(x,t) = B0 cos(kx - wt) z^
+    // Each sits at a fixed lab x on the beam axis (grid lambda/16, over the
+    // 4 wavelengths behind the photon head) and is displaced by A cos(kx-wt)
+    // along y^ (E point) or along z^ (B point, z^ drawn obliquely since the
+    // plane is x-y).  A = lambda/4.  They are kept in their own list so the
+    // force loops never see them: they have no charge and no mass, and a
+    // photon exerts no Coulomb force - giving them charge would turn the
+    // photon into an oscillating dipole that E and B would deflect, which
+    // real photons are not.
+    std::vector<Particle> fieldPts;
+
+    void updateFieldPoints()
+    {
+        if (pairModel) { fieldPts.clear(); return; }   // Sec. 3 model: no wave drawing at all
+        // drop points whose photon is gone or that fell off the train
+        std::vector<Particle> keep;
+        keep.reserve(fieldPts.size());
+        for (auto &fp : fieldPts) {
+            const Photon *ph = nullptr;
+            for (const auto &q : photons) if (q.alive && q.id == fp.phId) { ph = &q; break; }
+            if (!ph) continue;
+            const double lam = C_AU / (T_AU * ph->eps * F_UNIT), du = lam / 16.0;
+            const double uh = ph->pos.x() * ph->dir.x() + ph->pos.y() * ph->dir.y();
+            const double u = fp.gi * du;
+            if (u < uh - 4.0 * lam || u > uh) continue;
+            keep.push_back(fp);
+        }
+        fieldPts.swap(keep);
+        for (const auto &ph : photons) {
+            if (!ph.alive) continue;
+            const double lam = C_AU / (T_AU * ph.eps * F_UNIT), du = lam / 16.0;
+            const double k = 2.0 * M_PI / lam;
+            const double w = 2.0 * M_PI * ph.eps * F_UNIT * T_AU;
+            const double A = lam / 4.0;
+            const QPointF xh = ph.dir, yh(-ph.dir.y(), ph.dir.x());
+            const QPointF zh = xh * -0.45 + yh * -0.55;     // oblique projection of z^
+            const double uh = ph.pos.x() * xh.x() + ph.pos.y() * xh.y();
+            const QPointF base = ph.pos - xh * uh;
+            const long g0 = long(std::ceil((uh - 4.0 * lam) / du)), g1 = long(std::floor(uh / du));
+            for (long gi = g0; gi <= g1; ++gi) {
+                for (int kind = 0; kind < 2; ++kind) {
+                    const int sp = kind ? SP_BF : SP_EF;
+                    Particle *fp = nullptr;
+                    for (auto &q : fieldPts)
+                        if (q.phId == ph.id && q.gi == gi && q.species == sp) { fp = &q; break; }
+                    if (!fp) {
+                        Particle a; a.phId = ph.id; a.gi = gi; a.species = sp;
+                        a.q = 0.0; a.m = 0.0;
+                        fieldPts.push_back(a); fp = &fieldPts.back();
+                    }
+                    const double u = gi * du;
+                    const double c = std::cos(k * u - w * t);          // cos(kx - wt)
+                    const QPointF ax = base + xh * u;
+                    const QPointF newPos = ax + (kind ? zh : yh) * (A * c);
+                    fp->vel = (newPos - fp->pos);                    // for display only
+                    fp->pos = newPos;
+                }
+            }
+        }
+    }
+    bool   pairMode     = false;
+    // SECTION 3 MODEL (internal doc): the photon IS an entangled e- e+ pair,
+    // two real charged point particles co-moving at c at a fixed separation
+    // d0 across the beam - no wave, no internal oscillation; the frequency
+    // only fixes the energy eps = h f / m_e c^2.  The pair is bound by the FT
+    // potential at d0 (doc: 2 r_e, U = K e^2/(2 r_e) = m_e c^2/2 in Coulomb).
+    // Their motion is prescribed (a c-speed pair cannot be integrated), but
+    // they are real sources: other charges feel their dipole field, and the
+    // ambient E/B act on them.  The pair SPLITS when
+    // the external force on each lepton, e E_eff (outward, opposite charges
+    // pulled opposite ways), exceeds the FT binding force F_bind = |kernel(d0)|
+    // (inward).  On the Potential route d0 = 2 r_c = 2 r_e is exactly the
+    // maximum of |F|, so e E > F_bind means the barrier is gone - Sec. 3.2's
+    // criterion with the right length.  QED rate and 'Convert now' remain.
+    bool   pairModel   = true;      // bound e-e+ pair (else kinematic E/B points)
+    bool   ftSplit     = true;      // split when e E_eff > F_bind
+    double pairSepFm   = 5.635881;  // d0 = 2 r_e
+    double lastFbind = 0, lastFsep = 0, lastEsplit = 0, lastUbind = 0;
+
+    double bindForce(double d) const          // |F| at separation d, sim units
+    { return std::fabs(ftKernel(d, -1.0, 1.0, eta)); }
+    double bindEnergy(double d) const
+    {
+        if (route == Route::Potential) { const double x = eta * d + 1.0; return eta * eta * d / (x * x); }
+        return 1.0 / d;
+    }
+    void makePairFor(const Photon &ph)
+    {
+        for (int sgn = -1; sgn <= 1; sgn += 2) {
+            Particle a; const int sp = (sgn < 0) ? SP_E : SP_POS;
+            a.q = SPECIES[sp].q; a.m = SPECIES[sp].m; a.species = sp;
+            a.phId = ph.id; a.gi = sgn;
+            a.pos = ph.pos; a.vel = ph.dir * C_AU;
+            p.push_back(a);
+        }
+    }
+    void placePair(const Photon &ph)
+    {
+        // rigid pair: e- and e+ at +-d0/2 across the beam, both moving at c.
+        // No internal oscillation - the frequency only sets the energy eps.
+        const QPointF yh(-ph.dir.y(), ph.dir.x());
+        const double d0 = pairSepFm * 1.8897261e-5;           // fm -> a0
+        for (auto &a : p)
+            if (a.phId == ph.id && a.q != 0.0) {
+                a.pos = ph.pos + yh * (a.gi * 0.5 * d0);
+                a.vel = ph.dir * C_AU;
+            }
+    }
+    bool isBound(const Particle &a) const { return a.phId >= 0 && a.q != 0.0; }
+    bool   autoConvert  = true;   // strong-field rate
+    bool   annihilation = true;
+
+    // PHOTON MASS AND GRAVITY.  A photon carries energy E = h f, hence an
+    // inertial / gravitational mass m = E/c^2 = eps m_e (rest mass 0: the
+    // measured bound is < 1e-18 eV).  It always moves at c, so gravity can
+    // only bend its path and shift its frequency:
+    //   bending   d(dir)/dt = k a_perp / c        k = 2 (GR, confirmed by
+    //             VLBI: gamma = 1 +/- 2e-4)  or  k = 1 (Newtonian corpuscle)
+    //   redshift  d(eps)/eps = (a . dir) dt / c   - the gravitational
+    //             frequency shift, i.e. the FT/GR clock-rate factor seen by
+    //             the photon (Pound-Rebka); climbing against g lowers f
+    // a = ambient g + (v x B_g at v = c) + Newtonian pull of every mass.
+    // Its own pull on other bodies (G E/c^2 ~ 1e-30 of the electric scale)
+    // is neglected.
+    double lightBend = 2.0;         // 2 GR, 1 Newtonian, 0 off
+    bool   photonRedshift = true;
+    double photonHz     = 2.4711799e20;
+    int    nPairs = 0, nAnnih = 0;
+    double lastChi = 0, lastW = 0, lastEeff = 0;
+    std::mt19937 prng{12345};
+
+    static constexpr double C_AU   = 137.035999084;      // c in a0 per time unit
+    static constexpr double F_UNIT = 1.2355899638e20;    // Hz per m_e c^2
+    static constexpr double E_SCHW = 2.5733805e6;        // Schwinger field, a.u.
+    static constexpr double LBAR_C = 7.2973525693e-3;    // reduced Compton, a0
+    static constexpr double T_AU   = 2.4188843265857e-17;
+    static constexpr double MC2_HBAR = 7.76344e20;       // s^-1
+    static constexpr double ALPHA  = 7.2973525693e-3;
+
+    void firePhoton(QPointF at, QPointF dir)
+    {
+        const double m = std::hypot(dir.x(), dir.y());
+        photons.push_back({at, dir / m, photonHz / F_UNIT, true, nextPhotonId++});
+        if (pairModel) { makePairFor(photons.back()); placePair(photons.back()); }
+        else updateFieldPoints();
+    }
+
+    // field the photon sees, a.u.: the full Lorentz force per unit charge on
+    // a point charge moving at c along the beam, E + c k x B.  The pair is
+    // two point charges, so a field ALONG the beam shears it apart just as a
+    // transverse one does - no polarisation projection (that belonged to the
+    // wave picture).
+    double photonEeff(const Photon &ph) const
+    {
+        const double tx = extEx + C_AU *  ph.dir.y() * extBz;
+        const double ty = extEy + C_AU * -ph.dir.x() * extBz;
+        return std::hypot(tx, ty);
+    }
+    static double pairRate(double eps, double chi)                     // s^-1
+    {
+        if (chi <= 0.0) return 0.0;
+        const double k = ALPHA * MC2_HBAR / eps;
+        if (chi < 1.0)
+            return k * (3.0 * std::sqrt(3.0) / (16.0 * std::sqrt(2.0))) * chi
+                     * std::exp(-8.0 / (3.0 * chi));
+        return k * 0.38 * std::pow(chi, 2.0 / 3.0);
+    }
+    // Bethe-Heitler cross section on a point charge Z, m^2 (no screening)
+    static double sigmaBH(double eps, double Z)
+    {
+        const double a_re2 = ALPHA * 7.9407877e-30 * Z * Z;
+        if (eps <= 2.0) return 0.0;
+        if (eps < 4.0)  return a_re2 * (M_PI / 12.0) * std::pow(eps - 2.0, 3);
+        return std::max(0.0, a_re2 * (28.0 / 9.0 * std::log(2.0 * eps) - 218.0 / 27.0));
+    }
+
+    // split a photon into e- and e+ at its position; the third body (nucleus
+    // or field) takes the momentum mismatch.  Returns false below threshold.
+    bool convert(size_t i)
+    {
+        Photon &ph = photons[i];
+        if (!ph.alive || ph.eps < 2.0 * (1.0 - 1e-6)) return false;   // slider rounding tolerance
+        const double g = ph.eps / 2.0;                       // each lepton
+        const double P = std::sqrt(std::max(0.0, g * g - 1.0)); // p/(m c); eps may sit 1e-8 under 2
+        const double th = 1.0 / g;                           // typical opening
+        const double b = P / g;                              // beta
+        for (int s = -1; s <= 1; s += 2) {
+            const double c = std::cos(s * th), sn = std::sin(s * th);
+            QPointF d(ph.dir.x() * c - ph.dir.y() * sn, ph.dir.x() * sn + ph.dir.y() * c);
+            Particle *a = nullptr;
+            for (auto &q : p) if (q.phId == ph.id && q.gi == s && q.q != 0.0) { a = &q; break; }
+            if (!a) {                                         // kinematic model: create
+                Particle n; const int sp = (s < 0) ? SP_E : SP_POS;
+                n.q = SPECIES[sp].q; n.m = SPECIES[sp].m; n.species = sp;
+                n.pos = ph.pos + QPointF(-ph.dir.y(), ph.dir.x()) * (s * 1e-6);
+                p.push_back(n); a = &p.back();
+            }
+            a->phId = -1; a->gi = 0;                          // bound pair: release it
+            a->vel = d * (b * C_AU);
+        }
+        ph.alive = false;
+        ++nPairs;
+        updateFieldPoints();
+        computeAcc();
+        return true;
+    }
+
+    void stepPhotons(double dt)
+    {
+        std::uniform_real_distribution<double> U(0.0, 1.0);
+        lastChi = lastW = lastEeff = 0;
+        for (size_t i = 0; i < photons.size(); ++i) {
+            Photon &ph = photons[i];
+            if (!ph.alive) continue;
+            ph.pos += ph.dir * (C_AU * dt);
+            if (lightBend > 0.0 || photonRedshift) {
+                double ax = extGx + C_AU * ph.dir.y() * extBgz;     // g + c dir x B_g
+                double ay = extGy - C_AU * ph.dir.x() * extBgz;
+                if (gravity)
+                    for (const auto &b : p) {
+                        if (b.m <= 0.0) continue;
+                        const double dx = b.pos.x() - ph.pos.x(), dy = b.pos.y() - ph.pos.y();
+                        const double r2 = dx * dx + dy * dy;
+                        if (r2 < 1e-30) continue;
+                        const double a = G_UNITS * gravGain * b.m / r2, r = std::sqrt(r2);
+                        ax += a * dx / r; ay += a * dy / r;
+                    }
+                const double al = ax * ph.dir.x() + ay * ph.dir.y();      // along the beam
+                if (photonRedshift) ph.eps *= std::exp(al * dt / C_AU);
+                if (lightBend > 0.0) {
+                    const double px = ax - al * ph.dir.x(), py = ay - al * ph.dir.y();
+                    QPointF d = ph.dir + QPointF(px, py) * (lightBend * dt / C_AU);
+                    ph.dir = d / std::hypot(d.x(), d.y());
+                }
+            }
+            const double Eeff = photonEeff(ph);
+            const double chi  = ph.eps * Eeff / E_SCHW;
+            const double W    = pairRate(ph.eps, chi);
+            if (i == 0 || chi > lastChi) { lastChi = chi; lastW = W; lastEeff = Eeff; }
+            if (pairModel) {
+                placePair(ph);
+                const double d0 = pairSepFm * 1.8897261e-5;
+                const double Fb = bindForce(d0), Fs = Eeff;             // e = 1: e E per lepton
+                if (i == 0) { lastFbind = Fb; lastFsep = Fs; lastEsplit = Fb; lastUbind = bindEnergy(d0); }
+                if (ftSplit && ph.eps >= 2.0 * (1.0 - 1e-6) && Fs > Fb) { convert(i); continue; }
+            }
+            if (autoConvert && ph.eps >= 2.0 * (1.0 - 1e-6) && U(prng) < W * dt * T_AU) convert(i);
+        }
+        photons.erase(std::remove_if(photons.begin(), photons.end(),
+                      [](const Photon &q) { return !q.alive; }), photons.end());
+        if (pairModel) { for (const auto &ph : photons) placePair(ph); }
+        else updateFieldPoints();
+
+        if (!annihilation) return;
+        for (size_t i = 0; i < p.size(); ++i) {
+            if (p[i].species != SP_E || isBound(p[i])) continue;
+            for (size_t j = 0; j < p.size(); ++j) {
+                if (p[j].species != SP_POS || isBound(p[j])) continue;
+                const QPointF d = p[i].pos - p[j].pos;
+                if (std::hypot(d.x(), d.y()) > LBAR_C) continue;
+                // only an APPROACHING pair annihilates: a pair just split by
+                // the field is still inside lbar_c but flying apart
+                const QPointF vr = p[i].vel - p[j].vel;
+                if (d.x() * vr.x() + d.y() * vr.y() >= 0.0) continue;
+                annihilate(i, j);
+                return;                                       // indices changed
+            }
+        }
+    }
+
+    // e- e+ -> 2 gamma: back to back in the pair's CM frame, boosted to lab
+    void annihilate(size_t i, size_t j)
+    {
+        auto gam = [](const Particle &a) {
+            const double b2 = (a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y()) / (C_AU * C_AU);
+            return 1.0 / std::sqrt(std::max(1e-15, 1.0 - b2)); };
+        const double g1 = gam(p[i]), g2 = gam(p[j]);
+        if (!std::isfinite(g1) || !std::isfinite(g2)) return;
+        const double E  = g1 + g2;                               // m c^2 units
+        const double Px = (g1 * p[i].vel.x() + g2 * p[j].vel.x()) / C_AU;
+        const double Py = (g1 * p[i].vel.y() + g2 * p[j].vel.y()) / C_AU;
+        const double M  = std::sqrt(std::max(4.0, E * E - Px * Px - Py * Py));
+        const QPointF at = (p[i].pos + p[j].pos) * 0.5;
+        if (pairModel) {
+            // SECTION 3: e- e+ -> ONE photon, the same bound pair re-formed
+            // (particle count is conserved: 2 leptons <-> 1 photon, never
+            // 2 leptons -> 2 photons = 4 leptons out of the vacuum).  A
+            // photon needs a direction, so the pair must carry net momentum;
+            // a pair split by a uniform field has P = 0 exactly (opposite
+            // charges, opposite kicks) and simply stays a real, integrated
+            // bound pair under the FT force.  The third body (nucleus or
+            // field) takes the energy-momentum mismatch, as in convert().
+            const double P = std::hypot(Px, Py);
+            if (P < 1e-9) return;
+            Photon ph; ph.pos = at; ph.dir = QPointF(Px / P, Py / P);
+            ph.eps = E; ph.id = nextPhotonId++;
+            // and the re-formed photon must be able to survive where it is:
+            // if the ambient field would split it again at once, the leptons
+            // stay free (otherwise split/recombine would cycle every step)
+            if (ftSplit && photonEeff(ph) > bindForce(pairSepFm * 1.8897261e-5)) return;
+            photons.push_back(ph);
+            makePairFor(photons.back()); placePair(photons.back());
+            if (i > j) std::swap(i, j);
+            p.erase(p.begin() + j); p.erase(p.begin() + i);
+            ++nAnnih;
+            computeAcc();
+            return;
+        }
+        const double phi = 2.0 * M_PI * std::uniform_real_distribution<double>(0, 1)(prng);
+        const double bx = Px / E, by = Py / E, bb = bx * bx + by * by;
+        const double gc = 1.0 / std::sqrt(std::max(1e-15, 1.0 - bb));
+        for (int s = -1; s <= 1; s += 2) {
+            const double ex = s * std::cos(phi), ey = s * std::sin(phi);  // CM direction
+            const double e0 = M / 2.0;
+            const double bdn = bx * ex + by * ey;
+            const double El = gc * e0 * (1.0 + bdn);                      // lab energy
+            const double k  = (bb > 0) ? (gc - 1.0) * bdn / bb : 0.0;
+            const double px = e0 * (ex + k * bx + gc * bx);
+            const double py = e0 * (ey + k * by + gc * by);
+            Photon ph; ph.pos = at; ph.dir = QPointF(px, py) / std::hypot(px, py);
+            ph.eps = El; ph.id = nextPhotonId++; photons.push_back(ph);
+        }
+        if (i > j) std::swap(i, j);
+        p.erase(p.begin() + j); p.erase(p.begin() + i);
+        ++nAnnih;
+        computeAcc();
+    }
+
+    void buildPair(bool nucleus, quint32 seed)
+    {
+        clear(); pairMode = true; nPairs = nAnnih = 0;
+        prng.seed(seed);
+        if (nucleus) {
+            Particle a; a.q = 1; a.m = SPECIES[SP_P].m; a.species = SP_P; a.nucleon = true;
+            a.pos = QPointF(0, 0); p.push_back(a);
+        }
+        firePhoton(QPointF(-0.12, nucleus ? 2e-3 : 0.0), QPointF(1, 0));
+        computeAcc();
+    }
 
     double hadronRadiusFm = 0.8409;   // triangle radius for uud/udd; proton rms charge radius
 
@@ -1093,7 +1471,8 @@ public:
                 // an isolated uud drift 3.01 fm).  Bound-quark magnetism is
                 // colour-magnetic and inside the Cornell fit.  The static,
                 // reciprocal spin dipole-dipole term is kept.
-                const bool inside = (a.hadron >= 0 && a.hadron == b.hadron);
+                const bool inside = (a.hadron >= 0 && a.hadron == b.hadron)
+                                 || (isBound(a) && isBound(b) && a.phId == b.phId);
 
                 // gravitomagnetic field of moving mass j at i
                 if (gravMag && !inside && b.m > 0.0) {
@@ -1216,6 +1595,7 @@ public:
                                       p[i].nucleon, p[j].nucleon);
                 double aj = radialAcc(r, p[j].q, p[i].q, p[j].m, p[i].m,
                                       p[j].nucleon, p[i].nucleon);
+                if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 if (qcd && p[i].hadron >= 0 && p[i].hadron == p[j].hadron) {
                     const double F = qcdGain * qcdForce(r);
                     ai += F / p[i].m;
@@ -1288,10 +1668,25 @@ public:
         a.vel = QPointF(px, py) * (beta * C / pm);
     }
 
+    // A free charge in a strong uniform B gyrates at w_c = |q| B / m; with
+    // the B slider near its maximum that is a fraction of a step per orbit at
+    // the pair-tab dt, and the leapfrog then draws a zigzag that looks like a
+    // wave.  Sub-step so that w_c dt <= 0.1 per kick (capped at 4000).
     void step(double dt)
     {
+        double wmax = 0.0;
+        if (extBz != 0.0)
+            for (const auto &a : p)
+                if (a.m > 0.0 && a.q != 0.0 && !isBound(a))
+                    wmax = std::max(wmax, std::fabs(a.q / a.m * extBz));
+        int n = std::max(1, std::min(4000, int(std::ceil(wmax * dt / 0.1))));
+        const double h = dt / n;
+        for (int k = 0; k < n; ++k) stepOnce(h);
+    }
+    void stepOnce(double dt)
+    {
         const bool q = quantised;
-        auto free = [&](const Particle &a) { return !q || a.level <= 0; };
+        auto free = [&](const Particle &a) { return (!q || a.level <= 0) && !isBound(a); };
 
         for (auto &a : p) {
             if (!free(a)) continue;
@@ -1305,6 +1700,7 @@ public:
         }
         if (q) stepQuantised(dt);
         t += dt;
+        if (pairMode) stepPhotons(dt);    // after t advances: field points sit at the new time
     }
 
     // kinetic energy, the one that is CONSERVED with the momentum law above,
@@ -1323,6 +1719,7 @@ public:
         static constexpr double C2 = 137.035999084 * 137.035999084;
         double k = 0;
         for (const auto &a : p) {
+            if (isBound(a)) continue;             // its energy is the photon's eps
             const double v2 = a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y();
             const double b2 = std::min(1.0 - 1e-15, v2 / C2);   // FT/SR only
             switch (kin) {
@@ -1370,6 +1767,7 @@ public:
                 double  r = std::hypot(d.x(), d.y());
                 double  S = pairScaleQ(p[i].q, p[j].q);
                 if (r < 1e-15) continue;
+                if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 const double Sg = pairScaleM(p[i].m, p[j].m);
                 const double Cg = -G_UNITS * gravGain * p[i].m * p[j].m;
                 if (route == Route::Potential) {
@@ -1527,7 +1925,8 @@ protected:
 
         // trails
         if (showTrails) {
-            for (const auto &a : sim->p) {
+            for (const Particle *ap : allParticles()) {
+                const Particle &a = *ap;
                 if (a.trail.size() < 2) continue;
                 QColor col = colorOf(a);
                 col.setAlpha(90);
@@ -1556,8 +1955,9 @@ protected:
             }
         }
 
-        // particles
-        for (const auto &a : sim->p) {
+        // particles (including photon field points)
+        for (const Particle *ap : allParticles()) {
+            const Particle &a = *ap;
             g.setBrush(colorOf(a));
             g.setPen(Qt::NoPen);
             double rad = (a.species < 0)  ? 6.0          // composite nucleus
@@ -1610,6 +2010,8 @@ protected:
                                .arg(inAtt).arg(totPair));
 
         if (sim->quantised) drawLevels(g);
+        drawPhotons(g);
+        if (sim->pairMode) drawPairHud(g);
         drawLegend(g);
         drawFields(g);
     }
@@ -1743,6 +2145,141 @@ protected:
     }
 
     // ---- legend, bottom-left -------------------------------------------
+    // photon packets drawn from the plane-wave solution
+    //     E(x,t) = E0 cos(kx - wt) y^        B(x,t) = B0 cos(kx - wt) z^
+    // with x^ along the photon direction, y^ in-plane perpendicular to it and
+    // z^ out of the screen, shown in oblique projection (drawn down-left).
+    // Each marker is a "point particle" fixed at its x on the beam axis and
+    // oscillating along y^ (E, cyan) or z^ (B, violet) as the wave passes;
+    // B0 = E0/c, drawn at the same pixel amplitude.  They are drawings of the
+    // field values, not charges: they exert no force.
+    std::vector<const Particle *> allParticles() const
+    {
+        std::vector<const Particle *> v;
+        v.reserve(sim->p.size() + sim->fieldPts.size());
+        for (const auto &a : sim->fieldPts) v.push_back(&a);   // under the real ones
+        for (const auto &a : sim->p) v.push_back(&a);
+        return v;
+    }
+
+    void drawPhotons(QPainter &g)
+    {
+        if (sim->photons.empty()) return;
+        g.save();
+        if (sim->pairModel) {
+            for (const auto &ph : sim->photons) {
+                const Particle *e = nullptr, *q = nullptr;
+                for (const auto &a : sim->p)
+                    if (a.phId == ph.id && a.q != 0.0) { if (a.q < 0) e = &a; else q = &a; }
+                if (e && q) {                                   // the bond e- e+
+                    g.setPen(QPen(QColor("#3FB4CF"), 1.5));
+                    g.drawLine(toScreen(e->pos), toScreen(q->pos));
+                }
+                g.setPen(QColor("#E8EDF5"));
+                g.drawText(toScreen(ph.pos) + QPointF(8, -10),
+                           QString("\u03B3 = e\u207Be\u207A pair  %1 MeV").arg(ph.eps * 0.51099895, 0, 'g', 4));
+            }
+            g.restore();
+            return;
+        }
+        for (const auto &ph : sim->photons) {
+            const double lam = Sim::C_AU / (Sim::T_AU * ph.eps * Sim::F_UNIT);
+            const QPointF xh = ph.dir, yh(-ph.dir.y(), ph.dir.x());
+            const QPointF zh = xh * -0.45 + yh * -0.55;
+            const double A = lam / 4.0, L = 4.0 * lam;
+            // beam axis and the y^ / z^ directions at the head
+            g.setPen(QPen(QColor(232, 237, 245, 60), 1));
+            g.drawLine(toScreen(ph.pos - xh * L), toScreen(ph.pos + xh * (0.3 * lam)));
+            g.setPen(QPen(QColor(63, 180, 207, 70), 1, Qt::DashLine));
+            g.drawLine(toScreen(ph.pos - yh * A), toScreen(ph.pos + yh * A));
+            g.setPen(QPen(QColor(180, 140, 255, 70), 1, Qt::DashLine));
+            g.drawLine(toScreen(ph.pos - zh * A), toScreen(ph.pos + zh * A));
+            // stems + wave lines through this photon's E and B points
+            std::vector<const Particle *> e, b;
+            for (const auto &fp : sim->fieldPts)
+                if (fp.phId == ph.id) (fp.species == SP_EF ? e : b).push_back(&fp);
+            auto byGi = [](const Particle *x, const Particle *y) { return x->gi < y->gi; };
+            std::sort(e.begin(), e.end(), byGi); std::sort(b.begin(), b.end(), byGi);
+            const double uh = ph.pos.x() * xh.x() + ph.pos.y() * xh.y();
+            const QPointF base = ph.pos - xh * uh;
+            const double du = lam / 16.0;
+            auto drawSet = [&](const std::vector<const Particle *> &v, QColor col) {
+                QPolygonF line;
+                col.setAlpha(110); g.setPen(QPen(col, 1));
+                for (const Particle *fp : v) {
+                    g.drawLine(toScreen(base + xh * (fp->gi * du)), toScreen(fp->pos));
+                    line << toScreen(fp->pos);
+                }
+                col.setAlpha(170); g.setPen(QPen(col, 1)); g.drawPolyline(line);
+            };
+            drawSet(e, QColor("#3FB4CF"));
+            drawSet(b, QColor("#B48CFF"));
+            g.setPen(QColor("#3FB4CF"));
+            g.drawText(toScreen(ph.pos + yh * A) + QPointF(4, 0), "E = E0 cos(kx-wt) y");
+            g.setPen(QColor("#B48CFF"));
+            g.drawText(toScreen(ph.pos + zh * A) + QPointF(-40, 14), "B = B0 cos(kx-wt) z");
+            g.setPen(QColor("#E8EDF5"));
+            g.drawText(toScreen(ph.pos) + QPointF(6, -8),
+                       QString("\u03B3  %1 MeV").arg(ph.eps * 0.51099895, 0, 'g', 4));
+        }
+        g.restore();
+    }
+
+    void drawPairHud(QPainter &g)
+    {
+        const double eps = sim->photonHz / Sim::F_UNIT;
+        int ne = 0, np = 0;
+        for (const auto &a : sim->p) { if (a.species == SP_E) ++ne; if (a.species == SP_POS) ++np; }
+        const double sig = Sim::sigmaBH(eps, 1.0);
+        QStringList L;
+        L << QString("photon  f = %1 Hz   E = %2 MeV   eps = E/m_ec\u00B2 = %3")
+                 .arg(sim->photonHz, 0, 'g', 5).arg(eps * 0.51099895, 0, 'g', 5).arg(eps, 0, 'g', 4)
+          << QString("threshold 2 m_e c\u00B2 = 1.022 MeV (2.4712e20 Hz): %1")
+                 .arg(eps >= 2.0 ? "above" : "BELOW - no pair possible")
+          << QString("field seen  E_eff = %1 a.u. = %2 E_S    chi = %3")
+                 .arg(sim->lastEeff, 0, 'g', 3).arg(sim->lastEeff / Sim::E_SCHW, 0, 'g', 3)
+                 .arg(sim->lastChi, 0, 'g', 3)
+          << QString("strong-field pair rate W = %1 /s   (mean free time %2 s)")
+                 .arg(sim->lastW, 0, 'g', 3)
+                 .arg(sim->lastW > 0 ? 1.0 / sim->lastW : 0.0, 0, 'g', 3)
+          << QString("Bethe-Heitler on a proton: sigma = %1 mb, P per pass at b < lbar_c = %2")
+                 .arg(sig * 1e31, 0, 'g', 3).arg(sig / 4.6847e-25, 0, 'g', 3)
+          << QString("photon mass E/c\u00B2 = %1 m_e = %2 kg   (rest mass 0)")
+                 .arg(sim->photons.empty() ? eps : sim->photons.front().eps, 0, 'g', 5)
+                 .arg((sim->photons.empty() ? eps : sim->photons.front().eps) * 9.1093837015e-31, 0, 'g', 4)
+          << QString("--- bound pair (Sec. 3 model) ---")
+          << QString("separation d0 = %1 fm   binding U(d0) = %2 keV   (Coulomb at 2 r_e: 255.5 keV = m_ec\u00B2/2)")
+                 .arg(sim->pairSepFm, 0, 'g', 4).arg(sim->lastUbind * 27.211386e-3, 0, 'g', 4)
+          << QString("F_bind = %1 N    external e E_eff per lepton = %2 N    ratio %3")
+                 .arg(sim->lastFbind * 8.238723e-8, 0, 'g', 3).arg(sim->lastFsep * 8.238723e-8, 0, 'g', 3)
+                 .arg(sim->lastFbind > 0 ? sim->lastFsep / sim->lastFbind : 0.0, 0, 'g', 3)
+          << QString("E needed to split = F_bind/e = %1 V/m = %2 E_S")
+                 .arg(sim->lastEsplit * 5.14220675e11, 0, 'g', 3).arg(sim->lastEsplit / Sim::E_SCHW, 0, 'g', 3)
+          << QString("--- Section 3 (internal doc) check ---")
+          << QString("Eq.22 grav. contact U(0) = m c\u00B2 = 0.511 MeV per e   - matches m_e c\u00B2")
+          << QString("Eq.23 elec. contact U(0) = e\u221A(K/G) c\u00B2 = 1.04e27 eV per e = 2.04e21 m_e c\u00B2")
+          << QString("measured e\u207B e\u207A \u2192 2\u03B3 at rest: 2 x 0.511 MeV, two photons of 1.2356e20 Hz")
+          << QString("Eq.28 K e/(2 r_e) = 255.5 kV (a potential): e x 255.5 kV = 255.5 keV = \u00BD m_e c\u00B2")
+          << QString("\u03BB = 2 r_e photon: 5.32e22 Hz = 220 MeV;  field at 2 r_e = 4.5e19 V/m > E_S")
+          << QString("ambient E = %1 V/m = %2 E_S;  vacuum Schwinger exponent \u03C0 E_S/E = %3")
+                 .arg(std::hypot(sim->extEx, sim->extEy) * 5.14220675e11, 0, 'g', 4)
+                 .arg(std::hypot(sim->extEx, sim->extEy) / Sim::E_SCHW, 0, 'g', 3)
+                 .arg(std::hypot(sim->extEx, sim->extEy) > 0
+                      ? M_PI * Sim::E_SCHW / std::hypot(sim->extEx, sim->extEy) : 0.0, 0, 'g', 3)
+          << QString("pairs %1   annihilations %2   e- %3   e+ %4   photons %5")
+                 .arg(sim->nPairs).arg(sim->nAnnih).arg(ne).arg(np).arg(sim->photons.size());
+        QFontMetrics fm(g.font());
+        int w = 0; for (const auto &t : L) w = qMax(w, fm.horizontalAdvance(t));
+        const int pad = 8, lh = 16, bw = w + 2 * pad, bh = L.size() * lh + 2 * pad;
+        const int x0 = width() - bw - 10, y0 = 10;
+        g.save();
+        g.setPen(QPen(QColor("#1E2D4A"), 1)); g.setBrush(QColor(12, 26, 51, 215));
+        g.drawRoundedRect(QRectF(x0, y0, bw, bh), 4, 4);
+        g.setPen(QColor("#E8EDF5"));
+        for (int i = 0; i < L.size(); ++i) g.drawText(x0 + pad, y0 + pad + lh * (i + 1) - 4, L[i]);
+        g.restore();
+    }
+
     // compass for the external fields, top-right under the level table
     void drawFields(QPainter &g)
     {
@@ -2002,7 +2539,7 @@ public:
         QPointF pan;
         int     etaPreset = 4, route = 0, kin = 3, layout = 2;
         bool    qcd = false, constituent = false;
-    } tabState[4];
+    } tabState[5];
     int curTab = -1;
     View  *view;
     QTimer timer;
@@ -2010,6 +2547,14 @@ public:
     QSpinBox       *sbSpecN;
     QPushButton    *btClear, *btRestart;
     QSlider        *slField[4];
+    QGroupBox      *pairBox;
+    QSlider        *slFreq, *slSpeed;
+    QLabel         *lbSpeed;
+    QLabel         *lbFreq;
+    QCheckBox      *chNucleus, *chAuto, *chAnnih, *chFollow, *chRedshift, *chPairModel, *chFtSplit;
+    QDoubleSpinBox *sbPairSep;
+    QComboBox      *cbBend;
+    double photonHzFromSlider() const { return std::pow(10.0, slFreq->value() / 1000.0); }
     QDial          *dlField[4];
     QLabel         *lbField[4];
     QDoubleSpinBox *sbHadR;
@@ -2043,6 +2588,7 @@ public:
 
         cbSpecies = new QComboBox;
         for (int k = 0; k < SP_COUNT; ++k)
+            if (k != SP_EF && k != SP_BF)              // photon field points: not addable
             cbSpecies->addItem(QString("%1   q = %2   m = %3 m_e")
                                    .arg(SPECIES[k].name)
                                    .arg(SPECIES[k].qText)
@@ -2068,6 +2614,7 @@ public:
         cbEtaPreset->addItem("spectroscopy 95% floor             6.606e11",  6.606457e11);
         cbEtaPreset->addItem("nuclear: r_c = 1 fm                5.2918e4",  52917.72109);
         cbEtaPreset->addItem("visible on screen: r_c = 1 a0      1",         1.0);
+        cbEtaPreset->addItem("Section 3: lambda_e = e/r_e          1.8780e4",  18779.6);
         cbEtaPreset->addItem("custom", -1.0);
         cbEtaPreset->setCurrentIndex(4);                 // matches sbEta = 1
         sbEta->setSingleStep(0.1);
@@ -2183,16 +2730,19 @@ public:
         auto *form = new QFormLayout;
 
         // ---- external uniform fields: magnitude slider + angle dial each ----
-        // slider s in [-600, 40] -> magnitude 10^(s/10) in atomic units,
-        // s = -600 means off.  Spans 1e-60 .. 1e4 so every tab has range.
+        // slider s in [-600, 90] -> magnitude 10^(s/10) in atomic units,
+        // s = -600 means off.  Spans 1e-60 .. 1e9: every tab has range, and
+        // E reaches past the Schwinger field 2.57e6 a.u. and past the Sec. 3
+        // pair-splitting field 1.31e7 a.u. (5.1 E_S).
         auto *fieldBox  = new QGroupBox("External uniform fields");
         auto *fieldGrid = new QGridLayout(fieldBox);
         static const char *fName[4] = {"E", "B", "g", "B_g"};
         static const char *fTip[4] = {
             "Uniform ELECTRIC field acting on every charge: a = q E / m.\n"
             "Magnitude in atomic units (1 = 5.142e11 V/m); log slider\n"
-            "1e-60 .. 1e4, far left = off. Dial: in-plane direction,\n"
-            "0 deg = +x, counter-clockwise. Potential -q E.r is in E.",
+            "1e-60 .. 1e9, far left = off. Schwinger field = 2.5734e6;\n"
+            "Sec. 3 pair splits at 1.31e7 (any direction). Dial: in-plane\n"
+            "direction, 0 deg = +x, counter-clockwise. Potential -q E.r is in E.",
             "Uniform MAGNETIC field: a = q (v x B) / m.\n"
             "Magnitude in atomic units (1 = 2.3505e5 T). The motion is\n"
             "planar, so only B_z acts: dial = tilt from +z, B_z = |B| cos.\n"
@@ -2210,7 +2760,7 @@ public:
         for (int k = 0; k < 4; ++k) {
             auto *nm = new QLabel(QString("<b>%1</b>").arg(fName[k]));
             slField[k] = new QSlider(Qt::Horizontal);
-            slField[k]->setRange(-600, 40);  slField[k]->setValue(-600);
+            slField[k]->setRange(-600, 90);  slField[k]->setValue(-600);
             dlField[k] = new QDial;
             dlField[k]->setRange(0, 359);    dlField[k]->setWrapping(true);
             dlField[k]->setNotchesVisible(true); dlField[k]->setNotchTarget(15);
@@ -2235,6 +2785,178 @@ public:
             applyFields();
         });
         form->addRow(fieldBox);
+
+        // ---- pair production (tab 5) ----
+        pairBox = new QGroupBox("Pair production");
+        auto *pg = new QGridLayout(pairBox);
+        slFreq = new QSlider(Qt::Horizontal);
+        slFreq->setRange(18000, 26000);                  // 1e18 .. 1e26 Hz, log
+        slFreq->setValue(int(std::lround(1000.0 * std::log10(2.4711799e20))));
+        lbFreq = new QLabel;
+        chNucleus = new QCheckBox("proton target (third body)");
+        chFollow  = new QCheckBox("camera follows the photon"); chFollow->setChecked(true);
+        chFollow->setToolTip(tipHtml(
+            "Keep the leading photon at the centre of the view. After it\n"
+            "converts, follow the centre of the e- e+ pair instead.\n"
+            "Untick to pan and zoom freely."));
+        chAuto    = new QCheckBox("strong-field conversion (QED rate)"); chAuto->setChecked(false);
+        chPairModel = new QCheckBox("photon = bound e\u207Be\u207A pair (Sec. 3)"); chPairModel->setChecked(true);
+        chFtSplit   = new QCheckBox("split when eE_eff > F_bind (FT)");    chFtSplit->setChecked(true);
+        sbPairSep   = new SciSpinBox; sbPairSep->setDecimals(300);
+        sbPairSep->setRange(1e-6, 1e6); sbPairSep->setValue(5.635881);
+        chPairModel->setToolTip(tipHtml(
+            "Section 3 model: the photon is an entangled e- e+ pair of real\n"
+            "charged point particles co-moving at c at a fixed separation d0\n"
+            "across the beam. No wave, no internal oscillation: the frequency\n"
+            "only sets the energy. E lives inside the pair and cancels outside\n"
+            "(other charges feel only the dipole field). Their motion is\n"
+            "prescribed; the ambient E/B act on them.\n"
+            "Untick for the kinematic E/B field-point drawing instead."));
+        chFtSplit->setToolTip(tipHtml(
+            "Sec. 3.2 criterion with the right length: the pair separates\n"
+            "when the external force on each lepton, e E_eff, exceeds the FT\n"
+            "binding force |F(d0)| from the current route and eta.\n"
+            "E_eff = |E + c k x B| from the field sliders (any direction).\n"
+            "With eta = e/r_e (Section 3 preset), Potential route, d0 = 2 r_e\n"
+            "(the maximum of |F|, so no barrier remains beyond it):\n"
+            "F_bind = K e^2/(27 r_e^2) -> E_split = 6.7e18 V/m = 5.1 E_S.\n"
+            "Coulomb at 2 r_e: E_split = K e/(4 r_e^2) = 4.5e19 V/m = 35 E_S."));
+        sbPairSep->setToolTip(tipHtml(
+            "Pair separation d0 in fm. Default 2 r_e = 5.636 fm (Sec. 3.2).\n"
+            "The binding force falls as ~1/d0^2, so a wider pair splits in a\n"
+            "weaker field: E_split ~ 1/d0^2."));
+        chAnnih   = new QCheckBox("annihilation / recombination e+ e- -> gamma");     chAnnih->setChecked(true);
+        auto *btFire = new QPushButton("Fire photon");
+        auto *btConv = new QPushButton("Convert now");
+        pg->addWidget(new QLabel("<b>f</b>"), 0, 0); pg->addWidget(slFreq, 0, 1, 1, 2);
+        pg->addWidget(lbFreq, 1, 1, 1, 2);
+        pg->addWidget(chNucleus, 2, 0, 1, 3);
+        pg->addWidget(chAuto,    3, 0, 1, 3);
+        pg->addWidget(chAnnih,   4, 0, 1, 3);
+        pg->addWidget(chPairModel, 12, 0, 1, 3);
+        pg->addWidget(chFtSplit,   13, 0, 1, 3);
+        pg->addWidget(new QLabel("d0 (fm)"), 14, 0); pg->addWidget(sbPairSep, 14, 1, 1, 2);
+        pg->addWidget(chFollow,  5, 0, 1, 3);
+        cbBend = new QComboBox;
+        cbBend->addItems({"light bending x2 (GR)", "light bending x1 (Newtonian)", "no light bending"});
+        chRedshift = new QCheckBox("gravitational redshift"); chRedshift->setChecked(true);
+        pg->addWidget(cbBend, 9, 0, 1, 3);
+        auto *btSec32 = new QPushButton("Sec. 3.2 capacitor: 2.555 MV/m");
+        btSec32->setToolTip(tipHtml(
+            "Set the ambient E to the internal document's Section 3.2 value,\n"
+            "2,555,000 V/m (= 255.5 kV across 0.1 m), transverse to the\n"
+            "photon, and fire a threshold photon (1.022 MeV).\n\n"
+            "E/E_S = 1.9e-12, so chi = 3.9e-12 and the pair rate is\n"
+            "exp(-8/(3 chi)) ~ exp(-6.9e11) = 0: no conversion. In vacuum\n"
+            "with no photon the Schwinger exponent is pi E_S/E = 1.6e12.\n"
+            "Lab RF cavities run at 50+ MV/m and never make pairs."));
+        pg->addWidget(btSec32, 11, 0, 1, 3);
+        connect(btSec32, &QPushButton::clicked, this, [this] {
+            if (curTab != 4) return;
+            slField[0]->setValue(int(std::lround(10.0 * std::log10(2.555e6 / 5.14220675e11))));
+            dlField[0]->setValue(90);                       // +y, transverse to the +x photon
+            slFreq->setValue(int(std::lround(1000.0 * std::log10(2.4711799e20))));
+            restartScene();
+        });
+        pg->addWidget(chRedshift, 10, 0, 1, 3);
+        const QString btip = tipHtml(
+            "The photon's mass E/c^2 (= eps m_e) couples it to gravity: the\n"
+            "ambient g, B_g, and the pull of every mass (gravity on).\n"
+            "It moves at c, so gravity bends the path and shifts f:\n"
+            "  bending  d(dir)/dt = k a_perp / c\n"
+            "    k = 2  GR, confirmed by VLBI to 2e-4 (gamma = 1)\n"
+            "    k = 1  Newtonian corpuscle with m = E/c^2 - excluded\n"
+            "  redshift d(eps)/eps = (a . dir) dt / c (Pound-Rebka): the\n"
+            "  clock-rate factor seen by the photon.\n"
+            "Neither separates e+ from e-: g acts on both the same way.");
+        cbBend->setToolTip(btip); chRedshift->setToolTip(btip);
+        connect(cbBend, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+                [this](int i) { sim.lightBend = (i == 0) ? 2.0 : (i == 1) ? 1.0 : 0.0; });
+        connect(chRedshift, &QCheckBox::toggled, this, [this](bool b) { sim.photonRedshift = b; });
+        slSpeed = new QSlider(Qt::Horizontal);
+        slSpeed->setRange(-9000, -5000);                 // log10(dt) x 1000
+        slSpeed->setValue(int(std::lround(1000.0 * std::log10(2e-7))));
+        lbSpeed = new QLabel;
+        pg->addWidget(new QLabel("<b>speed</b>"), 7, 0); pg->addWidget(slSpeed, 7, 1, 1, 2);
+        pg->addWidget(lbSpeed, 8, 1, 1, 2);
+        const QString stip = tipHtml(
+            "Slow motion: sets the time step dt (log, 1e-9 .. 1e-5).\n"
+            "Physics is unchanged - only how much simulated time passes\n"
+            "per frame. The label gives the on-screen duration of one wave\n"
+            "period at the current frequency (4 steps per frame, ~60 fps).\n"
+            "Conversion probabilities use real seconds, so they still hold.");
+        slSpeed->setToolTip(stip); lbSpeed->setToolTip(stip);
+        auto updSpeed = [this] {
+            const double dt = std::pow(10.0, slSpeed->value() / 1000.0);
+            const double Tw = 1.0 / (photonHzFromSlider() * Sim::T_AU);   // period, time units
+            const double frames = Tw / (dt * stepsPerFrame);
+            lbSpeed->setText(QString("dt = %1   one period = %2 frames = %3 s on screen")
+                .arg(dt, 0, 'g', 3).arg(frames, 0, 'g', 3).arg(frames / 60.0, 0, 'g', 3));
+            if (curTab == 4) { sbDt->blockSignals(true); sbDt->setValue(dt); sbDt->blockSignals(false); }
+        };
+        connect(slSpeed, &QSlider::valueChanged, this, updSpeed);
+        connect(slFreq,  &QSlider::valueChanged, this, updSpeed);
+        updSpeed();
+        pg->addWidget(btFire, 6, 1); pg->addWidget(btConv, 6, 2);
+        const QString ftip = tipHtml(
+            "Photon frequency, log scale 1e18 .. 1e26 Hz.\n"
+            "E = h f;  m_e c^2 = 0.511 MeV = 1.2356e20 Hz.\n"
+            "Pair threshold 2 m_e c^2 = 1.022 MeV = 2.4712e20 Hz:\n"
+            "h f = 2 m_e c^2 (photon energy, not kinetic - no 1/2).\n"
+            "Wavelength c/f = 1.2132e-12 m = 0.0229 a0 at threshold.");
+        slFreq->setToolTip(ftip); lbFreq->setToolTip(ftip);
+        chNucleus->setToolTip(tipHtml(
+            "Place a proton just off the photon's path. It supplies the\n"
+            "momentum a lone photon cannot shed. Real conversion chance per\n"
+            "close pass is sigma_BH/(pi lbar_c^2) ~ 1e-6 (shown in the HUD),\n"
+            "so use 'Convert now' to see the outcome."));
+        chAuto->setToolTip(tipHtml(
+            "Convert automatically at the nonlinear Breit-Wheeler rate set\n"
+            "by chi = eps E_eff / E_S, E_eff = |E + c k x B| from the\n"
+            "ambient field sliders. Valid for eps >> 1; approximate near\n"
+            "threshold."));
+        chAnnih->setToolTip(tipHtml(
+            "An approaching e- and e+ closer than lbar_c = 3.86e-13 m:\n"
+            "Sec. 3 pair model: they re-form ONE bound pair = one photon of\n"
+            "their total energy, flying along their net momentum (2 leptons\n"
+            "<-> 1 photon, never 4 leptons out of the vacuum). With zero net\n"
+            "momentum - a pair split by a uniform field - they stay a real,\n"
+            "integrated bound pair under the FT force.\n"
+            "Kinematic model: two photons back to back in the CM frame\n"
+            "(each 1.2356e20 Hz when the pair is at rest)."));
+        btFire->setToolTip(tipHtml("Fire another photon along +x from the left edge."));
+        btConv->setToolTip(tipHtml(
+            "Split the leading photon into e- e+ now, as a nucleus or field\n"
+            "would. Refused below threshold. Each lepton gets E_gamma/2,\n"
+            "opening angle ~ m c^2/E; the third body takes the momentum."));
+        auto updFreq = [this] {
+            const double f = photonHzFromSlider(), eps = f / Sim::F_UNIT;
+            lbFreq->setText(QString("%1 Hz = %2 MeV  (%3 x threshold)")
+                .arg(f, 0, 'g', 5).arg(eps * 0.51099895, 0, 'g', 4).arg(eps / 2.0, 0, 'g', 3));
+            sim.photonHz = f;
+            for (auto &ph : sim.photons) ph.eps = eps;   // retune packets in flight
+            view->update();
+        };
+        connect(slFreq, &QSlider::valueChanged, this, updFreq);
+        connect(chAuto,  &QCheckBox::toggled, this, [this](bool b) { sim.autoConvert = b; });
+        connect(chPairModel, &QCheckBox::toggled, this, [this](bool b) { sim.pairModel = b; if (curTab == 4) restartScene(); });
+        connect(chFtSplit,   &QCheckBox::toggled, this, [this](bool b) { sim.ftSplit = b; });
+        connect(sbPairSep, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+                this, [this](double v) { sim.pairSepFm = v; });
+        connect(chAnnih, &QCheckBox::toggled, this, [this](bool b) { sim.annihilation = b; });
+        connect(chNucleus, &QCheckBox::toggled, this, [this] { if (curTab == 4) restartScene(); });
+        connect(btFire, &QPushButton::clicked, this, [this] {
+            if (curTab != 4) return;
+            sim.photonHz = photonHzFromSlider();
+            sim.firePhoton(QPointF(-0.12, 0.0), QPointF(1, 0)); view->update();
+        });
+        connect(btConv, &QPushButton::clicked, this, [this] {
+            if (curTab != 4 || sim.photons.empty()) return;
+            sim.convert(0); view->update();
+        });
+        updFreq();
+        pairBox->setEnabled(false);
+        form->addRow(pairBox);
 
         addRow(form, "add species", cbSpecies,
                "Every particle type is added from this list.\n\n"
@@ -2669,6 +3391,7 @@ public:
         tabs = new QTabBar;
         tabs->addTab("Galactic");  tabs->addTab("Solar");
         tabs->addTab("Atomic");    tabs->addTab("Quark");
+        tabs->addTab("Pair Production");
         tabs->setToolTip(tipHtml("Each tab keeps its own scene: switching away freezes it,\n"
                                  "switching back resumes it where it was."));
         tabs->setTabToolTip(0, tipHtml(
@@ -2698,6 +3421,20 @@ public:
             "SR kinematics (speed limit c), dt = 1e-12, zoomed to ~1 fm.\n"
             "ETA preset 'retrofit': at r_c = 5e-23 m the FT correction to\n"
             "quark binding at 1 fm is ~1e-7 relative, so QCD does the work."));
+
+        tabs->setTabToolTip(4, tipHtml(
+            "A photon packet heading +x, its E (cyan, in-plane) and B\n"
+            "(violet, dot = out of screen, cross = into) drawn as markers that\n"
+            "oscillate as the wave passes. They are not charges.\n\n"
+            "Pair production needs f >= 2.4712e20 Hz (1.022 MeV) AND a third\n"
+            "body: the optional proton (Bethe-Heitler) or a strong ambient\n"
+            "E/B field (rate set by chi = eps E_eff/E_S). Set E or B on the\n"
+            "field sliders; conversion turns on near chi ~ 0.1-1, i.e. at\n"
+            "E_eff ~ E_S/eps - below the Schwinger field for eps > 1.\n"
+            "Then E or B separates e- and e+; g and B_g cannot (they move\n"
+            "both the same way). e+ e- within lbar_c annihilate into two\n"
+            "photons. SR kinematics, dt = 2e-7: one wave period takes about\n"
+            "3.5 s on screen. Use the speed slider for slower or faster."));
 
         auto *root = new QVBoxLayout(this);
         root->setContentsMargins(4, 4, 4, 4);
@@ -3001,7 +3738,7 @@ private:                                  // data and helpers: not slots
     {
         auto set = [this](int k, double mag, double deg) {
             const int s = (mag <= 0.0) ? -600
-                        : qBound(-600, int(std::lround(10.0 * std::log10(mag))), 40);
+                        : qBound(-600, int(std::lround(10.0 * std::log10(mag))), 70);
             slField[k]->blockSignals(true); slField[k]->setValue(s); slField[k]->blockSignals(false);
             int d = int(std::lround(deg)) % 360; if (d < 0) d += 360;
             dlField[k]->blockSignals(true); dlField[k]->setValue(d); dlField[k]->blockSignals(false);
@@ -3039,7 +3776,7 @@ private slots:
     // not at M/eta_g = 5 kpc, so tracers orbit Keplerian on either route.
     void parkTab(int k)
     {
-        if (k < 0 || k > 3) return;
+        if (k < 0 || k > 4) return;
         TabState &t = tabState[k];
         t.init = true;          t.sim = sim;
         t.eta = sbEta->value(); t.etaG = sbEtaG->value();
@@ -3071,13 +3808,14 @@ private slots:
         quiet(chQCD,         &QCheckBox::setChecked, t.qcd);
         quiet(chConstituent, &QCheckBox::setChecked, t.constituent);
         fieldsFromSim();                  // fields travel with the tab's simulation
+        pairBox->setEnabled(k == 4);
         view->homeScale = t.home; view->scale = t.scale; view->pan = t.pan;
         slZoom->blockSignals(true);
         slZoom->setValue(int(100.0 * (std::log10(t.scale) + 1.0)));
         slZoom->blockSignals(false);
         syncSettings();
         sim.computeAcc();
-        static const char *names[4] = {"Galactic", "Solar", "Atomic", "Quark"};
+        static const char *names[5] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production"};
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
                            .arg(names[k]).arg(profileName));
         view->update();
@@ -3097,6 +3835,11 @@ private slots:
         case 2:  cbEtaPreset->setCurrentIndex(4);    // visible on screen, ETA = 1
                  sbDt->setValue(0.02);  sbBox->setValue(5.0);
                  setZoom(40.0); break;
+        case 4:  cbEtaPreset->setCurrentIndex(5);    // Section 3: lambda_e = e/r_e
+                 if (cbKin->currentIndex() != 5) cbKin->setCurrentIndex(5);   // SR
+                 slSpeed->setValue(int(std::lround(1000.0 * std::log10(2e-7))));
+                 sbDt->setValue(2e-7); sbBox->setValue(0.2);
+                 setZoom(250.0 / 0.15); break;
         default: cbEtaPreset->setCurrentIndex(1);    // retrofit
                  chConstituent->setChecked(true);
                  chQCD->setChecked(true);
@@ -3113,29 +3856,63 @@ private slots:
     {
         syncSettings();
         const int k = tabs->currentIndex();
-        static const char *names[4] = {"Galactic", "Solar", "Atomic", "Quark"};
+        static const char *names[5] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production"};
         switch (k) {
         case 0:  sim.buildGalaxy(1e10, 200, 15.0, seed++); break;
         case 1:  sim.buildSolar(seed++); break;
         case 2:  sim.reset(DEFAULT_NE, DEFAULT_NP, DEFAULT_NN, sbBox->value(), sbV->value(), seed++);
                  if (sim.quantised) sim.assignLevels(); break;
+        case 4:  sim.photonHz = photonHzFromSlider();
+                 sim.pairModel = chPairModel->isChecked();
+                 sim.ftSplit   = chFtSplit->isChecked();
+                 sim.pairSepFm = sbPairSep->value();
+                 sim.lightBend = (cbBend->currentIndex() == 0) ? 2.0
+                               : (cbBend->currentIndex() == 1) ? 1.0 : 0.0;
+                 sim.photonRedshift = chRedshift->isChecked();
+                 sim.autoConvert = chAuto->isChecked();
+                 sim.annihilation = chAnnih->isChecked();
+                 sim.buildPair(chNucleus->isChecked(), seed++);
+                 if (chFollow->isChecked()) followTarget(); break;
         default: sim.clear(); sim.addHadron(true, 1, 0.0, 0.0, seed++); break;
         }
+        if (k != 4) sim.pairMode = false;
+        pairBox->setEnabled(k == 4);
         if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
-                           .arg(names[qBound(0, k, 3)]).arg(profileName));
+                           .arg(names[qBound(0, k, 4)]).arg(profileName));
         view->update();
     }
 
     void doReset() { applyScale(curTab); }   // defaults + scene for the current tab
 
+    // camera target on the Pair Production tab: the leading photon, else the
+    // centre of the leptons, else stay put
+    void followTarget()
+    {
+        if (!sim.photons.empty()) {
+            const auto &ph = sim.photons.front();
+            const double lam = Sim::C_AU / (Sim::T_AU * ph.eps * Sim::F_UNIT);
+            view->pan = ph.pos - ph.dir * (1.5 * lam);       // train centred on screen
+            return;
+        }
+        QPointF c; int n = 0;
+        for (const auto &a : sim.p)
+            if (a.species == SP_E || a.species == SP_POS) { c += a.pos; ++n; }
+        if (n) view->pan = c / n;
+    }
+
     void tick()
     {
         const double dt = sbDt->value();
         for (int k = 0; k < stepsPerFrame; ++k) sim.step(dt);
+        if (curTab == 4 && chFollow->isChecked()) followTarget();
         for (auto &a : sim.p) {
             a.trail.push_back(a.pos);
             if (a.trail.size() > 600) a.trail.pop_front();
+        }
+        for (auto &a : sim.fieldPts) {          // (kinematic model only)
+            a.trail.push_back(a.pos);
+            if (a.trail.size() > 40) a.trail.pop_front();
         }
         view->update();
     }

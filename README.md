@@ -30,10 +30,6 @@ g++ -O2 -std=c++17 core_test.cpp -o core_test && ./core_test
 Both FT routes are **finite at r = 0**, so the integrator needs no softening
 length — the `f` factor regularises the Coulomb singularity by itself.
 
-## Demo
-
-![Demo](ftsim.gif)
-
 ## Units
 
 | quantity | unit | value |
@@ -48,6 +44,32 @@ length — the `f` factor regularises the Coulomb singularity by itself.
 crossover is then at 1.14e-6 a0 and the run is indistinguishable from Coulomb
 (ratio to Coulomb at 1 a0 = 0.999995439). Set ETA to roughly 0.1–10 to make
 the FT structure visible on screen.
+
+## Pair Production tab: the photon as a bound e⁻e⁺ pair (internal doc, Section 3)
+
+With *photon = bound e⁻e⁺ pair* ticked, each photon is two real charged point
+particles (an electron and a positron) co-moving at `c` along the beam at a
+fixed separation `d0` across it (default `2 r_e`, Sec. 3.2) — no wave and no
+internal oscillation; the frequency only sets the energy `ε = hf/m_e c²`.
+Their motion is prescribed; they are real sources (other charges feel the
+dipole field) and the ambient E/B sliders act on them.
+
+The binding is the FT kernel of the current route with the current `eta`.
+On the Potential route `|F(d)| = K e² eta² (eta d − 1)/(eta d + 1)³` for
+`d > r_c = 1/eta`, and its maximum sits at exactly `d = 2 r_c`; with the
+Section 3 preset `eta = e/r_e` that is `d0 = 2 r_e`, so
+
+| | FT (Potential, eta = e/r_e) | Coulomb |
+|---|---|---|
+| F_bind at 2 r_e | `K e²/(27 r_e²)` = 1.08 N | `K e²/(4 r_e²)` = 7.26 N |
+| U_bind at 2 r_e | `2/9 m_e c²` = 113.6 keV | `½ m_e c²` = 255.5 keV |
+| E_split = F_bind / e | 6.7e18 V/m = 5.1 E_S | 4.5e19 V/m = 35 E_S |
+
+Each lepton feels `e E_eff` outward (opposite charges, opposite ways) against
+`F_bind` inward, so the pair splits when `e E_eff > F_bind`; since `d0` is the
+force maximum, no barrier remains beyond it. `E_eff = |E + c k × B|`, any
+direction (two point charges are sheared apart along the beam just as across it). The
+capacitor of Sec. 3.2 (2.555 MV/m) gives `e E / F_bind = 3.8e-13`.
 
 ## License
 
