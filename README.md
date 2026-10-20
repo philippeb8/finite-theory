@@ -111,11 +111,10 @@ sheets). Two options:
   and the energy counts `m·Φ_spin`. The in-plane momentum inversion keeps its
   closed form with `1 → 1 − v_s²/c²` (SR, FT) or `1 − v_s²/2c²` (FT ½).
 - **lose Φ_spin from the Sun's potential** — the Sun's potential at the body
-  is `G·M/d − Φ_spin` and its acceleration `(G·M/d − Φ_spin)/d`, i.e. `Φ_spin/d`
-  less inward, so the net potential is kept. For Jupiter `Φ_spin/(GM/d) =
-  Φ_spin/v_orb² = 20/171 (km/s)² = 12 %` less pull — a circular start drifts
-  outward (Restart re-circularises on the new law). The same Φ enters
-  `f = 1/(1 + Φ/c²)` as `η_g → η_g·(1 − Φ_spin/c²)` for that body (~2e-10).
+  is the offset `G·M/d − Φ_spin` (per unit mass). A constant offset has no
+  gradient, so the Newtonian pull is unchanged; it enters only the FT factor
+  `f = 1/(1 + Φ/c²)`, as `η_g → η_g·(1 − Φ_spin/c²)` for that body (2.1e-10
+  at Jupiter).
 
 | body | v_s km/s | Φ_spin/c² |
 |---|---|---|
@@ -124,8 +123,7 @@ sheets). Two options:
 | Jupiter | 6.20 | 2.1e-10 |
 | Saturn | 4.37 | 1.1e-10 |
 
-The axis-speed effect alone is ≤ 2e-10 at gain 1; the potential subtraction is
-visible at once on Jupiter and Saturn.
+Both effects are ≤ 2e-10 at gain 1 — raise the gravity gain to see them.
 
 ### Shadow planets
 
@@ -135,10 +133,44 @@ factor, no spin terms — from the same starting positions on the Newtonian
 circular speed, and drawn under the live bodies with dashed trails. The gap
 between a body and its shadow is what the selected route, η_g, kinematics and
 spin options change: at η_g = c²/G it is 6e-7 AU for Mercury after ten orbits
-(the FT perihelion-type drift), and 0.5 AU for Jupiter after 3000 steps with the
-spin subtraction on. The body matrix in the group box lists, per planet, the
+(the FT perihelion-type drift); the spin options add ~2e-10 relative to that. The body matrix in the group box lists, per planet, the
 live-minus-shadow spherical offset about the Sun — Δr in AU, Δθ (azimuth) and
 Δφ (polar angle) in degrees — refreshed every frame.
+
+## Energy audit
+
+`E = kinetic() + potential()` is the quantity the integrator conserves, with
+`kinetic()` the exact `∫ v·dp` of the selected momentum law. With the body spin
+on, `p = g(v² + v_s²)·m·v` at fixed `v_s`, and that integral is **not**
+`K_kind(√(v² + v_s²))`: `dp/dv` carries a factor `(1 − v_s²/c²)`, so
+
+| kind | K (per body) |
+|---|---|
+| SR | `m c² (1 − β_s²)[γ(u) − γ(v_s)] + m c²[γ(v_s) − 1]` |
+| FT | `m c² [(1 − β_s²)(G(u) − G_s) − ½ ln(G(u)/G_s)] + m c²[G_s − 1 − ½ ln G_s]` |
+| FT ½ | `m c² [(2 − β_s²)(1/D(u) − 1/D_s) + ln(D(u)/D_s)] + m c²[2/D_s − 2 + ln D_s]` |
+
+with `u² = v² + v_s²`, `G = 1/(1 − u²/c²)`, `D = 1 − u²/2c²`, the second term
+being the spin's own (constant) energy. All differences are evaluated in
+cancellation-free form (`log1p`, `b²/(√(1−b²)(1+√(1−b²)))`): the Sun's
+`(γ − 1) M c²` computed naively is round-off of 2e64 that swamps the planets'
+1e51 orbital energies by 1e-4.
+
+Max |ΔE| / (|K| + |U|) at the tab's dt and at dt/2 (leapfrog: ×¼ expected):
+
+| scene | dt | dt/2 | note |
+|---|---|---|---|
+| Solar, spin on, circular | 3.8e-11 | 8.4e-12 | |
+| Solar, Mercury at 0.7 v_circ, v_s = 0.6c on Mercury | 2.5e-3 | 6.3e-4 | the naive `K_kind(u)` drifts by 0.6 of Mercury's KE |
+| Atomic, 60 bodies, electric + gravity | 1.9e-4 | 4.6e-5 | |
+| Atomic, + Biot–Savart, spin moments, gravitomagnetic | 2.0e-1 | 1.1e-2 | velocity-dependent forces have no potential: not conserved by construction |
+| Quark, uud Cornell, SR | 1.2e-13 | 3.1e-14 | was a dt-independent 6.4e-9: the force and potential used unit constants differing in the 7th digit, now one constant |
+| Pair, freed e⁻e⁺ under the FT potential | 2.3e-3 | 5.7e-4 | photons are not in `E`; it jumps at a split or recombination |
+| Galactic, bulge + 200 tracers | 1.1e-5 | 2.7e-5 | does not scale: unresolved tracer–tracer encounters at 5–9 pc (one step ≈ 24 Myr), not a conservation bug |
+
+With the spin offset on, one η_g per pair (the lighter body's) is used for both
+members, so the pair force stays equal and opposite and derives from
+`potential()`.
 
 ## License
 

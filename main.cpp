@@ -550,12 +550,11 @@ public:
     // it).  bodySpin: the spin speed v_s = sqrt(2 Phi_spin) is added on the
     // rotation axis, so the body's kinematic factor sees v^2 + v_s^2 and its
     // energy includes m Phi_spin.  spinSub: the body LOSES gravitational
-    // potential by the same amount to keep the net potential - the Sun's
-    // potential at the planet becomes G M/d - Phi_spin and its acceleration
-    // (G M/d - Phi_spin)/d, i.e. Phi_spin/d less inward (Jupiter: 12% of
-    // G M/d^2, since Phi_spin/(G M/d) = Phi_spin/v_orb^2 = 20/171 (km/s)^2).
-    // The same Phi enters the FT factor f = 1/(1 + Phi/c^2), which is
-    // eta_g -> eta_g (1 - Phi_spin/c^2) for that body (~2e-10, invisible).
+    // potential by the same amount - the Sun's potential at the planet is
+    // the OFFSET G M/d - Phi_spin.  A constant offset has no gradient, so the
+    // Newtonian force is untouched; it enters only the FT factor
+    // f = 1/(1 + Phi/c^2), which is exactly eta_g -> eta_g (1 - Phi_spin/c^2)
+    // for that body: ~2e-10 at Jupiter, so raise the gravity gain to see it.
     bool   bodySpin = true;
     bool   spinSub  = true;
     // SHADOW BODIES (Solar tab): a copy of the Sun and planets integrated in
@@ -640,7 +639,7 @@ public:
     static double qcdForce(double r_sim)
     {
         static constexpr double A0_OVER_FM   = 52917.721090;
-        static constexpr double MEVFM_TO_SIM = 1.944690e9;
+        static constexpr double MEVFM_TO_SIM = 36749.32217565 * 52917.721090;   // MeV/fm -> sim, exactly MEV_TO_SIM * A0_OVER_FM
         static constexpr double K_C   = 46.04296;       // (2/3) a_s hbar c, MeV fm
         static constexpr double HALFS = 456.0958;       // sigma/2, MeV/fm
         double r = r_sim * A0_OVER_FM;
@@ -1485,7 +1484,7 @@ public:
     static double strongForce(double r_sim)
     {
         static constexpr double A0_OVER_FM = 52917.721090;
-        static constexpr double MEVFM_TO_SIM = 1.944690e9;
+        static constexpr double MEVFM_TO_SIM = 36749.32217565 * 52917.721090;   // MeV/fm -> sim, exactly MEV_TO_SIM * A0_OVER_FM
         static constexpr double V_R = 1438.7200, MU_R = 3.11;
         static constexpr double V_A =  626.8850, MU_A = 1.55;
 
@@ -1510,7 +1509,7 @@ public:
     // total radial acceleration on i due to j (electric + gravitoelectric),
     // with optional floor-quantisation of the radius or of the force
     double radialAcc(double r, double qi, double qj, double mi, double mj,
-                     bool nuci, bool nucj, double etaGi, double spinI = 0.0) const
+                     bool nuci, bool nucj, double etaGi) const
     {
         if (mi == 0.0) return 0.0;
         const double D = quantStep;
@@ -1523,12 +1522,7 @@ public:
 
         double a = ftKernel(rr, qi * qj / mi, pairScaleQ(qi, qj), eta);
         if (gravity)
-        {
             a += ftKernel(rr, -G_UNITS * gravGain * mj, pairScaleM(mi, mj), etaGi);
-            // body spin: the source's potential at i is G m_j/r - Phi_spin,
-            // acceleration (G m_j/r - Phi_spin)/r, i.e. Phi_spin/r less inward
-            if (bodySpin && spinSub && spinI > 0.0) a += spinI / rr;
-        }
 
         // strong force: nucleons only, charge-independent
         if (strong && nuci && nucj)
@@ -1719,12 +1713,14 @@ public:
                 if (r < 1e-15) continue;
                 Vec3 u = d / r;                    // unit vector j -> i
 
+                // one eta_g per pair (the lighter body's spin offset) so the
+                // pair force stays equal and opposite and derives from the
+                // potential() below
+                const double egPair = spinEta(p[i].m <= p[j].m ? p[i] : p[j]);
                 double ai = radialAcc(r, p[i].q, p[j].q, p[i].m, p[j].m,
-                                      p[i].nucleon, p[j].nucleon, spinEta(p[i]),
-                                      p[j].species == SP_STAR ? p[i].spinPot : 0.0);   // the Sun's potential
+                                      p[i].nucleon, p[j].nucleon, egPair);
                 double aj = radialAcc(r, p[j].q, p[i].q, p[j].m, p[i].m,
-                                      p[j].nucleon, p[i].nucleon, spinEta(p[j]),
-                                      p[i].species == SP_STAR ? p[j].spinPot : 0.0);
+                                      p[j].nucleon, p[i].nucleon, egPair);
                 if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 if (qcd && p[i].hadron >= 0 && p[i].hadron == p[j].hadron) {
                     const double F = qcdGain * qcdForce(r);
@@ -1857,20 +1853,49 @@ public:
         double k = 0;
         for (const auto &a : p) {
             if (isBound(a)) continue;             // its energy is the photon's eps
-            const double v2 = dot(a.vel, a.vel)
-                            + (bodySpin ? 2.0 * a.spinPot : 0.0);   // + v_s^2 on the axis
-            const double b2 = std::min(1.0 - 1e-15, v2 / C2);   // FT/SR only
+            const double v2 = dot(a.vel, a.vel);
+            // BODY SPIN: with the spin speed v_s on the axis the momentum law
+            // is p = g(u^2) m v, u^2 = v^2 + v_s^2, v_s fixed.  The energy
+            // that is conserved with it is K = integral v dp at fixed v_s,
+            // which is NOT K_kind(u) - the dp/dv picks up (1 - v_s^2/c^2):
+            //   SR      K = m c^2 (1 - bs2) [gamma(u) - gamma(v_s)]
+            //   FT      K = m c^2 [(1 - bs2)(G(u) - G_s) - (ln G(u) - ln G_s)/2]
+            //   FTHalf  K = m c^2 [(2 - bs2)(1/D(u) - 1/D_s) + ln(D(u)/D_s)]
+            // plus the spin's own energy K_kind(v_s), a constant per body.
+            // Every difference below is written in a cancellation-free form:
+            // for the Sun v/c ~ 1e-9, and (gamma - 1) m c^2 evaluated as
+            // 1/sqrt(1 - b2) - 1 is pure round-off (1e-16 of 2e64) that
+            // swamps the planets' 1e51 orbital energies by 1e-4.
+            const double vs2 = bodySpin ? 2.0 * a.spinPot : 0.0;   // v_s^2
+            const double bs2 = std::min(1.0 - 1e-15, vs2 / C2);
+            const double u2  = v2 + vs2;
+            const double b2  = std::min(1.0 - 1e-15, u2 / C2);   // FT/SR only
+            const double db  = b2 - bs2;                          // = v^2/c^2
             switch (kin) {
-            case Kin::Newtonian: k += 0.5 * a.m * v2; break;
-            case Kin::SR:        k += (1.0 / std::sqrt(1.0 - b2) - 1.0) * a.m * C2; break;
+            case Kin::Newtonian: k += 0.5 * a.m * u2; break;
+            case Kin::SR: {
+                const double ru = std::sqrt(1.0 - b2), rs = std::sqrt(1.0 - bs2);
+                const double gu_gs = db / (ru * rs * (ru + rs));          // gamma(u) - gamma(v_s)
+                const double gs_1  = bs2 / (rs * (1.0 + rs));             // gamma(v_s) - 1
+                k += ((1.0 - bs2) * gu_gs + gs_1) * a.m * C2;
+                break;
+            }
             case Kin::FT: {
-                const double G = 1.0 / (1.0 - b2);
-                k += (G - 1.0 - 0.5 * std::log(G)) * a.m * C2;
+                const double G_Gs  = db / ((1.0 - b2) * (1.0 - bs2));     // G(u) - G_s
+                const double lnG_s = std::log1p(db / (1.0 - b2));         // ln G(u) - ln G_s
+                const double Gs_1  = bs2 / (1.0 - bs2);                   // G_s - 1
+                const double lnGs  = -std::log1p(-bs2);
+                k += ((1.0 - bs2) * G_Gs - 0.5 * lnG_s + (Gs_1 - 0.5 * lnGs)) * a.m * C2;
                 break;
             }
             case Kin::FTHalf: {
-                const double D = std::max(1e-15, 1.0 - 0.5 * v2 / C2);
-                k += (2.0 / D - 2.0 + std::log(D)) * a.m * C2;
+                const double D  = std::max(1e-15, 1.0 - 0.5 * u2 / C2);
+                const double Ds = std::max(1e-15, 1.0 - 0.5 * vs2 / C2);
+                const double iD_iDs = 0.5 * v2 / C2 / (D * Ds);           // 1/D - 1/D_s
+                const double lnD_Ds = std::log1p(-0.5 * v2 / C2 / Ds);    // ln(D/D_s)
+                const double iDs_1  = 0.5 * vs2 / C2 / Ds;                // 1/D_s - 1
+                const double lnDs   = std::log1p(-0.5 * vs2 / C2);
+                k += ((2.0 - bs2) * iD_iDs + lnD_Ds + (2.0 * iDs_1 + lnDs)) * a.m * C2;
                 break;
             }
             // positional kinds: integral v dp at fixed position, over f^2.
@@ -1908,10 +1933,6 @@ public:
                 if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 const double Sg = pairScaleM(p[i].m, p[j].m);
                 const double Cg = -G_UNITS * gravGain * p[i].m * p[j].m;
-                if (gravity && bodySpin && spinSub) {     // -Phi_spin/r per unit mass, from the Sun
-                    if (p[j].species == SP_STAR) u += p[i].m * p[i].spinPot * std::log(r / AU_A0);
-                    if (p[i].species == SP_STAR) u += p[j].m * p[j].spinPot * std::log(r / AU_A0);
-                }
                 if (route == Route::Potential) {
                     // U f^2 = C eta^2 r / (eta r + S)^2
                     double d2 = eta * r + S;
@@ -2750,7 +2771,7 @@ protected:
         if (sim->bodySpin && named)
             rows.append({QColor("#5DADE2"), -1,
                          QString("+ body spin: v_s = sqrt(2 Phi_spin) on the axis%1")
-                             .arg(sim->spinSub ? ",  a = (G M/d - Phi_spin)/d" : "")});
+                             .arg(sim->spinSub ? ",  Phi = G M/d - Phi_spin  (eta_g x (1 - Phi_spin/c^2))" : "")});
 
         QString routeName =
             (sim->route == Route::Potential)   ? "force  -d(U f^2)/dr   [crossover]"
@@ -3317,7 +3338,7 @@ public:
             sim.convert(0); view->update();
         });
         updFreq();
-        pairBox->setEnabled(false);
+        pairBox->setVisible(false);
         form->addRow(pairBox);
 
         // ---- Solar tab: body spin ----
@@ -3348,16 +3369,15 @@ public:
             "factor sees v^2 + v_s^2 and the energy counts m Phi_spin.\n"
             "Jupiter: v_eq = 12.6 km/s, v_s = 6.3 km/s, Phi_spin/c^2 = 2.2e-10."));
         chSpinSub->setToolTip(tipHtml(
-            "Keep the net potential: the body loses gravitational potential\n"
-            "by what its spin holds. The Sun's potential at it is\n"
-            "G M/d - Phi_spin and its acceleration (G M/d - Phi_spin)/d,\n"
-            "i.e. Phi_spin/d less inward (per unit mass, no mass in it).\n"
-            "Jupiter: Phi_spin/v_orb^2 = 20/171 (km/s)^2 = 12% less pull,\n"
-            "so a circular start drifts outward; Restart re-circularises.\n"
-            "The same Phi enters f = 1/(1 + Phi/c^2): eta_g (1 - Phi_spin/c^2)."));
+            "The body loses gravitational potential by what its spin holds:\n"
+            "the Sun's potential at it is the offset G M/d - Phi_spin (per\n"
+            "unit mass, no mass in it). A constant offset has no gradient, so\n"
+            "the Newtonian pull is unchanged; the offset enters the FT factor\n"
+            "f = 1/(1 + Phi/c^2) as eta_g -> eta_g (1 - Phi_spin/c^2) for that\n"
+            "body: 2.1e-10 at Jupiter. Raise the gravity gain to see it."));
         connect(chBodySpin, &QCheckBox::toggled, this, [this](bool b) { sim.bodySpin = b; sim.computeAcc(); view->update(); });
         connect(chSpinSub,  &QCheckBox::toggled, this, [this](bool b) { sim.spinSub  = b; sim.computeAcc(); view->update(); });
-        solarBox->setEnabled(false);
+        solarBox->setVisible(false);
         form->addRow(solarBox);
 
         addRow(form, "add species", cbSpecies,
@@ -4244,8 +4264,8 @@ private slots:
         quiet(chQCD,         &QCheckBox::setChecked, t.qcd);
         quiet(chConstituent, &QCheckBox::setChecked, t.constituent);
         fieldsFromSim();                  // fields travel with the tab's simulation
-        pairBox->setEnabled(k == 4);
-        solarBox->setEnabled(k == 1);
+        pairBox->setVisible(k == 4);
+        solarBox->setVisible(k == 1);
         quiet(chBodySpin, &QCheckBox::setChecked, sim.bodySpin);
         quiet(chSpinSub,  &QCheckBox::setChecked, sim.spinSub);
         quiet(chShadow,   &QCheckBox::setChecked, sim.shadowOn);
@@ -4318,8 +4338,8 @@ private slots:
         default: sim.clear(); sim.addHadron(true, 1, 0.0, 0.0, seed++); break;
         }
         if (k != 4) sim.pairMode = false;
-        pairBox->setEnabled(k == 4);
-        solarBox->setEnabled(k == 1);
+        pairBox->setVisible(k == 4);
+        solarBox->setVisible(k == 1);
         if (k == 1) { sim.bodySpin = chBodySpin->isChecked(); sim.spinSub = chSpinSub->isChecked();
                       sim.shadowOn = chShadow->isChecked();
                       sim.computeAcc(); fillSpinTable(); }
