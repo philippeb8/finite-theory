@@ -223,6 +223,15 @@ Max |ΔE| / (|K| + |U|) at the tab's dt and at dt/2 (leapfrog: ×¼ expected):
 | Pair, freed e⁻e⁺ under the FT potential | 2.3e-3 | 5.7e-4 | photons are not in `E`; it jumps at a split or recombination |
 | Galactic, bulge + 200 tracers | 1.1e-5 | 2.7e-5 | does not scale: unresolved tracer–tracer encounters at 5–9 pc (one step ≈ 24 Myr), not a conservation bug |
 
+Every momentum factor was rechecked with a large test spin (v_s = 0.3c on an
+eccentric Mercury): the drift equals the spin-free drift and scales as dt²
+for all nine. SR, FT Eq. 41, FT ½, FT f²×(m0 + K/c²) and FT proper time carry
+the spin in the momentum law (`u² = v² + v_s²`; for FT proper time
+`u² = v²/f² + v_s²`, the spin speed in the body's own frame, so the spin
+energy also weighs through f). Newtonian, the two unlimited f² kinds and the
+Sec. 2.8 Lagrangian keep it as the separate constant `½ m v_s²` — conserved,
+but with no effect on the orbit.
+
 With the spin offset on, one η_g per pair (the lighter body's) is used for both
 members, so the pair force stays equal and opposite and derives from
 `potential()`.

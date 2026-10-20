@@ -1777,9 +1777,13 @@ public:
             const Vec3 rh = d / r;
             const double f = a.fpos;
             const double df = f * f * (hb.m / eg) / (r * r);          // df/dr > 0
-            const double u2 = dot(a.vel, a.vel) / (f * f);
-            const double G  = 1.0 / std::max(1e-15, 1.0 - u2 / C2);
-            const double K41 = (G - 1.0 - 0.5 * std::log(G)) * C2;    // per unit mass
+            // -dL/df per unit mass for L = f L41(u), u^2 = v^2/f^2 + v_s^2
+            // (spin speed measured in the body's own frame):
+            //   Kt = v^2/(f^2 (1 - w)) + (c^2/2) ln(1 - w),  w = u^2/c^2
+            // = K41(u) when v_s = 0
+            const double w  = std::min(1.0 - 1e-15, dot(a.vel, a.vel) / (f * f * C2)
+                                         + (bodySpin ? 2.0 * a.spinPot / C2 : 0.0));
+            const double K41 = dot(a.vel, a.vel) / (f * f * (1.0 - w)) + 0.5 * C2 * std::log1p(-w);
             const double U  = G_UNITS * gravGain * hb.m / r;           // per unit mass, > 0
             // d/dr [U/f - U] = -U/r (1/f - 1) - U df/f^2
             const double dUf = -U / r * (1.0 / f - 1.0) - U * df / (f * f);
@@ -1790,17 +1794,19 @@ public:
     {
         static constexpr double C2 = 137.035999084 * 137.035999084;
         if (heavy < 0 || &a == &p[heavy]) return a.vel * a.m;
-        const double f = a.fpos, u2 = dot(a.vel, a.vel) / (f * f);
-        return a.vel * (a.m / (f * std::max(1e-15, 1.0 - u2 / C2)));
+        const double f = a.fpos;
+        const double w = dot(a.vel, a.vel) / (f * f * C2) + (bodySpin ? 2.0 * a.spinPot / C2 : 0.0);
+        return a.vel * (a.m / (f * std::max(1e-15, 1.0 - w)));
     }
     void ftTauVelocity(Particle &a, const Vec3 &pm) const
     {
         static constexpr double C = 137.035999084;
         if (heavy < 0 || &a == &p[heavy]) { a.vel = pm / a.m; return; }
-        const double f = a.fpos, P = norm(pm) / (a.m * C);              // u/(c(1-u^2/c^2)) = P
+        const double f = a.fpos, P = norm(pm) / (a.m * C);              // x/(1 - x^2 - bs2) = P, x = v/(f c)
         if (P == 0.0) { a.vel = Vec3(); return; }
-        const double beta = 2.0 * P / (1.0 + std::sqrt(1.0 + 4.0 * P * P));   // Eq. 41 inversion
-        a.vel = pm * (beta * C * f / norm(pm));
+        const double D = 1.0 - (bodySpin ? 2.0 * a.spinPot / (C * C) : 0.0);
+        const double x = 2.0 * P * D / (1.0 + std::sqrt(1.0 + 4.0 * P * P * D));
+        a.vel = pm * (x * C * f / norm(pm));
     }
 
     // Sec. 2.8: H = p_r^2/2m + f^2 p_t^2/2m + V.  Besides Newton's force the
@@ -1881,8 +1887,11 @@ public:
             // p = (m0 / f^2) g(v) v ;  the force changes p ;  invert for v
             const double f2 = std::max(1e-300, a.fpos * a.fpos);
             const double v2c2 = (dot(a.vel, a.vel)) / (C * C);
+            // body spin: F2SC sees u^2 = v^2 + v_s^2 like SR; the two
+            // unlimited kinds keep the spin as a separate constant energy
+            const double bsP = (bodySpin && kin == Kin::F2SC) ? 2.0 * a.spinPot / (C * C) : 0.0;
             double g = 1.0;
-            if (kin == Kin::F2SC)  g = 1.0 / std::sqrt(std::max(1e-15, 1.0 - v2c2));
+            if (kin == Kin::F2SC)  g = 1.0 / std::sqrt(std::max(1e-15, 1.0 - v2c2 - bsP));
             if (kin == Kin::F2Lin) g = 1.0 + 0.5 * v2c2;
             const double M  = a.m / f2;
             const Vec3 pv = a.vel * (M * g) + a.acc * (h * a.m);
@@ -1891,7 +1900,7 @@ public:
             const double P = pm / (M * C);              // = g(beta) beta
             double beta;
             if (kin == Kin::F2SC) {
-                beta = P / std::sqrt(1.0 + P * P);
+                beta = P * std::sqrt(1.0 - bsP) / std::sqrt(1.0 + P * P);
             } else if (kin == Kin::F2Lin) {             // beta + beta^3/2 = P
                 const double d = std::sqrt(P * P + 8.0 / 27.0);
                 beta = std::cbrt(P + d) + std::cbrt(P - d);
@@ -2018,9 +2027,12 @@ public:
             case Kin::Newtonian: k += 0.5 * a.m * u2; break;
             case Kin::FTtau: {
                 if (heavy < 0 || &a == &p[heavy]) { k += 0.5 * a.m * u2; break; }
-                const double f = a.fpos, uu = u2 / (f * f);
-                const double G = 1.0 / std::max(1e-15, 1.0 - std::min(1.0 - 1e-15, uu / C2));
-                k += f * (G - 1.0 - 0.5 * std::log(G)) * a.m * C2;      // f K_41(u)
+                // H kinetic part = m f Kt (see ftTauPass), plus the constant
+                // m c^2 (G_s - 1) that makes the spin's share K41(v_s) at f = 1
+                const double f = a.fpos;
+                const double w = std::min(1.0 - 1e-15, v2 / (f * f * C2) + bs2);
+                const double Kt = v2 / (f * f * (1.0 - w)) + 0.5 * C2 * std::log1p(-w);
+                k += (f * Kt + C2 * bs2 / (1.0 - bs2)) * a.m;
                 break;
             }
             case Kin::Sec28: {
@@ -2060,8 +2072,13 @@ public:
             // positional kinds: integral v dp at fixed position, over f^2.
             // NOT conserved along a non-circular orbit - see the header.
             case Kin::F2SC: {
+                // integral v dp at fixed position = (SR form with spin) / f^2,
+                // plus the spin's own constant energy
                 const double f2 = std::max(1e-300, a.fpos * a.fpos);
-                k += (1.0 / std::sqrt(1.0 - b2) - 1.0) * a.m * C2 / f2;
+                const double ru = std::sqrt(1.0 - b2), rs = std::sqrt(1.0 - bs2);
+                const double gu_gs = db / (ru * rs * (ru + rs));
+                const double gs_1  = bs2 / (rs * (1.0 + rs));
+                k += ((1.0 - bs2) * gu_gs / f2 + gs_1) * a.m * C2;
                 break;
             }
             case Kin::F2Lin: {
