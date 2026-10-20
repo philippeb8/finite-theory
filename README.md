@@ -222,6 +222,27 @@ regression. From 1.5 m with the default N up: steel 0.55310 s, magnet
 ball lands (Δa/g = −6.85·10⁻³). N down: 1.88 ms earlier. Run impact times are interpolated
 inside the last step and match the analytic values to 10 µs.
 
+**The magnet swings.** A 66 g, 1.3 T sphere is a rigid dipole of m = 9.1 A·m²
+with I = 4.3·10⁻⁶ kg·m²; in Earth's field (5.4·10⁻⁵ T, inclination 71°) its
+libration period is 2π√(I/mB) = 0.59 s — the fall time itself. N down sits near
+the stable direction (21° off vertical) and oscillates about it; N up is the
+unstable equilibrium with an e-folding time of 0.09 s, so a 1° release error
+grows to a flip before the floor. Since a_B rides on the axis, the deficit it
+produces is not the fixed-axis value: with the torque on (default, 1°
+perturbation at release) the N-up lead of +1.90 ms becomes +0.87 ms, the N-down
+lag −1.88 → −1.74 ms, and a horizontal release gives −1.10 ms instead of zero.
+A fixed-axis prediction therefore overstates what a_B can produce, and the
+pole orientation at impact is not the one at release.
+
+Two extra knobs for fitting a measured deficit: the coefficient β in
+`a_B = β·B·c/√(K/G)` (2 as postulated, 2/3 in the Oct 2025 note;
+β = Δa_meas·√(K/G)/(B·c) = Δa_meas × 29.78 at 1.3 T), and a velocity drag
+`a = −κ·v` on the magnet (eddy currents in nearby conductors act this way).
+The two forms separate with drops from several heights: a constant a_B gives a
+fixed Δt/t at every h, a drag gives a Δt/t that grows with h (tuned to the same
+deficit at 1.5 m: 0.6 % at 0.5 m vs 1.4 % at 3 m). A fitted β is a measurement
+only if it is the same for two magnets of different B.
+
 Unit fix made here: the atomic unit of acceleration is a0/t² = 9.0442·10²² m/s²
 (the earlier rounded 9.0·10²² mis-scaled g by 0.5 %).
 

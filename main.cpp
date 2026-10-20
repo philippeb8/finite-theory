@@ -499,6 +499,7 @@ struct Particle {
     Vec3    axis      = Vec3(0, 0, 1);   // rotation axis (unit) - display, and v_s sits on it
     double  spinRate  = 0.0;             // d v_s/dt along the axis (sim units): sqrt(k) R domega/dt
     double  Br        = 0.0;             // remanence (tesla) of a magnetised ball; axis = magnetisation S->N
+    Vec3    angVel;                      // rigid-body angular velocity of a magnetised ball (rad per sim time)
     double  tImpact   = -1.0;            // freefall: time the ball reached the floor
     Vec3    orbNormal = Vec3(0, 0, 1);   // orbit-plane normal used when circularising
     const char *name = nullptr;   // Sun / planet label
@@ -598,7 +599,17 @@ public:
     double ffBr      = 1.3;                                  // T
     double ffAxisDeg = 180.0;                                // 0 = N pole down, 180 = N up (default: slower fall)
     double ffMassG   = 66.0;
-    static double magAccSI(double Br) { return 2.0 * Br * 2.99792458e8 / SQRT_K_OVER_G; }   // m/s^2
+    double ffBeta    = 2.0;                                  // coefficient in a_B = beta B c / sqrt(K/G)
+    // the magnet is a rigid dipole in Earth's field: torque m x B_E swings
+    // its axis during the fall (66 g, 1.3 T sphere: m = 9.1 A m^2,
+    // I = 4.3e-6 kg m^2, B_E = 5.4e-5 T -> libration period 0.59 s, about
+    // the fall time; N-up is the unstable equilibrium, e-folding 0.09 s)
+    bool   ffRotate  = true;
+    double ffBEarth  = 5.4e-5;                               // T, local field magnitude
+    double ffIncl    = 71.0;                                 // deg, inclination (down from horizontal)
+    double ffTilt0   = 1.0;                                  // deg, initial perturbation of the axis
+    double ffKappa   = 0.0;                                  // velocity drag on the magnet, a = -kappa v  (1/s)
+    double magAccSI(double Br) const { return ffBeta * Br * 2.99792458e8 / SQRT_K_OVER_G; }   // m/s^2
     static double fieldPotSI(double Br, double massKg)      // J/kg, uniformly magnetised sphere
     {
         const double V = massKg / 7500.0;                    // NdFeB density
@@ -611,8 +622,9 @@ public:
         const double h = ffHeight * M_A0, sep = 0.15 * M_A0;
         Particle st = body(SP_STEEL, m, Vec3(-sep, 0, h)); st.name = "steel";
         Particle nd = body(SP_NDFEB, m, Vec3(+sep, 0, h)); nd.name = "NdFeB";
-        const double th = ffAxisDeg * M_PI / 180.0;
+        const double th = (ffAxisDeg + (ffRotate ? ffTilt0 : 0.0)) * M_PI / 180.0;
         nd.axis = Vec3(std::sin(th), 0.0, -std::cos(th));    // 0 deg: N pole straight down
+        nd.angVel = Vec3();
         nd.Br = ffBr;
         nd.spinPot = fieldPot ? fieldPotSI(ffBr, ffMassG * 1e-3) / (2.18769126e6 * 2.18769126e6) : 0.0;
         p = {st, nd};
@@ -624,6 +636,24 @@ public:
             if (a.tImpact >= 0.0) { a.acc = Vec3(); a.vel = Vec3(); continue; }
             a.acc += Vec3(0, 0, -gEarth);
             if (magAcc && a.Br != 0.0) a.acc += a.axis * (magAccSI(a.Br) * MPS2_AU);
+            if (ffKappa != 0.0 && a.Br != 0.0) a.acc -= a.vel * (ffKappa / S_T);   // eddy-type drag, kappa in 1/s
+        }
+    }
+    // rigid dipole in Earth's field: dL/dt = m x B_E, I dw/dt, axis' = w x axis
+    void freefallRotate(double dt)
+    {
+        if (!ffRotate) return;
+        const double massKg = ffMassG * 1e-3, V = massKg / 7500.0;
+        const double R = std::cbrt(3.0 * V / (4.0 * M_PI));
+        const double I = 0.4 * massKg * R * R;                       // kg m^2
+        const double inc = ffIncl * M_PI / 180.0;
+        const Vec3 BE(ffBEarth * std::cos(inc), 0.0, -ffBEarth * std::sin(inc));   // T, pointing down-ish
+        for (auto &a : p) {
+            if (a.Br == 0.0 || a.tImpact >= 0.0) continue;
+            const double mdip = a.Br * V / 1.25663706e-6;            // A m^2
+            const Vec3 tau = cross(a.axis * mdip, BE);               // N m
+            a.angVel += tau * (dt / (I * S_T * S_T));                // rad / sim time
+            a.axis = unit(a.axis + cross(a.angVel, a.axis) * dt);
         }
     }
     void freefallFloor()
@@ -2072,7 +2102,7 @@ public:
         if (q) stepQuantised(dt);
         stepShadow(dt);
         t += dt;
-        if (freefall) freefallFloor();
+        if (freefall) { freefallRotate(dt); freefallFloor(); }
         if (pairMode) stepPhotons(dt);    // after t advances: field points sit at the new time
     }
 
@@ -2700,10 +2730,11 @@ protected:
         for (const auto &a : sim->p) { if (a.species == SP_STEEL) st = &a; if (a.species == SP_NDFEB) nd = &a; }
         if (!st || !nd) return;
         const double g0 = 9.80665, h = sim->ffHeight;
-        const double aB = sim->magAcc ? Sim::magAccSI(nd->Br) * (-nd->axis.z) : 0.0;   // + = extra downward
+        const double aB = sim->magAcc ? sim->magAccSI(nd->Br) * (-nd->axis.z) : 0.0;   // + = extra downward
         const double aNd = g0 + aB;
         const double tSt = std::sqrt(2.0 * h / g0), tNd = std::sqrt(2.0 * h / aNd);
         const double phiB = Sim::fieldPotSI(nd->Br, sim->ffMassG * 1e-3);
+        (void)Sim::fieldPotSI;
         auto tt = [&](const Particle &a) { return a.tImpact >= 0.0 ? QString("%1 s").arg(a.tImpact / Sim::S_T, 0, 'f', 5)
                                                                    : QString("falling, z = %1 m").arg(a.pos.z / Sim::M_A0, 0, 'f', 4); };
         QStringList L;
@@ -2714,9 +2745,14 @@ protected:
           << QString("NdFeB   a = g %1 %2 = %3 m/s^2   t_pred %4 s")
                  .arg(aB >= 0 ? "+" : "-").arg(std::fabs(aB), 0, 'f', 5).arg(aNd, 0, 'f', 5).arg(tNd, 0, 'f', 5)
           << QString("        %1").arg(tt(*nd))
-          << QString("a_B = 2 B c/sqrt(K/G) = %1 m/s^2  (B = %2 T, %3)")
-                 .arg(Sim::magAccSI(nd->Br), 0, 'f', 5).arg(nd->Br, 0, 'g', 3).arg(sim->magAcc ? "on" : "off")
-          << QString("axis %1 deg from straight down").arg(sim->ffAxisDeg, 0, 'f', 0)
+          << QString("a_B = %1 B c/sqrt(K/G) = %2 m/s^2  (B = %3 T, %4)")
+                 .arg(sim->ffBeta, 0, 'g', 4).arg(sim->magAccSI(nd->Br), 0, 'f', 5).arg(nd->Br, 0, 'g', 3).arg(sim->magAcc ? "on" : "off")
+          << QString("velocity drag on the magnet: a = -%1 v  (%2 m/s^2 at impact speed %3 m/s)")
+                 .arg(sim->ffKappa, 0, 'g', 3).arg(sim->ffKappa * std::sqrt(2.0 * g0 * h), 0, 'g', 3).arg(std::sqrt(2.0 * g0 * h), 0, 'g', 3)
+          << QString("axis set %1 deg from straight down; now %2 deg (%3)")
+                 .arg(sim->ffAxisDeg, 0, 'f', 0)
+                 .arg(std::acos(qBound(-1.0, -nd->axis.z, 1.0)) * 180.0 / M_PI, 0, 'f', 1)
+                 .arg(sim->ffRotate ? "dipole torque in Earth's field on" : "axis fixed")
           << QString("predicted: dt = %1 ms, dz = %2 mm, da/g = %3")
                  .arg((tNd - tSt) * 1e3, 0, 'f', 3).arg(0.5 * aB * tSt * tSt * 1e3, 0, 'f', 2).arg(aB / g0, 0, 'g', 3)
           << QString("field energy as kinetic potential (%1):").arg(sim->fieldPot ? "on" : "off")
@@ -3285,9 +3321,9 @@ public:
     QPushButton    *btClear, *btRestart;
     QSlider        *slField[4];
     QGroupBox      *pairBox, *solarBox, *ffBox;
-    SciSpinBox     *sbFfH, *sbFfB, *sbFfM;
+    SciSpinBox     *sbFfH, *sbFfB, *sbFfM, *sbFfBeta, *sbFfKappa;
     QDial          *dlFfAxis;
-    QCheckBox      *chFfMag, *chFfPot;
+    QCheckBox      *chFfMag, *chFfPot, *chFfRot;
     QPushButton    *btDrop;
     QCheckBox      *chBodySpin, *chSpinSub, *chShadow, *chSpinForce;
     QLabel         *lbSpinTable;
@@ -3760,20 +3796,26 @@ public:
         sbFfH = new SciSpinBox; sbFfH->setRange(0.01, 100.0); sbFfH->setValue(1.5);
         sbFfB = new SciSpinBox; sbFfB->setRange(0.0, 3.0);    sbFfB->setValue(1.3);
         sbFfM = new SciSpinBox; sbFfM->setRange(0.1, 1e5);    sbFfM->setValue(66.0);
+        sbFfBeta  = new SciSpinBox; sbFfBeta->setRange(-100.0, 100.0); sbFfBeta->setValue(2.0);
+        sbFfKappa = new SciSpinBox; sbFfKappa->setRange(0.0, 100.0);   sbFfKappa->setValue(0.0);
         dlFfAxis = new QDial; dlFfAxis->setRange(0, 359); dlFfAxis->setWrapping(true);
         dlFfAxis->setNotchesVisible(true); dlFfAxis->setNotchTarget(30); dlFfAxis->setFixedSize(44, 44);
         dlFfAxis->setValue(180);
         auto *lbAxis = new QLabel("180\u00B0 = N pole up");
         chFfMag = new QCheckBox("FT magnetic acceleration  a_B = 2 B c / \u221A(K/G) along the axis"); chFfMag->setChecked(true);
         chFfPot = new QCheckBox("field energy as kinetic potential (spinning-disk analogue)"); chFfPot->setChecked(true);
+        chFfRot = new QCheckBox("magnet swings in Earth's field (rigid dipole, 5.4e-5 T, 71\u00B0)"); chFfRot->setChecked(true);
         btDrop  = new QPushButton("Drop");
         int row = 0;
         fg->addWidget(new QLabel("drop height h (m)"), row, 0); fg->addWidget(sbFfH, row++, 1, 1, 2);
         fg->addWidget(new QLabel("remanence B (T)"),   row, 0); fg->addWidget(sbFfB, row++, 1, 1, 2);
         fg->addWidget(new QLabel("ball mass (g)"),     row, 0); fg->addWidget(sbFfM, row++, 1, 1, 2);
         fg->addWidget(new QLabel("magnetisation axis"),row, 0); fg->addWidget(dlFfAxis, row, 1); fg->addWidget(lbAxis, row++, 2);
+        fg->addWidget(new QLabel("coefficient \u03B2 in a_B = \u03B2\u00B7B\u00B7c/\u221A(K/G)"), row, 0); fg->addWidget(sbFfBeta, row++, 1, 1, 2);
+        fg->addWidget(new QLabel("velocity drag \u03BA on the magnet (1/s)"), row, 0); fg->addWidget(sbFfKappa, row++, 1, 1, 2);
         fg->addWidget(chFfMag, row++, 0, 1, 3);
         fg->addWidget(chFfPot, row++, 0, 1, 3);
+        fg->addWidget(chFfRot, row++, 0, 1, 3);
         fg->addWidget(btDrop,  row++, 0, 1, 3);
         chFfMag->setToolTip(tipHtml(
             "a_B = 2 B c / sqrt(K/G), sqrt(K/G) = 1.1606e10 kg/C: 0.0672 m/s^2\n"
@@ -3791,11 +3833,37 @@ public:
             "kept for completeness, no measurable effect on the fall. B is\n"
             "constant during the fall, so the axial force m dv_B/dt is zero."));
         lbAxis->setToolTip(tipHtml("Tilt of the S->N axis from straight down, in the x-z plane:\n0 = N down, 90 = N toward +x, 180 = N up."));
+        sbFfBeta->setToolTip(tipHtml(
+            "Free coefficient of the FT term: 2 as postulated, 2/3 in the\n"
+            "Oct 2025 note. Fit it to a measured deficit:\n"
+            "beta = da_meas sqrt(K/G)/(B c) = da_meas[m/s^2] x 29.78 at 1.3 T.\n"
+            "A fitted beta is only a measurement if it is the SAME for two\n"
+            "magnets of different B (e.g. ferrite 0.4 T and NdFeB 1.3 T)."));
+        sbFfKappa->setToolTip(tipHtml(
+            "A deficit that GROWS with speed is not a constant a_B: it is a\n"
+            "drag a = -kappa v. Eddy currents in nearby conductors (aluminium\n"
+            "rail, steel frame, release mechanism) brake a falling magnet this\n"
+            "way; air drag is the same for both balls. The two forms separate\n"
+            "with drops from several heights: a_B gives a fixed dt/t, kappa a\n"
+            "dt/t that rises with h."));
+        connect(sbFfBeta,  QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double v) { sim.ffBeta = v;  sim.computeAcc(); view->update(); });
+        connect(sbFfKappa, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this](double v) { sim.ffKappa = v; sim.computeAcc(); view->update(); });
         connect(dlFfAxis, &QDial::valueChanged, this, [lbAxis](int v) {
             lbAxis->setText(QString("%1\u00B0 %2").arg(v).arg(v == 0 ? "= N pole down" : v == 180 ? "= N pole up" : "")); });
         connect(btDrop, &QPushButton::clicked, this, [this] { if (curTab == 5) restartScene(); });
         connect(chFfMag, &QCheckBox::toggled, this, [this](bool b) { sim.magAcc = b; sim.computeAcc(); view->update(); });
         connect(chFfPot, &QCheckBox::toggled, this, [this](bool b) { sim.fieldPot = b; if (curTab == 5) restartScene(); });
+        connect(chFfRot, &QCheckBox::toggled, this, [this](bool b) { sim.ffRotate = b; if (curTab == 5) restartScene(); });
+        chFfRot->setToolTip(tipHtml(
+            "The ball is a rigid dipole: torque m x B_E from Earth's field\n"
+            "(5.4e-5 T, inclination 71 deg) swings its axis during the fall.\n"
+            "66 g, 1.3 T: m = 9.1 A m^2, I = 4.3e-6 kg m^2, libration period\n"
+            "0.59 s - the fall time itself. N down is near the stable\n"
+            "direction (21 deg off vertical) and oscillates about it; N UP is\n"
+            "the unstable equilibrium (e-folding 0.09 s): a 1 deg release error\n"
+            "grows to a flip within the fall. Since a_B rides on the axis, its\n"
+            "vertical component changes sign on the way down. The HUD shows\n"
+            "the current axis angle; a 1 deg perturbation is applied at release."));
         ffBox->setVisible(false);
         form->addRow(ffBox);
 
@@ -4779,6 +4847,8 @@ private slots:
         static const char *names[6] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production", "Freefall"};
         switch (k) {
         case 5:  sim.ffHeight = sbFfH->value(); sim.ffBr = sbFfB->value();
+                 sim.ffBeta = sbFfBeta->value(); sim.ffKappa = sbFfKappa->value();
+                 sim.ffRotate = chFfRot->isChecked();
                  sim.ffAxisDeg = dlFfAxis->value(); sim.ffMassG = sbFfM->value();
                  sim.magAcc = chFfMag->isChecked(); sim.fieldPot = chFfPot->isChecked();
                  sim.buildFreefall(); break;
