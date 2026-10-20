@@ -494,6 +494,7 @@ struct Particle {
     // The spin speed sqrt(2 Phi_spin) sits on the rotation axis (z here).
     double  spinPot = 0.0;
     Vec3    axis      = Vec3(0, 0, 1);   // rotation axis (unit) - display, and v_s sits on it
+    double  spinRate  = 0.0;             // d v_s/dt along the axis (sim units): sqrt(k) R domega/dt
     Vec3    orbNormal = Vec3(0, 0, 1);   // orbit-plane normal used when circularising
     const char *name = nullptr;   // Sun / planet label
     std::deque<Vec3> trail;
@@ -557,6 +558,14 @@ public:
     // for that body: ~2e-10 at Jupiter, so raise the gravity gain to see it.
     bool   bodySpin = true;
     bool   spinSub  = true;
+    // AXIAL FORCE.  A force along the spin axis that acts only while the
+    // spin rate changes: a = (d v_s/dt) axis per body, v_s = sqrt(k) omega R,
+    // so d v_s/dt = sqrt(k) R domega/dt.  Only
+    // Earth has a measured spin-down (tidal braking, +1.7 ms/century on the
+    // day: domega/dt = -4.6e-22 rad/s^2 -> a = -1.7e-15 m/s^2 along the axis);
+    // the other bodies default to 0.  A constant force along a fixed axis
+    // has the potential -m a (axis . r), counted in potential().
+    bool   spinForce = true;
     // SHADOW BODIES (Solar tab): a copy of the Sun and planets integrated in
     // parallel with mainstream orbital mechanics - Newtonian gravity
     // a = -G sum m_j r_ij / r^3 (x gain), Newtonian momentum, no FT factor,
@@ -1302,6 +1311,11 @@ public:
             p.back().spinPot = spinPotential(Th[k], Rk[k], Ik[k]);
             p.back().orbNormal = orient(Vec3(0, 0, 1));
             p.back().axis = orient(Vec3(std::sin(e), 0.0, std::cos(e)));   // tilted from the orbit normal
+            if (k == 2) {                                                   // Earth: measured spin-down
+                const double domega = -4.56e-22;                            // rad/s^2
+                const double a_SI = std::sqrt(Ik[k]) * Rk[k] * 1e3 * domega;          // m/s^2
+                p.back().spinRate = a_SI / 9.0e22;                          // -> a.u. of acceleration
+            }
         }
         circularize(0);
         buildShadow(0);
@@ -1761,6 +1775,8 @@ public:
         if (hasExternal()) externalPass();
         if (kin == Kin::Sec28) sec28Pass();
         if (kin == Kin::FTtau) ftTauPass();
+        if (spinForce)
+            for (auto &a : p) if (a.spinRate != 0.0) a.acc += a.axis * a.spinRate;
     }
 
     // FTtau extra forces, see the Kin comment.  f and U from the heaviest body.
@@ -2130,6 +2146,9 @@ public:
         // uniform E and g have potentials -q E.r and -m g.r; B and B_g do no work
         for (const auto &a : p)
             u -= a.q * dot(extE, a.pos) + a.m * dot(extG, a.pos);
+        // axial spin-down force: constant along a fixed axis, potential -m a (axis . r)
+        if (spinForce)
+            for (const auto &a : p) if (a.spinRate != 0.0) u -= a.m * a.spinRate * dot(a.axis, a.pos);
         // FTtau: the gravitational term is -U/f, i.e. -U(1/f - 1) beyond Newton
         if (kin == Kin::FTtau && heavy >= 0 && gravity)
             for (const auto &a : p) {
@@ -2952,6 +2971,9 @@ protected:
                          QString("shadow: Newtonian reference  a = -G M r/r^3, p = m v")});
         bool named = false;
         for (const auto &a : sim->p) if (a.name) { named = true; break; }
+        if (sim->spinForce && named)
+            rows.append({QColor("#5DADE2"), -1,
+                         QString("+ axial force m dv_s/dt along the spin axis (spin-down bodies)")});
         if (sim->bodySpin && named)
             rows.append({QColor("#5DADE2"), -1,
                          QString("+ body spin: v_s = sqrt(2 Phi_spin) on the axis%1")
@@ -3114,7 +3136,7 @@ public:
     QPushButton    *btClear, *btRestart;
     QSlider        *slField[4];
     QGroupBox      *pairBox, *solarBox;
-    QCheckBox      *chBodySpin, *chSpinSub, *chShadow;
+    QCheckBox      *chBodySpin, *chSpinSub, *chShadow, *chSpinForce;
     QLabel         *lbSpinTable;
     QSlider        *slFreq, *slSpeed;
     QLabel         *lbSpeed;
@@ -3543,6 +3565,19 @@ public:
             "selected route, eta_g, kinematics and spin options change."));
         sg->addWidget(chShadow);
         connect(chShadow, &QCheckBox::toggled, this, [this](bool b) { sim.shadowOn = b; view->update(); });
+        chSpinForce = new QCheckBox("axial force m·dv_s/dt from the spin-down (Earth: −1.7e-15 m/s²)");
+        chSpinForce->setChecked(true);
+        chSpinForce->setToolTip(tipHtml(
+            "A force along the spin axis that acts only while the spin rate\n"
+            "changes, zero at steady spin. Per body a = (d v_s/dt) axis, v_s = sqrt(k) omega R,\n"
+            "so d v_s/dt = sqrt(k) R domega/dt, along the rotation axis.\n"
+            "Only Earth has a measured spin-down (tidal braking, +1.7 ms per\n"
+            "century on the day): domega/dt = -4.6e-22 rad/s^2 ->\n"
+            "a = -1.7e-15 m/s^2, 3e-13 of the Sun's pull, 23.4 deg off the\n"
+            "orbit normal. The other bodies default to 0. Counted in E as\n"
+            "-m a (axis . r)."));
+        sg->addWidget(chSpinForce);
+        connect(chSpinForce, &QCheckBox::toggled, this, [this](bool b) { sim.spinForce = b; sim.computeAcc(); view->update(); });
         lbSpinTable = new QLabel; lbSpinTable->setFont(QFont("monospace", 8));
         lbSpinTable->setTextInteractionFlags(Qt::TextSelectableByMouse);
         sg->addWidget(chBodySpin); sg->addWidget(chSpinSub); sg->addWidget(lbSpinTable);
@@ -4345,7 +4380,7 @@ private:                                  // data and helpers: not slots
         // per body: spin numbers, then the polar (spherical, in-plane) offset
         // of the live body from its Newtonian shadow about the Sun:
         // dr = r - r_shadow (AU), dtheta = theta - theta_shadow (deg, wrapped)
-        QString t = "body      v_s km/s  Phi/(GM/d)  Phi/c^2    dr AU     dtheta deg  dphi deg\n";
+        QString t = "body      v_s km/s  dv_s/dt m/s2  Phi/c^2    dr AU     dtheta deg  dphi deg\n";
         const double GM = sim.p.empty() ? 0.0 : Sim::G_UNITS * sim.gravGain * sim.p[0].m;
         const bool sh = sim.shadow.size() == sim.p.size() && !sim.p.empty();
         for (size_t i = 0; i < sim.p.size(); ++i) {
@@ -4366,8 +4401,9 @@ private:                                  // data and helpers: not slots
                                   - std::acos(qBound(-1.0, e.z / std::max(rs, 1e-300), 1.0))) * 180.0 / M_PI;
                 pol = QString("%1 %2 %3").arg((r - rs) / Sim::AU_A0, 9, 'e', 2).arg(dth, 11, 'e', 3).arg(dph, 11, 'e', 3);
             }
+            (void)ratio;
             t += QString("%1 %2 %3 %4 %5\n").arg(a.name, -8).arg(vs, 8, 'f', 3)
-                     .arg(ratio, 10, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
+                     .arg(a.spinRate * 9.0e22, 12, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
         }
         lbSpinTable->setText(t.trimmed());
     }
@@ -4473,6 +4509,7 @@ private slots:
         quiet(chBodySpin, &QCheckBox::setChecked, sim.bodySpin);
         quiet(chSpinSub,  &QCheckBox::setChecked, sim.spinSub);
         quiet(chShadow,   &QCheckBox::setChecked, sim.shadowOn);
+        quiet(chSpinForce, &QCheckBox::setChecked, sim.spinForce);
         if (k == 1) fillSpinTable();
         view->homeScale = t.home; view->scale = t.scale; view->pan = t.pan;
         view->yaw = t.yaw;        view->pitch = t.pitch;
@@ -4545,7 +4582,7 @@ private slots:
         pairBox->setVisible(k == 4);
         solarBox->setVisible(k == 1);
         if (k == 1) { sim.bodySpin = chBodySpin->isChecked(); sim.spinSub = chSpinSub->isChecked();
-                      sim.shadowOn = chShadow->isChecked();
+                      sim.shadowOn = chShadow->isChecked(); sim.spinForce = chSpinForce->isChecked();
                       sim.computeAcc(); fillSpinTable(); }
         if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
