@@ -417,7 +417,7 @@ struct Species {
 };
 enum SpeciesId { SP_E = 0, SP_P, SP_N, SP_MU, SP_TAU, SP_NUE, SP_NUMU, SP_NUTAU,
                  SP_U, SP_D, SP_S, SP_C, SP_B, SP_T, SP_STAR, SP_PLANET, SP_POS,
-                 SP_EF, SP_BF, SP_COUNT };
+                 SP_STEEL, SP_NDFEB, SP_EF, SP_BF, SP_COUNT };
 static const Species SPECIES[SP_COUNT] = {
     {"electron", "-1",   -1.0,       1.0,          -5.005798e-01, "#3FB4CF", false},
     {"proton",   "+1",   +1.0,       1836.152673,  +7.605161e-04, "#C56A00", true },
@@ -437,6 +437,9 @@ static const Species SPECIES[SP_COUNT] = {
     {"star",     " 0",    0.0,       2.1833749e60,  0.0,          "#FFD966", false},
     {"planet",   " 0",    0.0,       6.5560967e54,  0.0,          "#5DADE2", false},
     {"positron", "+1",   +1.0,       1.0,          +5.005798e-01, "#E0607A", false},
+    // freefall balls, 66 g each (m_e units: 66e-3 / 9.1093837e-31)
+    {"steel ball","  0",   0.0,       7.2453e28,     0.0,          "#9AA6B8", false},
+    {"NdFeB ball","  0",   0.0,       7.2453e28,     0.0,          "#E05050", false},
     // photon field points: kinematic, no charge, no mass, no force (see Sim)
     {"E point",  " 0",    0.0,       0.0,           0.0,          "#3FB4CF", false},
     {"B point",  " 0",    0.0,       0.0,           0.0,          "#B48CFF", false},
@@ -468,11 +471,11 @@ static bool isQuark(int sp) { return sp >= SP_U && sp <= SP_T; }
 static const char *SYM[SP_COUNT] = {
     "e", "p", "n", "\xCE\xBC", "\xCF\x84",
     "\xCE\xBD", "\xCE\xBD", "\xCE\xBD",
-    "u", "d", "s", "c", "b", "t", "S", "P", "e", "E", "B"};
+    "u", "d", "s", "c", "b", "t", "S", "P", "e", "Fe", "Nd", "E", "B"};
 static const char *SUB[SP_COUNT] = {
     "", "", "", "", "",
     "e", "\xCE\xBC", "\xCF\x84",
-    "", "", "", "", "", "", "", "", "+", "", ""};
+    "", "", "", "", "", "", "", "", "+", "", "", "", ""};
 
 struct Particle {
     Vec3 pos, vel, acc;
@@ -495,6 +498,8 @@ struct Particle {
     double  spinPot = 0.0;
     Vec3    axis      = Vec3(0, 0, 1);   // rotation axis (unit) - display, and v_s sits on it
     double  spinRate  = 0.0;             // d v_s/dt along the axis (sim units): sqrt(k) R domega/dt
+    double  Br        = 0.0;             // remanence (tesla) of a magnetised ball; axis = magnetisation S->N
+    double  tImpact   = -1.0;            // freefall: time the ball reached the floor
     Vec3    orbNormal = Vec3(0, 0, 1);   // orbit-plane normal used when circularising
     const char *name = nullptr;   // Sun / planet label
     std::deque<Vec3> trail;
@@ -525,7 +530,7 @@ public:
     //   E, g   set in the xy plane (magnitude + angle from +x)
     //   B, B_g set in the xz plane (magnitude + tilt from +z)
     //   a  = q/m (E + v x B)      E in 5.14220675e11 V/m, B in 2.35051757e5 T
-    //   a += g                    g in 9.0e22 m/s^2 (acts on every mass)
+    //   a += g                    g in 9.0442e22 m/s^2 (acts on every mass)
     //   a += v x B_g              B_g in 4.1341e16 s^-1; equivalent to a
     //                             frame rotating at Omega = B_g/2 (Coriolis)
     Vec3 extE, extB, extG, extBg;
@@ -566,6 +571,71 @@ public:
     // the other bodies default to 0.  A constant force along a fixed axis
     // has the potential -m a (axis . r), counted in potential().
     bool   spinForce = true;
+
+    // FREEFALL TAB.  Two 66 g balls, steel and NdFeB, released together from
+    // height h above a floor at z = 0 in Earth's g.  The magnet carries, as
+    // options:
+    //   magAcc    a_B = 2 B c / sqrt(K/G) along its magnetisation axis
+    //             (0.0672 m/s^2 at B = 1.3 T: N pole down adds it to g,
+    //             N pole up subtracts it)
+    //   fieldPot  its magnetostatic energy as a kinetic potential, the
+    //             spinning-disk analogue: Phi_B = W/m, W = B^2 V/(6 mu0) for
+    //             a uniformly magnetised sphere, speed v_B = sqrt(2 Phi_B) on
+    //             the axis (enters the kinematic factor) and, as for the
+    //             planets, the potential offset Phi_g - Phi_B
+    //             (eta_g -> eta_g (1 - Phi_B/c^2)); both ~1e-16 here.
+    // Units: 1 m = 1.8897e10 a0, 1 s = 4.1341e16 time units,
+    // 1 m/s^2 = 1.1057e-23 a.u. of acceleration (a.u. = a0/t^2 = 9.0442e22 m/s^2).
+    static constexpr double M_A0   = 1.8897261246e10;
+    static constexpr double S_T    = 4.1341373e16;
+    static constexpr double MPS2_AU = 1.0 / 9.044216e22;
+    static constexpr double SQRT_K_OVER_G = 1.16064e10;    // sqrt(K/G), kg/C
+    bool   freefall  = false;
+    bool   magAcc    = true;
+    bool   fieldPot  = true;
+    double gEarth    = 9.80665 * MPS2_AU;                   // a.u.
+    double ffHeight  = 1.5;                                  // m
+    double ffBr      = 1.3;                                  // T
+    double ffAxisDeg = 180.0;                                // 0 = N pole down, 180 = N up (default: slower fall)
+    double ffMassG   = 66.0;
+    static double magAccSI(double Br) { return 2.0 * Br * 2.99792458e8 / SQRT_K_OVER_G; }   // m/s^2
+    static double fieldPotSI(double Br, double massKg)      // J/kg, uniformly magnetised sphere
+    {
+        const double V = massKg / 7500.0;                    // NdFeB density
+        return Br * Br * V / (6.0 * 1.25663706e-6) / massKg;
+    }
+    void buildFreefall()
+    {
+        clear(); freefall = true; pairMode = false; gravity = false;
+        const double m = ffMassG * 1e-3 / 9.1093837015e-31;
+        const double h = ffHeight * M_A0, sep = 0.15 * M_A0;
+        Particle st = body(SP_STEEL, m, Vec3(-sep, 0, h)); st.name = "steel";
+        Particle nd = body(SP_NDFEB, m, Vec3(+sep, 0, h)); nd.name = "NdFeB";
+        const double th = ffAxisDeg * M_PI / 180.0;
+        nd.axis = Vec3(std::sin(th), 0.0, -std::cos(th));    // 0 deg: N pole straight down
+        nd.Br = ffBr;
+        nd.spinPot = fieldPot ? fieldPotSI(ffBr, ffMassG * 1e-3) / (2.18769126e6 * 2.18769126e6) : 0.0;
+        p = {st, nd};
+        computeAcc();
+    }
+    void freefallPass()
+    {
+        for (auto &a : p) {
+            if (a.tImpact >= 0.0) { a.acc = Vec3(); a.vel = Vec3(); continue; }
+            a.acc += Vec3(0, 0, -gEarth);
+            if (magAcc && a.Br != 0.0) a.acc += a.axis * (magAccSI(a.Br) * MPS2_AU);
+        }
+    }
+    void freefallFloor()
+    {
+        for (auto &a : p)
+            if (a.tImpact < 0.0 && a.pos.z <= 0.0) {
+                // interpolate the crossing time inside the last step
+                const double vz = a.vel.z;
+                const double back = (vz < 0.0) ? a.pos.z / vz : 0.0;   // >= 0, time since crossing
+                a.tImpact = t - back; a.pos.z = 0.0; a.vel = Vec3();
+            }
+    }
     // SHADOW BODIES (Solar tab): a copy of the Sun and planets integrated in
     // parallel with mainstream orbital mechanics - Newtonian gravity
     // a = -G sum m_j r_ij / r^3 (x gain), Newtonian momentum, no FT factor,
@@ -855,7 +925,7 @@ public:
         computeAcc();
     }
 
-    void clear() { p.clear(); shadow.clear(); photons.clear(); fieldPts.clear(); nextHadron = 0; t = 0.0; }
+    void clear() { p.clear(); shadow.clear(); photons.clear(); fieldPts.clear(); nextHadron = 0; t = 0.0; freefall = false; }
 
     // ===================== PAIR PRODUCTION =====================
     // Photon = classical plane-wave packet moving at c.  Its E and B are
@@ -1314,7 +1384,7 @@ public:
             if (k == 2) {                                                   // Earth: measured spin-down
                 const double domega = -4.56e-22;                            // rad/s^2
                 const double a_SI = std::sqrt(Ik[k]) * Rk[k] * 1e3 * domega;          // m/s^2
-                p.back().spinRate = a_SI / 9.0e22;                          // -> a.u. of acceleration
+                p.back().spinRate = a_SI * MPS2_AU;                          // -> a.u. of acceleration
             }
         }
         circularize(0);
@@ -1777,6 +1847,7 @@ public:
         if (kin == Kin::FTtau) ftTauPass();
         if (spinForce)
             for (auto &a : p) if (a.spinRate != 0.0) a.acc += a.axis * a.spinRate;
+        if (freefall) freefallPass();
     }
 
     // FTtau extra forces, see the Kin comment.  f and U from the heaviest body.
@@ -2001,6 +2072,7 @@ public:
         if (q) stepQuantised(dt);
         stepShadow(dt);
         t += dt;
+        if (freefall) freefallFloor();
         if (pairMode) stepPhotons(dt);    // after t advances: field points sit at the new time
     }
 
@@ -2146,6 +2218,12 @@ public:
         // uniform E and g have potentials -q E.r and -m g.r; B and B_g do no work
         for (const auto &a : p)
             u -= a.q * dot(extE, a.pos) + a.m * dot(extG, a.pos);
+        if (freefall)
+            for (const auto &a : p) {
+                if (a.tImpact >= 0.0) continue;
+                u += a.m * gEarth * a.pos.z;
+                if (magAcc && a.Br != 0.0) u -= a.m * magAccSI(a.Br) * MPS2_AU * dot(a.axis, a.pos);
+            }
         // axial spin-down force: constant along a fixed axis, potential -m a (axis . r)
         if (spinForce)
             for (const auto &a : p) if (a.spinRate != 0.0) u -= a.m * a.spinRate * dot(a.axis, a.pos);
@@ -2469,6 +2547,28 @@ protected:
                 }
             }
 
+        // freefall: the floor (z = 0) and the two release points
+        if (sim->freefall) {
+            const double w = 0.6 * Sim::M_A0;
+            glColor(QColor("#9AA6B8"), 160);
+            glBegin(GL_LINES);
+            glVert(Vec3(-w, 0, 0)); glVert(Vec3(w, 0, 0));
+            glVert(Vec3(-w, -0.3 * Sim::M_A0, 0)); glVert(Vec3(-w, 0.3 * Sim::M_A0, 0));
+            glVert(Vec3( w, -0.3 * Sim::M_A0, 0)); glVert(Vec3( w, 0.3 * Sim::M_A0, 0));
+            glEnd();
+            glColor(QColor("#1E2D4A"));
+            glBegin(GL_LINES);
+            for (const auto &a : sim->p) { glVert(Vec3(a.pos.x, a.pos.y, 0)); glVert(Vec3(a.pos.x, a.pos.y, sim->ffHeight * Sim::M_A0)); }
+            glEnd();
+            // magnetisation axis of the magnet: S->N arrow, red
+            for (const auto &a : sim->p) if (a.Br != 0.0) {
+                const double len = 0.06 * Sim::M_A0;
+                glLineWidth(2.0f); glColor(QColor("#E05050"));
+                glBegin(GL_LINES); glVert(a.pos - a.axis * len); glVert(a.pos + a.axis * len); glEnd();
+                glLineWidth(1.0f);
+            }
+        }
+
         // shadow bodies: the Newtonian reference, darker, under the live ones
         if (sim->shadowOn)
             for (const auto &a : sim->shadow) {
@@ -2586,10 +2686,59 @@ protected:
                                .arg(inAtt).arg(totPair));
 
         if (sim->quantised) drawLevels(g);
+        if (sim->freefall) drawFreefallHud(g);
         drawPhotons(g);
         if (sim->pairMode) drawPairHud(g);
         drawLegend(g);
         drawFields(g);
+    }
+
+    // freefall table, top-right: predicted and running numbers for both balls
+    void drawFreefallHud(QPainter &g)
+    {
+        const Particle *st = nullptr, *nd = nullptr;
+        for (const auto &a : sim->p) { if (a.species == SP_STEEL) st = &a; if (a.species == SP_NDFEB) nd = &a; }
+        if (!st || !nd) return;
+        const double g0 = 9.80665, h = sim->ffHeight;
+        const double aB = sim->magAcc ? Sim::magAccSI(nd->Br) * (-nd->axis.z) : 0.0;   // + = extra downward
+        const double aNd = g0 + aB;
+        const double tSt = std::sqrt(2.0 * h / g0), tNd = std::sqrt(2.0 * h / aNd);
+        const double phiB = Sim::fieldPotSI(nd->Br, sim->ffMassG * 1e-3);
+        auto tt = [&](const Particle &a) { return a.tImpact >= 0.0 ? QString("%1 s").arg(a.tImpact / Sim::S_T, 0, 'f', 5)
+                                                                   : QString("falling, z = %1 m").arg(a.pos.z / Sim::M_A0, 0, 'f', 4); };
+        QStringList L;
+        L << QString("FREEFALL  h = %1 m   %2 g balls   t = %3 s")
+                 .arg(h, 0, 'g', 4).arg(sim->ffMassG, 0, 'g', 4).arg(sim->t / Sim::S_T, 0, 'f', 4)
+          << QString("steel   a = %1 m/s^2   t_pred %2 s").arg(g0, 0, 'f', 5).arg(tSt, 0, 'f', 5)
+          << QString("        %1").arg(tt(*st))
+          << QString("NdFeB   a = g %1 %2 = %3 m/s^2   t_pred %4 s")
+                 .arg(aB >= 0 ? "+" : "-").arg(std::fabs(aB), 0, 'f', 5).arg(aNd, 0, 'f', 5).arg(tNd, 0, 'f', 5)
+          << QString("        %1").arg(tt(*nd))
+          << QString("a_B = 2 B c/sqrt(K/G) = %1 m/s^2  (B = %2 T, %3)")
+                 .arg(Sim::magAccSI(nd->Br), 0, 'f', 5).arg(nd->Br, 0, 'g', 3).arg(sim->magAcc ? "on" : "off")
+          << QString("axis %1 deg from straight down").arg(sim->ffAxisDeg, 0, 'f', 0)
+          << QString("predicted: dt = %1 ms, dz = %2 mm, da/g = %3")
+                 .arg((tNd - tSt) * 1e3, 0, 'f', 3).arg(0.5 * aB * tSt * tSt * 1e3, 0, 'f', 2).arg(aB / g0, 0, 'g', 3)
+          << QString("field energy as kinetic potential (%1):").arg(sim->fieldPot ? "on" : "off")
+          << QString("  Phi_B = %1 J/kg, v_B = %2 m/s, Phi_B/c^2 = %3")
+                 .arg(phiB, 0, 'g', 4).arg(std::sqrt(2.0 * phiB), 0, 'g', 3).arg(phiB / 8.98755179e16, 0, 'g', 3)
+          << QString("  inertia +%1, offset %2 m/s^2: not measurable")
+                 .arg(phiB / 8.98755179e16 / 2.0, 0, 'g', 2).arg(phiB / 6.371e6, 0, 'g', 2);
+        if (st->tImpact >= 0.0 && nd->tImpact >= 0.0)
+            L << QString("RUN: dt = %1 ms,  a_Nd - a_st = %2 m/s^2")
+                     .arg((nd->tImpact - st->tImpact) / Sim::S_T * 1e3, 0, 'f', 3)
+                     .arg(2.0 * h * Sim::S_T * Sim::S_T * (1.0 / (nd->tImpact * nd->tImpact) - 1.0 / (st->tImpact * st->tImpact)), 0, 'g', 4);
+        QFontMetrics fm(g.font());
+        int w = 0; for (const auto &t : L) w = qMax(w, fm.horizontalAdvance(t));
+        const int pad = 8, lh = 16;
+        const int bw = w + 2 * pad, bh = L.size() * lh + 2 * pad;
+        const int x0 = width() - bw - 10, y0 = 84;         // top-right, under the standard HUD lines
+        g.setPen(QPen(QColor("#1E2D4A"), 1));
+        g.setBrush(QColor(12, 26, 51, 215));
+        g.drawRoundedRect(QRectF(x0, y0, bw, bh), 4, 4);
+        g.setPen(QColor("#E8EDF5"));
+        for (int i = 0; i < L.size(); ++i)
+            g.drawText(x0 + pad, y0 + pad + lh * (i + 1) - 4, L[i]);
     }
 
     // level table, top-right: E_n with f^2, and the shift against pure Bohr
@@ -3127,7 +3276,7 @@ public:
         Vec3    pan; double yaw = 0.0, pitch = 62.0;
         int     etaPreset = 4, route = 0, kin = 3, layout = 2;
         bool    qcd = false, constituent = false;
-    } tabState[5];
+    } tabState[6];
     int curTab = -1;
     View  *view;
     QTimer timer;
@@ -3135,7 +3284,11 @@ public:
     QSpinBox       *sbSpecN;
     QPushButton    *btClear, *btRestart;
     QSlider        *slField[4];
-    QGroupBox      *pairBox, *solarBox;
+    QGroupBox      *pairBox, *solarBox, *ffBox;
+    SciSpinBox     *sbFfH, *sbFfB, *sbFfM;
+    QDial          *dlFfAxis;
+    QCheckBox      *chFfMag, *chFfPot;
+    QPushButton    *btDrop;
     QCheckBox      *chBodySpin, *chSpinSub, *chShadow, *chSpinForce;
     QLabel         *lbSpinTable;
     QSlider        *slFreq, *slSpeed;
@@ -3178,7 +3331,7 @@ public:
 
         cbSpecies = new QComboBox;
         for (int k = 0; k < SP_COUNT; ++k)
-            if (k != SP_EF && k != SP_BF)              // photon field points: not addable
+            if (k != SP_EF && k != SP_BF && k != SP_STEEL && k != SP_NDFEB)   // freefall balls and field points: not addable
             cbSpecies->addItem(QString("%1   q = %2   m = %3 m_e")
                                    .arg(SPECIES[k].name)
                                    .arg(SPECIES[k].qText)
@@ -3341,7 +3494,7 @@ public:
             "90 = +x, 180 = -z. Charges gyrate at omega = q |B| / m about B.",
             "Uniform GRAVITOELECTRIC field g, acting on every mass\n"
             "including neutrons and neutrinos: a = g.\n"
-            "Magnitude in atomic units (1 = 9.0e22 m/s^2; Earth's 9.81\n"
+            "Magnitude in atomic units (1 = 9.0442e22 m/s^2; Earth's 9.81\n"
             "m/s^2 is 1.09e-22). Dial: in-plane direction from +x.",
             "Uniform GRAVITOMAGNETIC field: a = v x B_g, on every mass.\n"
             "Magnitude in atomic units (1 = 4.134e16 s^-1). Equivalent to\n"
@@ -3600,6 +3753,51 @@ public:
         connect(chSpinSub,  &QCheckBox::toggled, this, [this](bool b) { sim.spinSub  = b; sim.computeAcc(); view->update(); });
         solarBox->setVisible(false);
         form->addRow(solarBox);
+
+        // ---- Freefall tab ----
+        ffBox = new QGroupBox("Freefall: steel vs NdFeB");
+        auto *fg = new QGridLayout(ffBox);
+        sbFfH = new SciSpinBox; sbFfH->setRange(0.01, 100.0); sbFfH->setValue(1.5);
+        sbFfB = new SciSpinBox; sbFfB->setRange(0.0, 3.0);    sbFfB->setValue(1.3);
+        sbFfM = new SciSpinBox; sbFfM->setRange(0.1, 1e5);    sbFfM->setValue(66.0);
+        dlFfAxis = new QDial; dlFfAxis->setRange(0, 359); dlFfAxis->setWrapping(true);
+        dlFfAxis->setNotchesVisible(true); dlFfAxis->setNotchTarget(30); dlFfAxis->setFixedSize(44, 44);
+        dlFfAxis->setValue(180);
+        auto *lbAxis = new QLabel("180\u00B0 = N pole up");
+        chFfMag = new QCheckBox("FT magnetic acceleration  a_B = 2 B c / \u221A(K/G) along the axis"); chFfMag->setChecked(true);
+        chFfPot = new QCheckBox("field energy as kinetic potential (spinning-disk analogue)"); chFfPot->setChecked(true);
+        btDrop  = new QPushButton("Drop");
+        int row = 0;
+        fg->addWidget(new QLabel("drop height h (m)"), row, 0); fg->addWidget(sbFfH, row++, 1, 1, 2);
+        fg->addWidget(new QLabel("remanence B (T)"),   row, 0); fg->addWidget(sbFfB, row++, 1, 1, 2);
+        fg->addWidget(new QLabel("ball mass (g)"),     row, 0); fg->addWidget(sbFfM, row++, 1, 1, 2);
+        fg->addWidget(new QLabel("magnetisation axis"),row, 0); fg->addWidget(dlFfAxis, row, 1); fg->addWidget(lbAxis, row++, 2);
+        fg->addWidget(chFfMag, row++, 0, 1, 3);
+        fg->addWidget(chFfPot, row++, 0, 1, 3);
+        fg->addWidget(btDrop,  row++, 0, 1, 3);
+        chFfMag->setToolTip(tipHtml(
+            "a_B = 2 B c / sqrt(K/G), sqrt(K/G) = 1.1606e10 kg/C: 0.0672 m/s^2\n"
+            "at B = 1.3 T (0.69% of g), directed along the magnetisation axis\n"
+            "S->N. Default N pole up: the magnet falls SLOWER by a_B\n"
+            "(a = g - a_B); N pole down, faster; sideways, it drifts sideways.\n"
+            "From h = 1.5 m, N up: steel 0.5531 s, magnet 0.5550 s, 1.9 ms\n"
+            "later, 10 mm higher when the steel ball lands (da/g = -0.69%)."));
+        chFfPot->setToolTip(tipHtml(
+            "The magnet's stored field energy treated like the spinning\n"
+            "disk's rotational energy: Phi_B = W/m, W = B^2 V/(6 mu0) for a\n"
+            "uniformly magnetised sphere (66 g NdFeB: 2.0 J, 30 J/kg), speed\n"
+            "v_B = sqrt(2 Phi_B) = 7.7 m/s on the axis in the kinematic factor,\n"
+            "and the potential offset Phi_g - Phi_B. Both are ~1e-16 of g:\n"
+            "kept for completeness, no measurable effect on the fall. B is\n"
+            "constant during the fall, so the axial force m dv_B/dt is zero."));
+        lbAxis->setToolTip(tipHtml("Tilt of the S->N axis from straight down, in the x-z plane:\n0 = N down, 90 = N toward +x, 180 = N up."));
+        connect(dlFfAxis, &QDial::valueChanged, this, [lbAxis](int v) {
+            lbAxis->setText(QString("%1\u00B0 %2").arg(v).arg(v == 0 ? "= N pole down" : v == 180 ? "= N pole up" : "")); });
+        connect(btDrop, &QPushButton::clicked, this, [this] { if (curTab == 5) restartScene(); });
+        connect(chFfMag, &QCheckBox::toggled, this, [this](bool b) { sim.magAcc = b; sim.computeAcc(); view->update(); });
+        connect(chFfPot, &QCheckBox::toggled, this, [this](bool b) { sim.fieldPot = b; if (curTab == 5) restartScene(); });
+        ffBox->setVisible(false);
+        form->addRow(ffBox);
 
         addRow(form, "add species", cbSpecies,
                "Every particle type is added from this list.\n\n"
@@ -4052,7 +4250,7 @@ public:
         tabs = new QTabBar;
         tabs->addTab("Galactic");  tabs->addTab("Solar");
         tabs->addTab("Atomic");    tabs->addTab("Quark");
-        tabs->addTab("Pair Production");
+        tabs->addTab("Pair Production"); tabs->addTab("Freefall");
         tabs->setToolTip(tipHtml("Each tab keeps its own scene: switching away freezes it,\n"
                                  "switching back resumes it where it was."));
         tabs->setTabToolTip(0, tipHtml(
@@ -4096,6 +4294,17 @@ public:
             "both the same way). e+ e- within lbar_c annihilate into two\n"
             "photons. SR kinematics, dt = 2e-7: one wave period takes about\n"
             "3.5 s on screen. Use the speed slider for slower or faster."));
+
+        tabs->setTabToolTip(5, tipHtml(
+            "Two 66 g balls, steel and NdFeB, released together from h in\n"
+            "Earth's g onto a floor at z = 0. The magnet may carry the FT\n"
+            "acceleration a_B = 2 B c/sqrt(K/G) along its magnetisation axis\n"
+            "(default N pole up: a = g - a_B, the magnet falls slower; N down\n"
+            "adds it) and its field energy\n"
+            "as a kinetic potential (the spinning-disk analogue). The HUD\n"
+            "gives predicted and run impact times for comparison with a\n"
+            "drop-test regression. Side view: x right, z up. dt = 1e13\n"
+            "(0.24 ms, ~2300 steps per 0.55 s fall)."));
 
         auto *root = new QVBoxLayout(this);
         root->setContentsMargins(4, 4, 4, 4);
@@ -4403,7 +4612,7 @@ private:                                  // data and helpers: not slots
             }
             (void)ratio;
             t += QString("%1 %2 %3 %4 %5\n").arg(a.name, -8).arg(vs, 8, 'f', 3)
-                     .arg(a.spinRate * 9.0e22, 12, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
+                     .arg(a.spinRate / Sim::MPS2_AU, 12, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
         }
         lbSpinTable->setText(t.trimmed());
     }
@@ -4412,7 +4621,7 @@ private:                                  // data and helpers: not slots
     // read the four slider/dial pairs into the simulation and label them
     void applyFields()
     {
-        static const double SI[4]  = {5.14220675e11, 2.35051757e5, 9.0e22, 4.1341e16};
+        static const double SI[4]  = {5.14220675e11, 2.35051757e5, 9.044216e22, 4.1341373e16};
         static const char  *U[4]   = {"V/m", "T", "m/s\u00B2", "s\u207B\u00B9"};
         double m[4], th[4];
         for (int k = 0; k < 4; ++k) {
@@ -4472,7 +4681,7 @@ private slots:
     // S = M per-galaxy fit, would leave it at 0.0016 kpc).
     void parkTab(int k)
     {
-        if (k < 0 || k > 4) return;
+        if (k < 0 || k > 5) return;
         TabState &t = tabState[k];
         t.init = true;          t.sim = sim;
         t.eta = sbEta->value(); t.etaG = sbEtaG->value();
@@ -4507,6 +4716,7 @@ private slots:
         fieldsFromSim();                  // fields travel with the tab's simulation
         pairBox->setVisible(k == 4);
         solarBox->setVisible(k == 1);
+        ffBox->setVisible(k == 5);
         quiet(chBodySpin, &QCheckBox::setChecked, sim.bodySpin);
         quiet(chSpinSub,  &QCheckBox::setChecked, sim.spinSub);
         quiet(chShadow,   &QCheckBox::setChecked, sim.shadowOn);
@@ -4519,7 +4729,7 @@ private slots:
         slZoom->blockSignals(false);
         syncSettings();
         sim.computeAcc();
-        static const char *names[5] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production"};
+        static const char *names[6] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production", "Freefall"};
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
                            .arg(names[k]).arg(profileName));
         view->update();
@@ -4544,6 +4754,12 @@ private slots:
                  slSpeed->setValue(int(std::lround(1000.0 * std::log10(2e-7))));
                  sbDt->setValue(2e-7); sbBox->setValue(0.2);
                  setZoom(250.0 / 0.15); break;
+        case 5:  if (cbKin->currentIndex() != 6) cbKin->setCurrentIndex(6);   // Newtonian
+                 if (cbRoute->currentIndex() != 2) cbRoute->setCurrentIndex(2); // Coulomb
+                 sbDt->setValue(1e13); sbBox->setValue(2.0 * Sim::M_A0);
+                 setZoom(250.0 / (1.2 * Sim::M_A0));
+                 view->pitch = 0.0; view->yaw = 0.0;                        // side view, z up
+                 view->pan = Vec3(0.9 * Sim::M_A0, 0, 0.5 * sbFfH->value() * Sim::M_A0); break;   // balls at the left edge, HUD clear
         default: cbEtaPreset->setCurrentIndex(1);    // retrofit
                  chConstituent->setChecked(true);
                  chQCD->setChecked(true);
@@ -4560,8 +4776,12 @@ private slots:
     {
         syncSettings();
         const int k = tabs->currentIndex();
-        static const char *names[5] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production"};
+        static const char *names[6] = {"Galactic", "Solar", "Atomic", "Quark", "Pair Production", "Freefall"};
         switch (k) {
+        case 5:  sim.ffHeight = sbFfH->value(); sim.ffBr = sbFfB->value();
+                 sim.ffAxisDeg = dlFfAxis->value(); sim.ffMassG = sbFfM->value();
+                 sim.magAcc = chFfMag->isChecked(); sim.fieldPot = chFfPot->isChecked();
+                 sim.buildFreefall(); break;
         case 0:  sim.buildGalaxy(1e10, 200, 15.0, seed++); break;
         case 1:  sim.buildSolar(seed++); break;
         case 2:  sim.reset(DEFAULT_NE, DEFAULT_NP, DEFAULT_NN, sbBox->value(), sbV->value(), seed++);
@@ -4582,12 +4802,13 @@ private slots:
         if (k != 4) sim.pairMode = false;
         pairBox->setVisible(k == 4);
         solarBox->setVisible(k == 1);
+        ffBox->setVisible(k == 5);
         if (k == 1) { sim.bodySpin = chBodySpin->isChecked(); sim.spinSub = chSpinSub->isChecked();
                       sim.shadowOn = chShadow->isChecked(); sim.spinForce = chSpinForce->isChecked();
                       sim.computeAcc(); fillSpinTable(); }
         if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
-                           .arg(names[qBound(0, k, 4)]).arg(profileName));
+                           .arg(names[qBound(0, k, 5)]).arg(profileName));
         view->update();
     }
 

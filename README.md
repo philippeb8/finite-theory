@@ -200,6 +200,31 @@ w.r.t. the heaviest body, with the two extra Hamiltonian forces
 `−(p_t²/2m)·d(f²)/dr` (radial) and `(f²−1) p_r p_t/(m r)` (tangential, keeps
 `L = r p_t`). Measured: +6.28 g per orbit with E conserved to leapfrog order.
 
+## Freefall tab: steel vs NdFeB
+
+Two 66 g balls, steel and NdFeB, released together from height h in Earth's g
+onto a floor at z = 0 (Newtonian kinematics, Coulomb route; side view, x right,
+z up; dt = 1e13 = 0.24 ms). The magnet carries two options:
+
+- **FT magnetic acceleration** `a_B = 2·B·c/√(K/G)` along its magnetisation
+  axis (S→N), `√(K/G) = 1.1606·10¹⁰ kg/C`: 0.0672 m/s² at B = 1.3 T, 0.69 % of
+  g. Default N pole up: a = g − a_B, the magnet falls slower; N pole down adds
+  it; sideways it drifts sideways. Dial sets the axis tilt from straight down.
+- **field energy as kinetic potential** — the spinning-disk analogue:
+  `Φ_B = W/m`, `W = B²V/(6μ₀)` for a uniformly magnetised sphere (66 g NdFeB:
+  2.0 J, 29.9 J/kg), `v_B = √(2Φ_B) = 7.7 m/s` on the axis in the kinematic
+  factor, and the potential offset Φ_g − Φ_B. Both are ~10⁻¹⁶ of g; B is
+  constant during the fall, so the axial force m·dv_B/dt is zero.
+
+The HUD gives predicted and run impact times for comparison with a drop-test
+regression. From 1.5 m with the default N up: steel 0.55310 s, magnet
+0.55500 s, the magnet lands 1.90 ms later and is 10.3 mm higher when the steel
+ball lands (Δa/g = −6.85·10⁻³). N down: 1.88 ms earlier. Run impact times are interpolated
+inside the last step and match the analytic values to 10 µs.
+
+Unit fix made here: the atomic unit of acceleration is a0/t² = 9.0442·10²² m/s²
+(the earlier rounded 9.0·10²² mis-scaled g by 0.5 %).
+
 ## Energy audit
 
 `E = kinetic() + potential()` is the quantity the integrator conserves, with
