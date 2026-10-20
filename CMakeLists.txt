@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGL OpenGLWidgets)
 
 add_executable(ftsim main.cpp)
-target_link_libraries(ftsim PRIVATE Qt6::Widgets)
+target_link_libraries(ftsim PRIVATE Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
 
 # Qt5 fallback:
-#   find_package(Qt5 REQUIRED COMPONENTS Widgets)
-#   target_link_libraries(ftsim PRIVATE Qt5::Widgets)
+#   find_package(Qt5 REQUIRED COMPONENTS Widgets OpenGL)
+#   target_link_libraries(ftsim PRIVATE Qt5::Widgets Qt5::OpenGL)

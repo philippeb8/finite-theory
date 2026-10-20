@@ -132,12 +132,12 @@
 //
 //  MAGNETIC TERMS (optional).  The simulator's units are atomic units
 //  (hbar = m_e = e = K = 1), so c = 1/alpha = 137.035999084 and the magnetic
-//  constant mu0/4pi = K/c^2 = alpha^2 = 5.32513545e-5.  The motion is planar,
-//  so every magnetic field here points along z and reduces to a scalar B_z.
+//  constant mu0/4pi = K/c^2 = alpha^2 = 5.32513545e-5.  The motion is in 3D;
+//  fields are full vectors, intrinsic moments stay fixed along +/- z.
 //
 //  "moving-charge field" - Biot-Savart for each moving point charge,
-//      B_z(i) = alpha^2 q_j (v_j x r)_z / r^3,   r = r_i - r_j
-//  acting on charge i through the Lorentz force a = q_i (v_i x B_z z)/m_i.
+//      B(i) = alpha^2 q_j (v_j x r) / r^3,   r = r_i - r_j
+//  acting on charge i through the Lorentz force a = q_i (v_i x B)/m_i.
 //  Relative to Coulomb this is O(v^2/c^2) ~ 5e-5 for a ground-state orbit.
 //  Magnetic forces between point charges do NOT obey Newton's third law -
 //  the missing momentum is carried by the field - so total momentum drifts.
@@ -147,14 +147,15 @@
 //      proton    +2.79284734 mu_N,  neutron  -1.91304273 mu_N
 //      nuclei    He-4: 0,  Li-7: +3.256427 mu_N,  Be-9: -1.17749 mu_N
 //  (mu_B = 1/2, mu_N = mu_B m_e/m_p = 2.7230851e-4 a.u.)
-//  Three effects follow, all through F = mu_z grad(B_z):
-//    dipole-dipole   F_r = 3 alpha^2 mu_i mu_j / r^4   (parallel repel in-plane)
+//  Three effects follow, all through F = grad(mu_z B_z):
+//    dipole-dipole   F = grad[ mu_i mu_j (3 z^2/r^5 - 1/r^3) ]  (3 alpha^2
+//                    mu_i mu_j / r^4 radial in the xy plane: parallel repel)
 //    spin-orbit      moment i sees the field of charge j moving at v_j - v_i;
 //                    the electron's own-motion part carries the Thomas factor
 //                    (g_e - 1)/g_e = 0.500579
-//    dipole field    B_z = -alpha^2 mu_j / r^3 acting on moving charges
-//  A z-moment in a z-field feels no torque (mu x B = 0), so freezing the spin
-//  direction is EXACT in this planar geometry, not an approximation.
+//    dipole field    B = alpha^2 (3 r (mu_j . r)/r^5 - mu_j/r^3) on moving charges
+//  The moments are frozen along z: the torque mu x B that a 3D field would
+//  exert is not integrated (no spin precession), an approximation now.
 //
 //  GRAVITOMAGNETIC FIELD (optional).  The mass-current analogue of the
 //  moving-charge field: every moving mass m_j produces
@@ -308,6 +309,9 @@
 
 #include <QApplication>
 #include <QWidget>
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions_2_1>
+#include <QSurfaceFormat>
 #include <QPainter>
 #include <QPainterPath>
 #include <QVector>
@@ -329,6 +333,9 @@
 #include <QScrollBar>
 #include <QSplitter>
 #include <QPointF>
+
+// 3-vector for the physics (QPointF stays for screen coordinates)
+
 #include <QRandomGenerator>
 #include <QWheelEvent>
 #include <QMouseEvent>
@@ -344,8 +351,32 @@
 #include <QValidator>
 #include <QFont>
 #include <QStringList>
+#include <cstdlib>
 #include <vector>
 #include <cmath>
+
+struct Vec3 {
+    double x = 0, y = 0, z = 0;
+    Vec3() = default;
+    Vec3(double X, double Y, double Z = 0.0) : x(X), y(Y), z(Z) {}
+    Vec3  operator+(const Vec3 &o) const { return {x + o.x, y + o.y, z + o.z}; }
+    Vec3  operator-(const Vec3 &o) const { return {x - o.x, y - o.y, z - o.z}; }
+    Vec3  operator-() const { return {-x, -y, -z}; }
+    Vec3  operator*(double k) const { return {x * k, y * k, z * k}; }
+    Vec3  operator/(double k) const { return {x / k, y / k, z / k}; }
+    Vec3 &operator+=(const Vec3 &o) { x += o.x; y += o.y; z += o.z; return *this; }
+    Vec3 &operator-=(const Vec3 &o) { x -= o.x; y -= o.y; z -= o.z; return *this; }
+    Vec3 &operator*=(double k) { x *= k; y *= k; z *= k; return *this; }
+};
+inline Vec3   operator*(double k, const Vec3 &v) { return v * k; }
+inline double dot(const Vec3 &a, const Vec3 &b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+inline Vec3   cross(const Vec3 &a, const Vec3 &b)
+{ return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+inline double norm(const Vec3 &a) { return std::sqrt(dot(a, a)); }
+inline Vec3   unit(const Vec3 &a) { const double n = norm(a); return n > 0 ? a / n : Vec3(); }
+// a unit vector perpendicular to d (in the xy plane when d allows it)
+inline Vec3   perpOf(const Vec3 &d)
+{ Vec3 p = cross(Vec3(0, 0, 1), d); if (dot(p, p) < 1e-30 * dot(d, d)) p = cross(Vec3(1, 0, 0), d); return unit(p); }
 #include <deque>
 #include <algorithm>
 #include <random>
@@ -444,7 +475,7 @@ static const char *SUB[SP_COUNT] = {
     "", "", "", "", "", "", "", "", "+", "", ""};
 
 struct Particle {
-    QPointF pos, vel, acc;
+    Vec3 pos, vel, acc;
     double  q = 1.0;      // charge, units of e
     double  m = 1.0;      // mass,   units of m_e
     bool    nucleon = false;  // proton or neutron: eligible for the strong force
@@ -458,7 +489,14 @@ struct Particle {
     double  phase  = 0.0; // orbital phase, radians
     int     phId   = -1;  // photon field point: owning photon id
     long    gi     = 0;   //   and grid index along the beam (u = gi * du)
-    std::deque<QPointF> trail;
+    // rotational kinetic POTENTIAL of the body's own spin, per unit mass:
+    // Phi_spin = K_spin/m = (1/2) k v_eq^2  (k = I/(m R^2)), in v_Bohr^2.
+    // The spin speed sqrt(2 Phi_spin) sits on the rotation axis (z here).
+    double  spinPot = 0.0;
+    Vec3    axis      = Vec3(0, 0, 1);   // rotation axis (unit) - display, and v_s sits on it
+    Vec3    orbNormal = Vec3(0, 0, 1);   // orbit-plane normal used when circularising
+    const char *name = nullptr;   // Sun / planet label
+    std::deque<Vec3> trail;
 };
 
 class Sim {
@@ -482,29 +520,23 @@ public:
 
     bool   gravMag  = true;     // gravitomagnetic field of moving masses
 
-    // EXTERNAL UNIFORM FIELDS (atomic units).  The motion is planar, so:
-    //   E, g   in-plane vectors (magnitude + in-plane angle from +x)
-    //   B, B_g only their z-component acts (magnitude * cos(tilt from +z));
-    //          an in-plane B or B_g would push out of the plane, which is
-    //          not simulated
+    // EXTERNAL UNIFORM FIELDS (atomic units), full 3-vectors:
+    //   E, g   set in the xy plane (magnitude + angle from +x)
+    //   B, B_g set in the xz plane (magnitude + tilt from +z)
     //   a  = q/m (E + v x B)      E in 5.14220675e11 V/m, B in 2.35051757e5 T
     //   a += g                    g in 9.0e22 m/s^2 (acts on every mass)
     //   a += v x B_g              B_g in 4.1341e16 s^-1; equivalent to a
     //                             frame rotating at Omega = B_g/2 (Coriolis)
-    double extEx = 0, extEy = 0, extBz = 0;
-    double extGx = 0, extGy = 0, extBgz = 0;
+    Vec3 extE, extB, extG, extBg;
     bool hasExternal() const
-    { return extEx || extEy || extBz || extGx || extGy || extBgz; }
+    { return dot(extE, extE) || dot(extB, extB) || dot(extG, extG) || dot(extBg, extBg); }
 
     void externalPass()
     {
         for (auto &a : p) {
             if (a.m <= 0.0) continue;
-            const double qm = a.q / a.m;
-            a.acc += QPointF(qm * (extEx + a.vel.y() * extBz),
-                             qm * (extEy - a.vel.x() * extBz));
-            a.acc += QPointF(extGx + a.vel.y() * extBgz,
-                             extGy - a.vel.x() * extBgz);
+            a.acc += (extE + cross(a.vel, extB)) * (a.q / a.m);
+            a.acc += extG + cross(a.vel, extBg);
         }
     }
     double gmK      = 4.0;      // coupling: 4 GR, 1.5 manuscript Eq.19, 1 naive
@@ -513,6 +545,69 @@ public:
     double eta     = 1.0;         // ETA   = eta_e*a0/e
     double etaG    = 7.822540e46; // ETA_G = eta_g*a0/m_e  (eta_g = c^2/G)
     double gravGain = 1.0;        // display amplifier, 1 = true strength
+    // BODY SPIN (Solar tab).  Each body carries its rotational kinetic
+    // potential Phi_spin = K_spin/m (a potential, per unit mass, no mass in
+    // it).  bodySpin: the spin speed v_s = sqrt(2 Phi_spin) is added on the
+    // rotation axis, so the body's kinematic factor sees v^2 + v_s^2 and its
+    // energy includes m Phi_spin.  spinSub: the body LOSES gravitational
+    // potential by the same amount to keep the net potential - the Sun's
+    // potential at the planet becomes G M/d - Phi_spin and its acceleration
+    // (G M/d - Phi_spin)/d, i.e. Phi_spin/d less inward (Jupiter: 12% of
+    // G M/d^2, since Phi_spin/(G M/d) = Phi_spin/v_orb^2 = 20/171 (km/s)^2).
+    // The same Phi enters the FT factor f = 1/(1 + Phi/c^2), which is
+    // eta_g -> eta_g (1 - Phi_spin/c^2) for that body (~2e-10, invisible).
+    bool   bodySpin = true;
+    bool   spinSub  = true;
+    // SHADOW BODIES (Solar tab): a copy of the Sun and planets integrated in
+    // parallel with mainstream orbital mechanics - Newtonian gravity
+    // a = -G sum m_j r_ij / r^3 (x gain), Newtonian momentum, no FT factor,
+    // no spin terms - started from the same positions on the Newtonian
+    // circular speed.  Drawn darker under the live bodies as the reference.
+    bool   shadowOn = true;
+    std::vector<Particle> shadow;
+    void shadowAcc()
+    {
+        const int n = int(shadow.size());
+        for (auto &a : shadow) a.acc = Vec3(0, 0);
+        for (int i = 0; i < n; ++i)
+            for (int j = i + 1; j < n; ++j) {
+                const Vec3 d = shadow[i].pos - shadow[j].pos;
+                const double r2 = dot(d, d);
+                if (r2 < 1e-300) continue;
+                const double inv3 = 1.0 / (r2 * std::sqrt(r2));
+                const double k = G_UNITS * gravGain * inv3;
+                shadow[i].acc -= d * (k * shadow[j].m);
+                shadow[j].acc += d * (k * shadow[i].m);
+            }
+    }
+    void buildShadow(int center)
+    {
+        shadow = p;
+        for (auto &a : shadow) { a.trail.clear(); a.spinPot = 0.0; }
+        shadowAcc();
+        const Vec3 c = shadow[center].pos;
+        for (int i = 0; i < int(shadow.size()); ++i) {
+            if (i == center) continue;
+            const Vec3 d = shadow[i].pos - c; const double r = norm(d);
+            if (r <= 0) continue;
+            const Vec3 u = d / r;
+            const double ar = -(dot(shadow[i].acc, u));
+            const double v  = (ar > 0) ? std::sqrt(ar * r) : 0.0;
+            shadow[i].vel = shadow[center].vel + cross(shadow[i].orbNormal, u) * v;
+        }
+    }
+    void stepShadow(double dt)                  // velocity Verlet, Newtonian
+    {
+        if (!shadowOn || shadow.empty()) return;
+        for (auto &a : shadow) { a.vel += a.acc * (0.5 * dt); a.pos += a.vel * dt; }
+        shadowAcc();
+        for (auto &a : shadow) a.vel += a.acc * (0.5 * dt);
+    }
+    double spinEta(const Particle &a) const
+    {
+        static constexpr double C2 = 137.035999084 * 137.035999084;
+        return (bodySpin && spinSub) ? etaG * std::max(1e-300, 1.0 - a.spinPot / C2) : etaG;
+    }
     bool   gravity  = true;
     Route  route    = Route::Potential; // default restored: FT force route
     Layout layout   = Layout::MixedCluster;
@@ -616,16 +711,15 @@ public:
             double best = 1e300; int bi = -1;
             for (int j = 0; j < int(p.size()); ++j) {
                 if (p[j].q <= 0.0) continue;
-                double r = std::hypot(e.pos.x() - p[j].pos.x(),
-                                      e.pos.y() - p[j].pos.y());
+                double r = norm(e.pos - p[j].pos);
                 if (r < best) { best = r; bi = j; }
             }
             if (bi < 0) continue;
             e.anchor = bi;
             e.level  = next;
             next = (next % nMax) + 1;
-            e.phase  = std::atan2(e.pos.y() - p[bi].pos.y(),
-                                  e.pos.x() - p[bi].pos.x());
+            e.phase  = std::atan2(e.pos.y - p[bi].pos.y,
+                                  e.pos.x - p[bi].pos.x);
         }
     }
 
@@ -644,8 +738,8 @@ public:
             const double w = w_n(e.level, Z, mu);
             e.phase += w * dt;
             const double cx = std::cos(e.phase), sy = std::sin(e.phase);
-            e.pos = nuc.pos + QPointF(r * cx, r * sy);
-            e.vel = nuc.vel + QPointF(-r * w * sy, r * w * cx);
+            e.pos = nuc.pos + Vec3(r * cx, r * sy, 0.0);        // Bohr orbits: xy plane
+            e.vel = nuc.vel + Vec3(-r * w * sy, r * w * cx, 0.0);
         }
     }
 
@@ -673,8 +767,7 @@ public:
             for (int j = i + 1; j < n; ++j) {
                 if (p[i].q == 0.0 || p[j].q == 0.0) continue;
                 ++total;
-                double r = std::hypot(p[i].pos.x() - p[j].pos.x(),
-                                      p[i].pos.y() - p[j].pos.y());
+                double r = norm(p[i].pos - p[j].pos);
                 if (r < pairScaleQ(p[i].q, p[j].q) / eta) ++inside;
             }
     }
@@ -687,15 +780,16 @@ public:
         nextHadron = 0;
         p.reserve(nE + nP + nN);
 
-        // uniform point in a disk of radius R (sqrt keeps the density flat)
+        // uniform point in a ball of radius R (cbrt keeps the density flat)
         auto inDisk = [&](double R) {
-            double u  = rng.generateDouble();
-            double th = 2.0 * M_PI * rng.generateDouble();
-            double rr = R * std::sqrt(u);
-            return QPointF(rr * std::cos(th), rr * std::sin(th));
+            const double u  = rng.generateDouble();
+            const double ph = 2.0 * M_PI * rng.generateDouble();
+            const double ct = 2.0 * rng.generateDouble() - 1.0, st = std::sqrt(1.0 - ct * ct);
+            const double rr = R * std::cbrt(u);
+            return Vec3(rr * st * std::cos(ph), rr * st * std::sin(ph), rr * ct);
         };
         auto inBox = [&](double H) {
-            return QPointF(rng.bounded(2.0 * H) - H, rng.bounded(2.0 * H) - H);
+            return Vec3(rng.bounded(2.0 * H) - H, rng.bounded(2.0 * H) - H, rng.bounded(2.0 * H) - H);
         };
 
         // every pair inside a disk of radius R is separated by at most 2R,
@@ -712,8 +806,9 @@ public:
             for (int i = 0; i < n; ++i) {
                 Particle a;
                 a.pos = cluster ? inDisk(R) : inBox(boxHalf);
-                a.vel = QPointF((rng.bounded(2.0) - 1.0) * vs,
-                                (rng.bounded(2.0) - 1.0) * vs);
+                a.vel = Vec3((rng.bounded(2.0) - 1.0) * vs,
+                             (rng.bounded(2.0) - 1.0) * vs,
+                             (rng.bounded(2.0) - 1.0) * vs);
                 a.q = S.q;  a.m = S.m;
                 a.nucleon = S.nucleon;
                 a.species = sp;
@@ -728,7 +823,7 @@ public:
         computeAcc();
     }
 
-    void clear() { p.clear(); photons.clear(); fieldPts.clear(); nextHadron = 0; t = 0.0; }
+    void clear() { p.clear(); shadow.clear(); photons.clear(); fieldPts.clear(); nextHadron = 0; t = 0.0; }
 
     // ===================== PAIR PRODUCTION =====================
     // Photon = classical plane-wave packet moving at c.  Its E and B are
@@ -752,7 +847,7 @@ public:
     //   below the Schwinger field for any eps > 1, far below for TeV photons.
     //   GEM fields cannot separate the pair: g and B_g give e+ and e- the
     //   same acceleration (equivalence principle) - only E and B can.
-    struct Photon { QPointF pos, dir; double eps = 0; bool alive = true; int id = 0; };
+    struct Photon { Vec3 pos, dir; double eps = 0; bool alive = true; int id = 0; };
     std::vector<Photon> photons;
     int nextPhotonId = 0;
 
@@ -780,7 +875,7 @@ public:
             for (const auto &q : photons) if (q.alive && q.id == fp.phId) { ph = &q; break; }
             if (!ph) continue;
             const double lam = C_AU / (T_AU * ph->eps * F_UNIT), du = lam / 16.0;
-            const double uh = ph->pos.x() * ph->dir.x() + ph->pos.y() * ph->dir.y();
+            const double uh = dot(ph->pos, ph->dir);
             const double u = fp.gi * du;
             if (u < uh - 4.0 * lam || u > uh) continue;
             keep.push_back(fp);
@@ -792,10 +887,10 @@ public:
             const double k = 2.0 * M_PI / lam;
             const double w = 2.0 * M_PI * ph.eps * F_UNIT * T_AU;
             const double A = lam / 4.0;
-            const QPointF xh = ph.dir, yh(-ph.dir.y(), ph.dir.x());
-            const QPointF zh = xh * -0.45 + yh * -0.55;     // oblique projection of z^
-            const double uh = ph.pos.x() * xh.x() + ph.pos.y() * xh.y();
-            const QPointF base = ph.pos - xh * uh;
+            const Vec3 xh = ph.dir, yh = perpOf(xh);      // E along y^, B along z^ = x^ x y^
+            const Vec3 zh = cross(xh, yh);
+            const double uh = dot(ph.pos, xh);
+            const Vec3 base = ph.pos - xh * uh;
             const long g0 = long(std::ceil((uh - 4.0 * lam) / du)), g1 = long(std::floor(uh / du));
             for (long gi = g0; gi <= g1; ++gi) {
                 for (int kind = 0; kind < 2; ++kind) {
@@ -810,8 +905,8 @@ public:
                     }
                     const double u = gi * du;
                     const double c = std::cos(k * u - w * t);          // cos(kx - wt)
-                    const QPointF ax = base + xh * u;
-                    const QPointF newPos = ax + (kind ? zh : yh) * (A * c);
+                    const Vec3 ax = base + xh * u;
+                    const Vec3 newPos = ax + (kind ? zh : yh) * (A * c);
                     fp->vel = (newPos - fp->pos);                    // for display only
                     fp->pos = newPos;
                 }
@@ -858,7 +953,7 @@ public:
     {
         // rigid pair: e- and e+ at +-d0/2 across the beam, both moving at c.
         // No internal oscillation - the frequency only sets the energy eps.
-        const QPointF yh(-ph.dir.y(), ph.dir.x());
+        const Vec3 yh = perpOf(ph.dir);
         const double d0 = pairSepFm * 1.8897261e-5;           // fm -> a0
         for (auto &a : p)
             if (a.phId == ph.id && a.q != 0.0) {
@@ -897,9 +992,9 @@ public:
     static constexpr double MC2_HBAR = 7.76344e20;       // s^-1
     static constexpr double ALPHA  = 7.2973525693e-3;
 
-    void firePhoton(QPointF at, QPointF dir)
+    void firePhoton(Vec3 at, Vec3 dir)
     {
-        const double m = std::hypot(dir.x(), dir.y());
+        const double m = norm(dir);
         photons.push_back({at, dir / m, photonHz / F_UNIT, true, nextPhotonId++});
         if (pairModel) { makePairFor(photons.back()); placePair(photons.back()); }
         else updateFieldPoints();
@@ -912,9 +1007,7 @@ public:
     // wave picture).
     double photonEeff(const Photon &ph) const
     {
-        const double tx = extEx + C_AU *  ph.dir.y() * extBz;
-        const double ty = extEy + C_AU * -ph.dir.x() * extBz;
-        return std::hypot(tx, ty);
+        return norm(extE + cross(ph.dir, extB) * C_AU);
     }
     static double pairRate(double eps, double chi)                     // s^-1
     {
@@ -946,13 +1039,14 @@ public:
         const double b = P / g;                              // beta
         for (int s = -1; s <= 1; s += 2) {
             const double c = std::cos(s * th), sn = std::sin(s * th);
-            QPointF d(ph.dir.x() * c - ph.dir.y() * sn, ph.dir.x() * sn + ph.dir.y() * c);
+            const Vec3 yh = perpOf(ph.dir);
+            const Vec3 d = ph.dir * c + yh * sn;             // rotated by s*th in the (dir, y^) plane
             Particle *a = nullptr;
             for (auto &q : p) if (q.phId == ph.id && q.gi == s && q.q != 0.0) { a = &q; break; }
             if (!a) {                                         // kinematic model: create
                 Particle n; const int sp = (s < 0) ? SP_E : SP_POS;
                 n.q = SPECIES[sp].q; n.m = SPECIES[sp].m; n.species = sp;
-                n.pos = ph.pos + QPointF(-ph.dir.y(), ph.dir.x()) * (s * 1e-6);
+                n.pos = ph.pos + yh * (s * 1e-6);
                 p.push_back(n); a = &p.back();
             }
             a->phId = -1; a->gi = 0;                          // bound pair: release it
@@ -974,23 +1068,20 @@ public:
             if (!ph.alive) continue;
             ph.pos += ph.dir * (C_AU * dt);
             if (lightBend > 0.0 || photonRedshift) {
-                double ax = extGx + C_AU * ph.dir.y() * extBgz;     // g + c dir x B_g
-                double ay = extGy - C_AU * ph.dir.x() * extBgz;
+                Vec3 acc = extG + cross(ph.dir, extBg) * C_AU;      // g + c dir x B_g
                 if (gravity)
                     for (const auto &b : p) {
                         if (b.m <= 0.0) continue;
-                        const double dx = b.pos.x() - ph.pos.x(), dy = b.pos.y() - ph.pos.y();
-                        const double r2 = dx * dx + dy * dy;
+                        const Vec3 dv = b.pos - ph.pos;
+                        const double r2 = dot(dv, dv);
                         if (r2 < 1e-30) continue;
-                        const double a = G_UNITS * gravGain * b.m / r2, r = std::sqrt(r2);
-                        ax += a * dx / r; ay += a * dy / r;
+                        acc += dv * (G_UNITS * gravGain * b.m / (r2 * std::sqrt(r2)));
                     }
-                const double al = ax * ph.dir.x() + ay * ph.dir.y();      // along the beam
+                const double al = dot(acc, ph.dir);                   // along the beam
                 if (photonRedshift) ph.eps *= std::exp(al * dt / C_AU);
                 if (lightBend > 0.0) {
-                    const double px = ax - al * ph.dir.x(), py = ay - al * ph.dir.y();
-                    QPointF d = ph.dir + QPointF(px, py) * (lightBend * dt / C_AU);
-                    ph.dir = d / std::hypot(d.x(), d.y());
+                    const Vec3 perp = acc - ph.dir * al;
+                    ph.dir = unit(ph.dir + perp * (lightBend * dt / C_AU));
                 }
             }
             const double Eeff = photonEeff(ph);
@@ -1016,12 +1107,12 @@ public:
             if (p[i].species != SP_E || isBound(p[i])) continue;
             for (size_t j = 0; j < p.size(); ++j) {
                 if (p[j].species != SP_POS || isBound(p[j])) continue;
-                const QPointF d = p[i].pos - p[j].pos;
-                if (std::hypot(d.x(), d.y()) > LBAR_C) continue;
+                const Vec3 d = p[i].pos - p[j].pos;
+                if (norm(d) > LBAR_C) continue;
                 // only an APPROACHING pair annihilates: a pair just split by
                 // the field is still inside lbar_c but flying apart
-                const QPointF vr = p[i].vel - p[j].vel;
-                if (d.x() * vr.x() + d.y() * vr.y() >= 0.0) continue;
+                const Vec3 vr = p[i].vel - p[j].vel;
+                if (dot(d, vr) >= 0.0) continue;
                 annihilate(i, j);
                 return;                                       // indices changed
             }
@@ -1032,15 +1123,14 @@ public:
     void annihilate(size_t i, size_t j)
     {
         auto gam = [](const Particle &a) {
-            const double b2 = (a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y()) / (C_AU * C_AU);
+            const double b2 = (dot(a.vel, a.vel)) / (C_AU * C_AU);
             return 1.0 / std::sqrt(std::max(1e-15, 1.0 - b2)); };
         const double g1 = gam(p[i]), g2 = gam(p[j]);
         if (!std::isfinite(g1) || !std::isfinite(g2)) return;
         const double E  = g1 + g2;                               // m c^2 units
-        const double Px = (g1 * p[i].vel.x() + g2 * p[j].vel.x()) / C_AU;
-        const double Py = (g1 * p[i].vel.y() + g2 * p[j].vel.y()) / C_AU;
-        const double M  = std::sqrt(std::max(4.0, E * E - Px * Px - Py * Py));
-        const QPointF at = (p[i].pos + p[j].pos) * 0.5;
+        const Vec3 Pv = (p[i].vel * g1 + p[j].vel * g2) / C_AU;   // total momentum, m c units
+        const double M  = std::sqrt(std::max(4.0, E * E - dot(Pv, Pv)));
+        const Vec3 at = (p[i].pos + p[j].pos) * 0.5;
         if (pairModel) {
             // SECTION 3: e- e+ -> ONE photon, the same bound pair re-formed
             // (particle count is conserved: 2 leptons <-> 1 photon, never
@@ -1050,9 +1140,9 @@ public:
             // charges, opposite kicks) and simply stays a real, integrated
             // bound pair under the FT force.  The third body (nucleus or
             // field) takes the energy-momentum mismatch, as in convert().
-            const double P = std::hypot(Px, Py);
+            const double P = norm(Pv);
             if (P < 1e-9) return;
-            Photon ph; ph.pos = at; ph.dir = QPointF(Px / P, Py / P);
+            Photon ph; ph.pos = at; ph.dir = Pv / P;
             ph.eps = E; ph.id = nextPhotonId++;
             // and the re-formed photon must be able to survive where it is:
             // if the ambient field would split it again at once, the leptons
@@ -1066,18 +1156,19 @@ public:
             computeAcc();
             return;
         }
-        const double phi = 2.0 * M_PI * std::uniform_real_distribution<double>(0, 1)(prng);
-        const double bx = Px / E, by = Py / E, bb = bx * bx + by * by;
+        std::uniform_real_distribution<double> U01(0, 1);
+        const double phi = 2.0 * M_PI * U01(prng), ct = 2.0 * U01(prng) - 1.0;
+        const double st = std::sqrt(1.0 - ct * ct);
+        const Vec3 bv = Pv / E; const double bb = dot(bv, bv);
         const double gc = 1.0 / std::sqrt(std::max(1e-15, 1.0 - bb));
         for (int s = -1; s <= 1; s += 2) {
-            const double ex = s * std::cos(phi), ey = s * std::sin(phi);  // CM direction
+            const Vec3 e(s * st * std::cos(phi), s * st * std::sin(phi), s * ct);  // CM direction
             const double e0 = M / 2.0;
-            const double bdn = bx * ex + by * ey;
+            const double bdn = dot(bv, e);
             const double El = gc * e0 * (1.0 + bdn);                      // lab energy
             const double k  = (bb > 0) ? (gc - 1.0) * bdn / bb : 0.0;
-            const double px = e0 * (ex + k * bx + gc * bx);
-            const double py = e0 * (ey + k * by + gc * by);
-            Photon ph; ph.pos = at; ph.dir = QPointF(px, py) / std::hypot(px, py);
+            const Vec3 pv = (e + bv * (k + gc)) * e0;
+            Photon ph; ph.pos = at; ph.dir = unit(pv);
             ph.eps = El; ph.id = nextPhotonId++; photons.push_back(ph);
         }
         if (i > j) std::swap(i, j);
@@ -1092,9 +1183,9 @@ public:
         prng.seed(seed);
         if (nucleus) {
             Particle a; a.q = 1; a.m = SPECIES[SP_P].m; a.species = SP_P; a.nucleon = true;
-            a.pos = QPointF(0, 0); p.push_back(a);
+            a.pos = Vec3(0, 0); p.push_back(a);
         }
-        firePhoton(QPointF(-0.12, nucleus ? 2e-3 : 0.0), QPointF(1, 0));
+        firePhoton(Vec3(-0.12, nucleus ? 2e-3 : 0.0), Vec3(1, 0));
         computeAcc();
     }
 
@@ -1106,7 +1197,7 @@ public:
     static constexpr double MSUN_ME = 2.1833749e60;
     static constexpr double YEAR_T  = 1.3046345e24;
 
-    Particle body(int sp, double m, QPointF at, QPointF v = QPointF(0, 0))
+    Particle body(int sp, double m, Vec3 at, Vec3 v = Vec3(0, 0))
     {
         Particle a; a.pos = at; a.vel = v; a.q = 0.0; a.m = m;
         a.species = sp; a.nucleon = false; return a;
@@ -1118,15 +1209,15 @@ public:
     void circularize(int center)
     {
         computeAcc();
-        const QPointF c = p[center].pos;
+        const Vec3 c = p[center].pos;
         for (int i = 0; i < int(p.size()); ++i) {
             if (i == center) continue;
-            QPointF d = p[i].pos - c; double r = std::hypot(d.x(), d.y());
+            Vec3 d = p[i].pos - c; double r = norm(d);
             if (r <= 0) continue;
-            QPointF u = d / r;
-            double ar = -(p[i].acc.x() * u.x() + p[i].acc.y() * u.y());  // inward
+            Vec3 u = d / r;
+            double ar = -(dot(p[i].acc, u));  // inward
             double v  = (ar > 0) ? std::sqrt(ar * r) : 0.0;
-            p[i].vel = p[center].vel + QPointF(-u.y() * v, u.x() * v);
+            p[i].vel = p[center].vel + cross(p[i].orbNormal, u) * v;
         }
     }
 
@@ -1135,31 +1226,62 @@ public:
     {
         clear();
         QRandomGenerator rng(seed);
-        p.push_back(body(SP_STAR, Mbulge_sun * MSUN_ME, QPointF(0, 0)));
+        p.push_back(body(SP_STAR, Mbulge_sun * MSUN_ME, Vec3(0, 0)));
         for (int i = 0; i < nStars; ++i) {
             double r  = KPC_A0 * (0.5 + (R_kpc - 0.5) * std::sqrt(rng.generateDouble()));
             double th = 2.0 * M_PI * rng.generateDouble();
             // 1e3 M_sun tracers: with 1e6 M_sun, tracer-tracer encounters
             // at dt = 1e30 scatter ~1/5 of the disk within 0.5 Gyr
-            p.push_back(body(SP_STAR, 1e3 * MSUN_ME, QPointF(r * std::cos(th), r * std::sin(th))));
+            p.push_back(body(SP_STAR, 1e3 * MSUN_ME, Vec3(r * std::cos(th), r * std::sin(th))));
         }
         circularize(0);
     }
 
+    // Phi_spin = K_spin/m = (1/2) k (2 pi R / T)^2, in v_Bohr^2
+    static double spinPotential(double periodH, double radiusKm, double k)
+    {
+        const double veq = 2.0 * M_PI * radiusKm * 1e3 / (std::fabs(periodH) * 3600.0) / 2.18769126e6;
+        return 0.5 * k * veq * veq;
+    }
     // Sun + the eight planets at their mean distances, phases random
     void buildSolar(quint32 seed)
     {
         clear();
         QRandomGenerator rng(seed);
-        p.push_back(body(SP_STAR, MSUN_ME, QPointF(0, 0)));
+        p.push_back(body(SP_STAR, MSUN_ME, Vec3(0, 0)));
         static const double au[8] = {0.387, 0.723, 1.000, 1.524, 5.203, 9.537, 19.19, 30.07};
         static const double me[8] = {0.0553, 0.815, 1.0, 0.107, 317.8, 95.2, 14.5, 17.1};  // Earth masses
+        static const char *nm[8]  = {"Mercury", "Venus", "Earth", "Mars",
+                                     "Jupiter", "Saturn", "Uranus", "Neptune"};
+        // sidereal rotation period (h, sign = retrograde), equatorial radius
+        // (km) and moment-of-inertia factor k = I/(m R^2) (NASA fact sheets)
+        static const double Th[8] = {1407.6, -5832.5, 23.934, 24.623, 9.925, 10.656, -17.24, 16.11};
+        static const double Rk[8] = {2439.7, 6051.8, 6371.0, 3389.5, 69911, 58232, 25362, 24622};
+        static const double Ik[8] = {0.346, 0.337, 0.3307, 0.3644, 0.254, 0.210, 0.225, 0.23};
+        p.back().name = "Sun"; p.back().spinPot = spinPotential(25.05 * 24.0, 695700.0, 0.070);
+        // orbit inclination to the ecliptic and longitude of the ascending
+        // node (deg, J2000), and the obliquity of the spin axis to the orbit
+        static const double inc[8] = {7.005, 3.395, 0.0, 1.850, 1.303, 2.489, 0.773, 1.770};
+        static const double nod[8] = {48.33, 76.68, 0.0, 49.56, 100.46, 113.67, 74.01, 131.78};
+        static const double obl[8] = {0.034, 177.36, 23.44, 25.19, 3.13, 26.73, 97.77, 28.32};
+        p.back().axis = Vec3(std::sin(7.25 * M_PI / 180), 0.0, std::cos(7.25 * M_PI / 180));
         for (int k = 0; k < 8; ++k) {
-            double th = 2.0 * M_PI * rng.generateDouble();
+            const double th = 2.0 * M_PI * rng.generateDouble();
+            const double I = inc[k] * M_PI / 180, O = nod[k] * M_PI / 180, e = obl[k] * M_PI / 180;
+            // position in the orbit plane, then R_z(Omega) R_x(i)
+            auto orient = [&](const Vec3 &v) {
+                const Vec3 a(v.x, v.y * std::cos(I) - v.z * std::sin(I), v.y * std::sin(I) + v.z * std::cos(I));
+                return Vec3(a.x * std::cos(O) - a.y * std::sin(O), a.x * std::sin(O) + a.y * std::cos(O), a.z);
+            };
             p.push_back(body(SP_PLANET, me[k] * SPECIES[SP_PLANET].m,
-                             QPointF(au[k] * AU_A0 * std::cos(th), au[k] * AU_A0 * std::sin(th))));
+                             orient(Vec3(au[k] * AU_A0 * std::cos(th), au[k] * AU_A0 * std::sin(th), 0.0))));
+            p.back().name = nm[k];
+            p.back().spinPot = spinPotential(Th[k], Rk[k], Ik[k]);
+            p.back().orbNormal = orient(Vec3(0, 0, 1));
+            p.back().axis = orient(Vec3(std::sin(e), 0.0, std::cos(e)));   // tilted from the orbit normal
         }
         circularize(0);
+        buildShadow(0);
     }
 
     // append n particles of any species.  Protons land in the cluster disk on
@@ -1178,15 +1300,18 @@ public:
         for (int i = 0; i < n; ++i) {
             Particle a;
             if (inCluster) {
-                const double rr = R * std::sqrt(rng.generateDouble());
-                const double th = 2.0 * M_PI * rng.generateDouble();
-                a.pos = QPointF(rr * std::cos(th), rr * std::sin(th));
+                const double rr = R * std::cbrt(rng.generateDouble());
+                const double ph = 2.0 * M_PI * rng.generateDouble();
+                const double ct = 2.0 * rng.generateDouble() - 1.0, st = std::sqrt(1.0 - ct * ct);
+                a.pos = Vec3(rr * st * std::cos(ph), rr * st * std::sin(ph), rr * ct);
             } else {
-                a.pos = QPointF(rng.bounded(2.0 * boxHalf) - boxHalf,
-                                rng.bounded(2.0 * boxHalf) - boxHalf);
+                a.pos = Vec3(rng.bounded(2.0 * boxHalf) - boxHalf,
+                             rng.bounded(2.0 * boxHalf) - boxHalf,
+                             rng.bounded(2.0 * boxHalf) - boxHalf);
             }
-            a.vel = QPointF((rng.bounded(2.0) - 1.0) * vs,
-                            (rng.bounded(2.0) - 1.0) * vs);
+            a.vel = Vec3((rng.bounded(2.0) - 1.0) * vs,
+                         (rng.bounded(2.0) - 1.0) * vs,
+                         (rng.bounded(2.0) - 1.0) * vs);
             a.q = S.q;  a.m = mass;
             a.nucleon = S.nucleon;
             a.species = sp;
@@ -1212,17 +1337,19 @@ public:
         const double vs = std::min(vScale / std::sqrt(M), V_CAP);
 
         for (int h = 0; h < n; ++h) {
-            const QPointF c(rng.bounded(2.0 * boxHalf) - boxHalf,
-                            rng.bounded(2.0 * boxHalf) - boxHalf);
-            const QPointF v((rng.bounded(2.0) - 1.0) * vs,
-                            (rng.bounded(2.0) - 1.0) * vs);
+            const Vec3 c(rng.bounded(2.0 * boxHalf) - boxHalf,
+                         rng.bounded(2.0 * boxHalf) - boxHalf,
+                         rng.bounded(2.0 * boxHalf) - boxHalf);
+            const Vec3 v((rng.bounded(2.0) - 1.0) * vs,
+                         (rng.bounded(2.0) - 1.0) * vs,
+                         (rng.bounded(2.0) - 1.0) * vs);
             const double th0 = 2.0 * M_PI * rng.generateDouble();
             const int hid = nextHadron++;
             for (int k = 0; k < 3; ++k) {
                 const double th = th0 + 2.0 * M_PI * k / 3.0;
                 const double rr = R * (0.95 + 0.10 * rng.generateDouble());
                 Particle a;                              // +/-5% radial jitter:
-                a.pos = c + QPointF(rr * std::cos(th),   // an exact triangle
+                a.pos = c + Vec3(rr * std::cos(th),   // an exact triangle
                                     rr * std::sin(th));  // collapses to a point
                 a.vel = v;                               // hadron moves as one
                 const Species &S = SPECIES[q3[k]];
@@ -1235,7 +1362,7 @@ public:
     }
 
     // hydrogen-like ion: Z protons, N neutrons, one electron at r = a0/Z
-    void addIon(int Z, int N, QPointF at, bool resolveNucleons,
+    void addIon(int Z, int N, Vec3 at, bool resolveNucleons,
                 QRandomGenerator &rng)
     {
         if (Z < 1) return;
@@ -1245,12 +1372,12 @@ public:
 
         // electron: circular orbit, counter-clockwise
         Particle e;
-        e.pos = at + QPointF(rOrb, 0.0);
-        e.vel = QPointF(0.0, vOrb);
+        e.pos = at + Vec3(rOrb, 0.0);
+        e.vel = Vec3(0.0, vOrb);
         e.q = -1.0; e.m = M_ELECTRON; e.species = SP_E;
 
         // nucleus recoils so the ion's net momentum is zero
-        const QPointF recoil = -e.vel * (M_ELECTRON / Mnuc);
+        const Vec3 recoil = -e.vel * (M_ELECTRON / Mnuc);
 
         if (!resolveNucleons) {
             Particle nuc;
@@ -1266,7 +1393,7 @@ public:
                 Particle nucleon;
                 double th = 2.0 * M_PI * i / (Z + N);
                 double rr = R * (0.5 + 0.5 * rng.bounded(1.0));
-                nucleon.pos = at + QPointF(rr * std::cos(th), rr * std::sin(th));
+                nucleon.pos = at + Vec3(rr * std::cos(th), rr * std::sin(th));
                 nucleon.vel = recoil;
                 nucleon.q = (i < Z) ? 1.0 : 0.0;
                 nucleon.m = (i < Z) ? M_PROTON : M_NEUTRON;
@@ -1287,11 +1414,11 @@ public:
         // Z, N for H, He-4, Li-7, Be-9
         static const int ZN[4][2] = {{1,0},{2,2},{3,4},{4,5}};
         if (which >= 0 && which < 4) {
-            addIon(ZN[which][0], ZN[which][1], QPointF(0,0), resolveNucleons, rng);
+            addIon(ZN[which][0], ZN[which][1], Vec3(0,0), resolveNucleons, rng);
         } else {
             for (int k = 0; k < 4; ++k)
                 addIon(ZN[k][0], ZN[k][1],
-                       QPointF(-6.0 + 4.0 * k, 0.0), resolveNucleons, rng);
+                       Vec3(-6.0 + 4.0 * k, 0.0), resolveNucleons, rng);
         }
         computeAcc();
     }
@@ -1383,7 +1510,7 @@ public:
     // total radial acceleration on i due to j (electric + gravitoelectric),
     // with optional floor-quantisation of the radius or of the force
     double radialAcc(double r, double qi, double qj, double mi, double mj,
-                     bool nuci, bool nucj) const
+                     bool nuci, bool nucj, double etaGi, double spinI = 0.0) const
     {
         if (mi == 0.0) return 0.0;
         const double D = quantStep;
@@ -1396,7 +1523,12 @@ public:
 
         double a = ftKernel(rr, qi * qj / mi, pairScaleQ(qi, qj), eta);
         if (gravity)
-            a += ftKernel(rr, -G_UNITS * gravGain * mj, pairScaleM(mi, mj), etaG);
+        {
+            a += ftKernel(rr, -G_UNITS * gravGain * mj, pairScaleM(mi, mj), etaGi);
+            // body spin: the source's potential at i is G m_j/r - Phi_spin,
+            // acceleration (G m_j/r - Phi_spin)/r, i.e. Phi_spin/r less inward
+            if (bodySpin && spinSub && spinI > 0.0) a += spinI / rr;
+        }
 
         // strong force: nucleons only, charge-independent
         if (strong && nuci && nucj)
@@ -1452,18 +1584,18 @@ public:
         for (int i = 0; i < n; ++i) {
             Particle &a = p[i];
             const double tau = (a.q < 0.0) ? THOMAS_E : 1.0;
-            double Bz = 0.0, gx = 0.0, gy = 0.0;
-            double Bg = 0.0;                   // gravitomagnetic, /(G/c^2)
+            Vec3 B, g;                         // field at i, gradient of mu_i.B
+            Vec3 Bg;                           // gravitomagnetic, /(G/c^2)
+            static const Vec3 zh(0, 0, 1);     // moments point along +-z
 
             for (int j = 0; j < n; ++j) {
                 if (j == i) continue;
                 const Particle &b = p[j];
-                const double rx = a.pos.x() - b.pos.x();
-                const double ry = a.pos.y() - b.pos.y();
-                const double r2 = rx * rx + ry * ry;
+                const Vec3 rv = a.pos - b.pos;
+                const double r2 = dot(rv, rv);
                 if (r2 < 1e-30) continue;
                 const double r  = std::sqrt(r2);
-                const double r3 = r2 * r, r5 = r3 * r2;
+                const double r3 = r2 * r, r5 = r3 * r2, r7 = r5 * r2;
 
                 // Within one hadron the velocity-dependent point-charge terms
                 // are skipped: quarks move at ~0.94c, where instantaneous
@@ -1481,39 +1613,37 @@ public:
                         const double d = etaG * r + b.m;
                         fg2 = (etaG * r / d) * (etaG * r / d);
                     }
-                    Bg += b.m * (b.vel.x() * ry - b.vel.y() * rx) / r3 * fg2;
+                    Bg += cross(b.vel, rv) * (b.m / r3 * fg2);
                 }
 
-                // field acting on charge i's motion (lab frame)
+                // field acting on charge i's motion (lab frame): Biot-Savart
+                // of the moving charge, dipole field of the moment
                 if (magnetic && !inside && b.q != 0.0)
-                    Bz += b.q * (b.vel.x() * ry - b.vel.y() * rx) / r3;
+                    B += cross(b.vel, rv) * (b.q / r3);
                 if (spinOn && !inside && b.mu != 0.0)
-                    Bz += -b.mu / r3;
+                    B += (rv * (3.0 * b.mu * rv.z / r5) - zh * (b.mu / r3));
 
-                // gradient of the field moment i sees (its rest frame)
+                // gradient of mu_i . B that moment i sees (its rest frame)
                 if (spinOn && a.mu != 0.0) {
                     if (!inside && b.q != 0.0) {
-                        const double wx = b.vel.x() - tau * a.vel.x();
-                        const double wy = b.vel.y() - tau * a.vel.y();
-                        const double h  = wx * ry - wy * rx;
-                        gx += b.q * (-wy / r3 - 3.0 * h * rx / r5);
-                        gy += b.q * ( wx / r3 - 3.0 * h * ry / r5);
+                        // mu z^ . (q w x r / r^3): h = (w x r)_z, grad h = (-w_y, w_x, 0)
+                        const Vec3 w = b.vel - a.vel * tau;
+                        const double h = w.x * rv.y - w.y * rv.x;
+                        g += (Vec3(-w.y, w.x, 0.0) / r3 - rv * (3.0 * h / r5)) * b.q;
                     }
                     if (b.mu != 0.0) {
-                        gx += 3.0 * b.mu * rx / r5;
-                        gy += 3.0 * b.mu * ry / r5;
+                        // grad of mu_j (3 z^2/r^5 - 1/r^3)
+                        g += (rv * (3.0 / r5) + zh * (6.0 * rv.z / r5) - rv * (15.0 * rv.z * rv.z / r7)) * b.mu;
                     }
                 }
             }
 
             if (a.m <= 0.0) continue;
-            const double ax = a.q * ( a.vel.y() * Bz) + a.mu * gx;
-            const double ay = a.q * (-a.vel.x() * Bz) + a.mu * gy;
-            a.acc += QPointF(ax, ay) * (k / a.m);
+            a.acc += (cross(a.vel, B) * a.q + g * a.mu) * (k / a.m);
 
-            if (gravMag && Bg != 0.0) {
+            if (gravMag && dot(Bg, Bg) != 0.0) {
                 const double kg = gmK * G_UNITS * ALPHA2 * gravGain;
-                a.acc += QPointF(-a.vel.y() * Bg, a.vel.x() * Bg) * kg;
+                a.acc += -cross(a.vel, Bg) * kg;
             }
         }
     }
@@ -1528,8 +1658,7 @@ public:
         for (int i = 0; i < n; ++i)
             for (int j = i + 1; j < n; ++j) {
                 if (p[i].mu == 0.0 || p[j].mu == 0.0) continue;
-                const double r = std::hypot(p[i].pos.x() - p[j].pos.x(),
-                                            p[i].pos.y() - p[j].pos.y());
+                const double r = norm(p[i].pos - p[j].pos);
                 if (r < 1e-15) continue;
                 u += ALPHA2 * magGain * p[i].mu * p[j].mu / (r * r * r);
             }
@@ -1549,8 +1678,7 @@ public:
                 // a hadron's own quarks do not dilate each other: the hadron
                 // is one clock, set only by charges OUTSIDE it
                 if (p[i].hadron >= 0 && p[i].hadron == p[j].hadron) continue;
-                const double r = std::hypot(p[i].pos.x() - p[j].pos.x(),
-                                            p[i].pos.y() - p[j].pos.y());
+                const double r = norm(p[i].pos - p[j].pos);
                 if (r < 1e-300) continue;
                 se[i] += std::fabs(p[j].q) / r;  se[j] += std::fabs(p[i].q) / r;
                 sg[i] += p[j].m / r;             sg[j] += p[i].m / r;
@@ -1558,7 +1686,7 @@ public:
         for (int i = 0; i < n; ++i) {
             double f = (eta > 0.0) ? eta / (eta + se[i]) : 1.0;
             if (gravity && etaG > 0.0) {           // gain amplifies G, so
-                const double eg = etaG / std::max(1.0, gravGain);   // eta_g ~ c^2/G
+                const double eg = spinEta(p[i]) / std::max(1.0, gravGain);   // eta_g ~ c^2/G
                 f *= eg / (eg + sg[i]);
             }
             p[i].fpos = f;
@@ -1581,20 +1709,22 @@ public:
     void computeAcc()
     {
         const int n = static_cast<int>(p.size());
-        for (int i = 0; i < n; ++i) p[i].acc = QPointF(0, 0);
+        for (int i = 0; i < n; ++i) p[i].acc = Vec3(0, 0);
         if (positionalKin()) computeDilation();
 
         for (int i = 0; i < n; ++i) {
             for (int j = i + 1; j < n; ++j) {
-                QPointF d = p[i].pos - p[j].pos;
-                double  r = std::hypot(d.x(), d.y());
+                Vec3 d = p[i].pos - p[j].pos;
+                double  r = norm(d);
                 if (r < 1e-15) continue;
-                QPointF u = d / r;                    // unit vector j -> i
+                Vec3 u = d / r;                    // unit vector j -> i
 
                 double ai = radialAcc(r, p[i].q, p[j].q, p[i].m, p[j].m,
-                                      p[i].nucleon, p[j].nucleon);
+                                      p[i].nucleon, p[j].nucleon, spinEta(p[i]),
+                                      p[j].species == SP_STAR ? p[i].spinPot : 0.0);   // the Sun's potential
                 double aj = radialAcc(r, p[j].q, p[i].q, p[j].m, p[i].m,
-                                      p[j].nucleon, p[i].nucleon);
+                                      p[j].nucleon, p[i].nucleon, spinEta(p[j]),
+                                      p[i].species == SP_STAR ? p[j].spinPot : 0.0);
                 if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 if (qcd && p[i].hadron >= 0 && p[i].hadron == p[j].hadron) {
                     const double F = qcdGain * qcdForce(r);
@@ -1623,15 +1753,14 @@ public:
         if (positionalKin()) {
             // p = (m0 / f^2) g(v) v ;  the force changes p ;  invert for v
             const double f2 = std::max(1e-300, a.fpos * a.fpos);
-            const double v2c2 = (a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y()) / (C * C);
+            const double v2c2 = (dot(a.vel, a.vel)) / (C * C);
             double g = 1.0;
             if (kin == Kin::F2SC)  g = 1.0 / std::sqrt(std::max(1e-15, 1.0 - v2c2));
             if (kin == Kin::F2Lin) g = 1.0 + 0.5 * v2c2;
             const double M  = a.m / f2;
-            const double px = M * g * a.vel.x() + h * a.m * a.acc.x();
-            const double py = M * g * a.vel.y() + h * a.m * a.acc.y();
-            const double pm = std::hypot(px, py);
-            if (pm == 0.0) { a.vel = QPointF(0, 0); return; }
+            const Vec3 pv = a.vel * (M * g) + a.acc * (h * a.m);
+            const double pm = norm(pv);
+            if (pm == 0.0) { a.vel = Vec3(); return; }
             const double P = pm / (M * C);              // = g(beta) beta
             double beta;
             if (kin == Kin::F2SC) {
@@ -1644,28 +1773,34 @@ public:
             } else {
                 beta = P;
             }
-            a.vel = QPointF(px, py) * (beta * C / pm);
+            a.vel = pv * (beta * C / pm);
             return;
         }
-        const double v2c2 = (a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y()) / (C * C);
+        // spin speed v_s on the rotation axis (z): the factor sees v^2 + v_s^2,
+        // the in-plane momentum is G(v^2 + v_s^2) m v.  Inverting: the "1" in
+        // each beta(P) formula becomes D = 1 - bs2 (SR, FT) or 1 - bs2/2 (FTHalf).
+        const double bs2  = bodySpin ? 2.0 * a.spinPot / (C * C) : 0.0;
+        const double v2c2 = (dot(a.vel, a.vel)) / (C * C) + bs2;
         double G;
         switch (kin) {
         case Kin::FTHalf: G = 1.0 / std::max(1e-15, 1.0 - 0.5 * v2c2); break;
         case Kin::FT:     G = 1.0 / std::max(1e-15, 1.0 - v2c2);       break;
         default:          G = 1.0 / std::sqrt(std::max(1e-15, 1.0 - v2c2)); break;
         }
-        const double px = G * a.m * a.vel.x() + h * a.m * a.acc.x();
-        const double py = G * a.m * a.vel.y() + h * a.m * a.acc.y();
-        const double pm = std::hypot(px, py);
-        if (pm == 0.0) { a.vel = QPointF(0, 0); return; }
+        const Vec3 pv = a.vel * (G * a.m) + a.acc * (h * a.m);
+        const double pm = norm(pv);
+        if (pm == 0.0) { a.vel = Vec3(); return; }
         const double P = pm / (a.m * C);
         double beta;
         switch (kin) {
-        case Kin::FTHalf: beta = 2.0 * P / (1.0 + std::sqrt(1.0 + 2.0 * P * P)); break;
-        case Kin::FT:     beta = 2.0 * P / (1.0 + std::sqrt(1.0 + 4.0 * P * P)); break;
-        default:          beta = P / std::sqrt(1.0 + P * P);                     break;
+        case Kin::FTHalf: { const double D = 1.0 - 0.5 * bs2;
+                            beta = 2.0 * P * D / (1.0 + std::sqrt(1.0 + 2.0 * P * P * D)); break; }
+        case Kin::FT:     { const double D = 1.0 - bs2;
+                            beta = 2.0 * P * D / (1.0 + std::sqrt(1.0 + 4.0 * P * P * D)); break; }
+        default:          { const double D = 1.0 - bs2;
+                            beta = P * std::sqrt(D) / std::sqrt(1.0 + P * P);           break; }
         }
-        a.vel = QPointF(px, py) * (beta * C / pm);
+        a.vel = pv * (beta * C / pm);
     }
 
     // A free charge in a strong uniform B gyrates at w_c = |q| B / m; with
@@ -1675,10 +1810,11 @@ public:
     void step(double dt)
     {
         double wmax = 0.0;
-        if (extBz != 0.0)
+        const double Bm = norm(extB);
+        if (Bm != 0.0)
             for (const auto &a : p)
                 if (a.m > 0.0 && a.q != 0.0 && !isBound(a))
-                    wmax = std::max(wmax, std::fabs(a.q / a.m * extBz));
+                    wmax = std::max(wmax, std::fabs(a.q / a.m * Bm));
         int n = std::max(1, std::min(4000, int(std::ceil(wmax * dt / 0.1))));
         const double h = dt / n;
         for (int k = 0; k < n; ++k) stepOnce(h);
@@ -1699,6 +1835,7 @@ public:
             kick(a, 0.5 * dt);
         }
         if (q) stepQuantised(dt);
+        stepShadow(dt);
         t += dt;
         if (pairMode) stepPhotons(dt);    // after t advances: field points sit at the new time
     }
@@ -1720,7 +1857,8 @@ public:
         double k = 0;
         for (const auto &a : p) {
             if (isBound(a)) continue;             // its energy is the photon's eps
-            const double v2 = a.vel.x() * a.vel.x() + a.vel.y() * a.vel.y();
+            const double v2 = dot(a.vel, a.vel)
+                            + (bodySpin ? 2.0 * a.spinPot : 0.0);   // + v_s^2 on the axis
             const double b2 = std::min(1.0 - 1e-15, v2 / C2);   // FT/SR only
             switch (kin) {
             case Kin::Newtonian: k += 0.5 * a.m * v2; break;
@@ -1763,20 +1901,25 @@ public:
         const int n = static_cast<int>(p.size());
         for (int i = 0; i < n; ++i)
             for (int j = i + 1; j < n; ++j) {
-                QPointF d = p[i].pos - p[j].pos;
-                double  r = std::hypot(d.x(), d.y());
+                Vec3 d = p[i].pos - p[j].pos;
+                double  r = norm(d);
                 double  S = pairScaleQ(p[i].q, p[j].q);
                 if (r < 1e-15) continue;
                 if (isBound(p[i]) && isBound(p[j]) && p[i].phId == p[j].phId) continue;
                 const double Sg = pairScaleM(p[i].m, p[j].m);
                 const double Cg = -G_UNITS * gravGain * p[i].m * p[j].m;
+                if (gravity && bodySpin && spinSub) {     // -Phi_spin/r per unit mass, from the Sun
+                    if (p[j].species == SP_STAR) u += p[i].m * p[i].spinPot * std::log(r / AU_A0);
+                    if (p[i].species == SP_STAR) u += p[j].m * p[j].spinPot * std::log(r / AU_A0);
+                }
                 if (route == Route::Potential) {
                     // U f^2 = C eta^2 r / (eta r + S)^2
                     double d2 = eta * r + S;
                     u += p[i].q * p[j].q * eta * eta * r / (d2 * d2);
                     if (gravity && Sg > 0) {
-                        double dg = etaG * r + Sg;
-                        u += Cg * etaG * etaG * r / (dg * dg);
+                        const double eg = spinEta(p[i].m <= p[j].m ? p[i] : p[j]);
+                        double dg = eg * r + Sg;
+                        u += Cg * eg * eg * r / (dg * dg);
                     }
                 } else {
                     u += p[i].q * p[j].q / r;
@@ -1789,8 +1932,7 @@ public:
             }
         // uniform E and g have potentials -q E.r and -m g.r; B and B_g do no work
         for (const auto &a : p)
-            u -= a.q * (extEx * a.pos.x() + extEy * a.pos.y())
-               + a.m * (extGx * a.pos.x() + extGy * a.pos.y());
+            u -= a.q * dot(extE, a.pos) + a.m * dot(extG, a.pos);
         return u + dipolePotential();
     }
 };
@@ -1799,40 +1941,79 @@ public:
 // view
 // ---------------------------------------------------------------------------
 
-class View : public QWidget {
+class View : public QOpenGLWidget, protected QOpenGLFunctions_2_1 {
     Q_OBJECT
 public:
     Sim    *sim;
-    double  scale = 40.0;            // pixels per a0
-    QPointF pan   = QPointF(0, 0);   // world point shown at the widget centre
+    // CAMERA.  An orbit camera: it looks at the world point 'pan' (the
+    // target) from the direction given by yaw (about +z) and pitch (elevation
+    // above the xy plane), at the distance that makes 'scale' pixels per a0
+    // at the target.  pitch = 90 is the top-down view of the 2D version
+    // (x right, y up); the default 62 shows the third axis at once.
+    double  scale = 40.0;            // pixels per a0 at the target
+    Vec3    pan;                     // world point at the widget centre
+    double  yaw = 0.0, pitch = 62.0; // degrees
     bool    showTrails = true;
     bool    showLabels = true;
+    static constexpr double FOV = 40.0;   // vertical field of view, degrees
 
-    explicit View(Sim *s, QWidget *parent = nullptr) : QWidget(parent), sim(s)
+    explicit View(Sim *s, QWidget *parent = nullptr) : QOpenGLWidget(parent), sim(s)
     {
         setMinimumSize(320, 240);
-        setAutoFillBackground(true);
         setMouseTracking(true);
         setCursor(Qt::OpenHandCursor);
     }
 
     QPointF centrePx() const { return QPointF(width() / 2.0, height() / 2.0); }
-    QPointF toScreen(const QPointF &w) const
+
+    // ---- camera geometry (double precision, shared by GL and the overlay) --
+    // The GL scene is built in "target pixels": world' = (w - pan) * scale, so
+    // every tab, from 1e30 a0 galaxies to 1e-5 a0 hadrons, hands the GPU
+    // numbers of order the screen size (floats would lose the structure
+    // otherwise).  The camera sits distPx() from the origin of that frame.
+    double distPx() const { return 0.5 * height() / std::tan(0.5 * FOV * M_PI / 180.0); }
+    Vec3 viewDir() const                       // from target toward the eye
     {
-        QPointF d = w - pan;
-        return centrePx() + QPointF(d.x() * scale, -d.y() * scale);
+        const double ya = yaw * M_PI / 180.0, pi = pitch * M_PI / 180.0;
+        return Vec3(std::sin(ya) * std::cos(pi), -std::cos(ya) * std::cos(pi), std::sin(pi));
     }
-    QPointF toWorld(const QPointF &s) const
+    Vec3 upDir() const
     {
-        QPointF d = s - centrePx();
-        return pan + QPointF(d.x() / scale, -d.y() / scale);
+        const double ya = yaw * M_PI / 180.0, pi = pitch * M_PI / 180.0;
+        return Vec3(-std::sin(ya) * std::sin(pi), std::cos(ya) * std::sin(pi), std::cos(pi));
+    }
+    Vec3 rightDir() const { return cross(upDir(), viewDir()); }   // screen +x in world
+    // camera-frame coordinates of a world point: (right, up, depth from eye)
+    Vec3 toCam(const Vec3 &w) const
+    {
+        const Vec3 q = (w - pan) * scale;
+        return Vec3(dot(q, rightDir()), dot(q, upDir()), distPx() - dot(q, viewDir()));
+    }
+    double pxPerA0(const Vec3 &w) const        // local magnification at w
+    {
+        const double d = toCam(w).z;
+        return scale * distPx() / std::max(1e-9, d);
+    }
+    QPointF toScreen(const Vec3 &w) const
+    {
+        const Vec3 c = toCam(w);
+        const double d = (c.z > 1e-9) ? c.z : 1e-9;      // behind the eye: clamp
+        const double k = distPx() / d;
+        return centrePx() + QPointF(c.x * k, -c.y * k);
+    }
+    // screen point back onto the plane through the target facing the camera
+    Vec3 toWorld(const QPointF &s) const
+    {
+        const QPointF d = s - centrePx();
+        return pan + (rightDir() * d.x() - upDir() * d.y()) / scale;
     }
 
     double homeScale = 40.0;           // what double-click returns to
     void resetView()
     {
-        pan = QPointF(0, 0);
+        pan = Vec3();
         scale = homeScale;
+        yaw = 0.0; pitch = 62.0;
         emit viewChanged(scale);
         update();
     }
@@ -1845,7 +2026,7 @@ protected:
     void wheelEvent(QWheelEvent *ev) override
     {
         const QPointF sp = ev->position();
-        const QPointF anchor = toWorld(sp);
+        const Vec3 anchor = toWorld(sp);
 
         const double steps = ev->angleDelta().y() / 120.0;
         if (steps == 0.0) return;
@@ -1854,8 +2035,8 @@ protected:
         scale = next;
 
         // put the anchor back under the cursor
-        QPointF d = sp - centrePx();
-        pan = anchor - QPointF(d.x() / scale, -d.y() / scale);
+        const QPointF d = sp - centrePx();
+        pan = anchor - (rightDir() * d.x() - upDir() * d.y()) / scale;
 
         emit viewChanged(scale);
         update();
@@ -1864,18 +2045,26 @@ protected:
 
     void mousePressEvent(QMouseEvent *ev) override
     {
-        if (ev->button() == Qt::LeftButton) {
+        if (ev->button() == Qt::LeftButton || ev->button() == Qt::RightButton
+            || ev->button() == Qt::MiddleButton) {
+            // left = orbit, right / middle / shift+left = pan
+            rotating = (ev->button() == Qt::LeftButton) && !(ev->modifiers() & Qt::ShiftModifier);
             dragging = true;
             dragFrom = ev->position();
-            panFrom  = pan;
+            panFrom  = pan; yawFrom = yaw; pitchFrom = pitch;
             setCursor(Qt::ClosedHandCursor);
         }
     }
     void mouseMoveEvent(QMouseEvent *ev) override
     {
         if (!dragging) return;
-        QPointF d = ev->position() - dragFrom;
-        pan = panFrom - QPointF(d.x() / scale, -d.y() / scale);
+        const QPointF d = ev->position() - dragFrom;
+        if (rotating) {
+            yaw   = yawFrom   + 0.4 * d.x();
+            pitch = qBound(-89.9, pitchFrom + 0.4 * d.y(), 89.9);
+        } else {
+            pan = panFrom - (rightDir() * d.x() - upDir() * d.y()) / scale;
+        }
         update();
     }
     void mouseReleaseEvent(QMouseEvent *) override
@@ -1886,41 +2075,145 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *) override { resetView(); }
 
 private:
-    bool    dragging = false;
-    QPointF dragFrom, panFrom;
+    bool    dragging = false, rotating = false;
+    QPointF dragFrom;
+    Vec3    panFrom;
+    double  yawFrom = 0, pitchFrom = 0;
+
+    // ---- GL helpers ------------------------------------------------------
+    void glColor(const QColor &c, int alpha = -1)
+    {
+        glColor4f(c.redF(), c.greenF(), c.blueF(), (alpha < 0 ? c.alpha() : alpha) / 255.0f);
+    }
+    void glVert(const Vec3 &w)                 // world -> target-pixel frame
+    {
+        const Vec3 q = (w - pan) * scale;
+        glVertex3d(q.x, q.y, q.z);
+    }
+    // circle of radius r (a0) about c in the plane spanned by u, v (unit)
+    void glRing(const Vec3 &c, double r, const Vec3 &u, const Vec3 &v, int n = 96)
+    {
+        glBegin(GL_LINE_LOOP);
+        for (int k = 0; k < n; ++k) {
+            const double a = 2.0 * M_PI * k / n;
+            glVert(c + u * (r * std::cos(a)) + v * (r * std::sin(a)));
+        }
+        glEnd();
+    }
+    void glRingXY(const Vec3 &c, double r, int n = 96) { glRing(c, r, Vec3(1, 0, 0), Vec3(0, 1, 0), n); }
+    template <class It> void glStrip(It b, It e)
+    {
+        glBegin(GL_LINE_STRIP);
+        for (It i = b; i != e; ++i) glVert(*i);
+        glEnd();
+    }
+    // a disc of radPx screen pixels facing the camera (a billboard fan), so
+    // it is round on every driver and shrinks with distance like the scene
+    void glDisc(const Vec3 &w, double radPx)
+    {
+        const double d = toCam(w).z;
+        if (d <= 1e-9) return;
+        const double r = radPx / scale;                    // a0 at the target depth
+        const Vec3 u = rightDir(), v = upDir();
+        glBegin(GL_TRIANGLE_FAN);
+        glVert(w);
+        for (int k = 0; k <= 24; ++k) {
+            const double a = 2.0 * M_PI * k / 24;
+            glVert(w + u * (r * std::cos(a)) + v * (r * std::sin(a)));
+        }
+        glEnd();
+    }
+    static double discRadius(const Particle &a, bool labels)
+    {
+        double rad = (a.species < 0)  ? 6.0          // composite nucleus
+                   : (a.m > 1000.0)   ? 5.0
+                   : (a.m > 100.0)    ? 4.0
+                   : (a.m < 1e-3)     ? 2.0          // neutrinos
+                                      : 3.0;
+        if (labels)                                  // room for the letter
+            rad = (a.species < 0) ? 10.0 : std::max(rad + 4.0, 7.5);
+        return rad;
+    }
+
+    void setupCamera()
+    {
+        const double D = distPx(), asp = double(width()) / std::max(1, height());
+        const double n = D * 1e-3, f = D * 1e3;
+        const double t = n * std::tan(0.5 * FOV * M_PI / 180.0);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-t * asp, t * asp, -t, t, n, f);
+        // look-at: eye = D * viewDir, target = origin, up = upDir
+        const Vec3 fwd = -viewDir(), up = upDir(), rt = rightDir();
+        const double M[16] = { rt.x, up.x, -fwd.x, 0,
+                               rt.y, up.y, -fwd.y, 0,
+                               rt.z, up.z, -fwd.z, 0,
+                               0,    0,    -D,     1 };
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixd(M);
+    }
 
 protected:
-    void paintEvent(QPaintEvent *) override
+    void initializeGL() override
     {
-        QPainter g(this);
-        g.setRenderHint(QPainter::Antialiasing, true);
-        g.fillRect(rect(), QColor("#0C1A33"));
+        initializeOpenGLFunctions();
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_LINE_SMOOTH);
+    }
+    void resizeGL(int, int) override {}
 
-        const QPointF c = toScreen(QPointF(0, 0));   // world origin on screen
+    // the 3D part: grid, guide rings, trails, bodies, spin axes
+    void drawScene()
+    {
+        glViewport(0, 0, width() * devicePixelRatio(), height() * devicePixelRatio());
+        glClearColor(12 / 255.0f, 26 / 255.0f, 51 / 255.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        setupCamera();
 
-        // crossover radius S/eta for unit charge, drawn as a guide circle
+        // grid rings in the xy plane about the world origin, at a decade that
+        // is visible, plus the three axes
+        const double span = std::max(width(), height()) / scale;   // a0 across
+        const double unit = std::pow(10.0, std::floor(std::log10(span))) / 2.0;
+        glLineWidth(1.0f);
+        glColor(QColor("#1E2D4A"));
+        for (int k = 1; k <= 12; ++k) {
+            if (k * unit * scale > 1.5 * std::max(width(), height())) break;
+            glRingXY(Vec3(), k * unit);
+        }
+        const double L = 6.0 * unit;
+        glBegin(GL_LINES);
+        glColor(QColor(197, 106, 0, 120));   glVert(Vec3()); glVert(Vec3(L, 0, 0));   // x amber
+        glColor(QColor(63, 180, 207, 120));  glVert(Vec3()); glVert(Vec3(0, L, 0));   // y cyan
+        glColor(QColor(127, 212, 160, 120)); glVert(Vec3()); glVert(Vec3(0, 0, L));   // z green
+        glEnd();
+
+        // crossover radius S/eta for unit charge, a dashed-looking guide ring
         if (sim->route == Route::Potential && sim->eta > 0) {
-            double rc = 1.0 / sim->eta * scale;
-            if (rc > 2 && rc < std::max(width(), height())) {
-                g.setPen(QPen(QColor("#C56A00"), 1, Qt::DashLine));
-                g.drawEllipse(c, rc, rc);
+            const double rc = 1.0 / sim->eta;
+            if (rc * scale > 2 && rc * scale < std::max(width(), height())) {
+                glColor(QColor("#C56A00"), 200);
+                glRingXY(Vec3(), rc);
+                glRing(Vec3(), rc, Vec3(1, 0, 0), Vec3(0, 0, 1));
+                glRing(Vec3(), rc, Vec3(0, 1, 0), Vec3(0, 0, 1));
             }
         }
 
-        // grid
-        g.setPen(QPen(QColor("#1E2D4A"), 1));
-        {   // grid rings at a decade that is actually visible
-            double span = std::max(width(), height()) / scale;   // a0 across
-            double unit = std::pow(10.0, std::floor(std::log10(span))) / 2.0;
-            for (int k = 1; k <= 12; ++k) {
-                double r = k * unit * scale;
-                if (r > 1.5 * std::max(width(), height())) break;
-                g.drawEllipse(c, r, r);
+        // stationary-state shells (also for the discrete-crossover route)
+        if (sim->quantised || sim->route == Route::DiscreteCrossover) {
+            glColor(QColor(63, 180, 207, 70));
+            for (const auto &nuc : sim->p) {
+                if (nuc.q <= 0.0) continue;
+                const int nTop = (sim->route == Route::DiscreteCrossover)
+                                     ? qMax(sim->nMax, 6) : sim->nMax;
+                for (int n = 1; n <= nTop; ++n) {
+                    const double rr = Sim::r_n(n, nuc.q) * scale;
+                    if (rr < 3 || rr > 3.0 * std::max(width(), height())) continue;
+                    glRingXY(nuc.pos, Sim::r_n(n, nuc.q));
+                }
             }
-            g.setPen(QColor("#5D6675"));
-            g.drawText(int(c.x()) + 4, int(c.y()) - 4,
-                       QString("ring = %1 a0").arg(unit, 0, 'g', 3));
-            g.setPen(QPen(QColor("#1E2D4A"), 1));
         }
 
         // trails
@@ -1928,72 +2221,131 @@ protected:
             for (const Particle *ap : allParticles()) {
                 const Particle &a = *ap;
                 if (a.trail.size() < 2) continue;
-                QColor col = colorOf(a);
-                col.setAlpha(90);
-                g.setPen(QPen(col, 1));
-                QVector<QPointF> pts;
-                pts.reserve(static_cast<int>(a.trail.size()));
-                for (const auto &t : a.trail) pts.append(toScreen(t));
-                g.drawPolyline(pts.constData(), pts.size());
+                glColor(colorOf(a), 90);
+                glStrip(a.trail.begin(), a.trail.end());
             }
+            if (sim->shadowOn)
+                for (const auto &a : sim->shadow) {
+                    if (a.trail.size() < 2) continue;
+                    glColor(colorOf(a).darker(220), 110);
+                    glStrip(a.trail.begin(), a.trail.end());
+                }
         }
 
-        // stationary-state shells (also drawn for the discrete-crossover route,
-        // whose stable zeros sit on exactly the same radii)
-        if (sim->quantised || sim->route == Route::DiscreteCrossover) {
-            for (const auto &nuc : sim->p) {
-                if (nuc.q <= 0.0) continue;
-                const int nTop = (sim->route == Route::DiscreteCrossover)
-                                     ? qMax(sim->nMax, 6) : sim->nMax;
-                for (int n = 1; n <= nTop; ++n) {
-                    double rr = Sim::r_n(n, nuc.q) * scale;
-                    if (rr < 3 || rr > 3.0 * std::max(width(), height())) continue;
-                    g.setBrush(Qt::NoBrush);
-                    g.setPen(QPen(QColor(63, 180, 207, 70), 1, Qt::DotLine));
-                    g.drawEllipse(toScreen(nuc.pos), rr, rr);
+        // photon beam axes and the e- e+ bond (pair model)
+        if (sim->pairModel)
+            for (const auto &ph : sim->photons) {
+                const Particle *e = nullptr, *q = nullptr;
+                for (const auto &a : sim->p)
+                    if (a.phId == ph.id && a.q != 0.0) { if (a.q < 0) e = &a; else q = &a; }
+                if (e && q) {
+                    glLineWidth(1.5f); glColor(QColor("#3FB4CF"));
+                    glBegin(GL_LINES); glVert(e->pos); glVert(q->pos); glEnd();
+                    glLineWidth(1.0f);
                 }
             }
-        }
 
-        // particles (including photon field points)
+        // shadow bodies: the Newtonian reference, darker, under the live ones
+        if (sim->shadowOn)
+            for (const auto &a : sim->shadow) {
+                glColor(colorOf(a).darker(220));
+                glDisc(a.pos, (a.m > 1000.0) ? 5.0 : (a.m > 100.0) ? 4.0 : 3.0);
+            }
+
+        // bodies
         for (const Particle *ap : allParticles()) {
             const Particle &a = *ap;
-            g.setBrush(colorOf(a));
-            g.setPen(Qt::NoPen);
-            double rad = (a.species < 0)  ? 6.0          // composite nucleus
-                       : (a.m > 1000.0)   ? 5.0
-                       : (a.m > 100.0)    ? 4.0
-                       : (a.m < 1e-3)     ? 2.0          // neutrinos
-                                          : 3.0;
-            if (showLabels)                                // room for the letter
-                rad = (a.species < 0) ? 10.0 : std::max(rad + 4.0, 7.5);
-            g.drawEllipse(toScreen(a.pos), rad, rad);
-            if (showLabels) drawSymbol(g, a, toScreen(a.pos), rad);
-            if (sim->spinOn && a.spin != 0) {
-                // spin arrow: up = +z (drawn toward screen top), down = -z
-                const QPointF c0 = toScreen(a.pos);
-                const double  L  = rad + 6.0;
-                const double  sgn = (a.spin > 0) ? -1.0 : 1.0;   // screen y is down
-                g.setPen(QPen(QColor("#E8EDF5"), 1.2));
-                g.drawLine(c0, c0 + QPointF(0, sgn * L));
-                g.drawLine(c0 + QPointF(0, sgn * L), c0 + QPointF(-2.5, sgn * (L - 3.5)));
-                g.drawLine(c0 + QPointF(0, sgn * L), c0 + QPointF( 2.5, sgn * (L - 3.5)));
+            glColor(colorOf(a));
+            glDisc(a.pos, discRadius(a, showLabels));
+        }
+
+        // rotation axes of the Solar bodies (Solar tab), through the body
+        if (sim->bodySpin)
+            for (const auto &a : sim->p) {
+                if (!a.name) continue;
+                const double len = 14.0 / pxPerA0(a.pos);     // ~14 px each way
+                glColor(QColor("#E8EDF5"), 160);
+                glBegin(GL_LINES); glVert(a.pos - a.axis * len); glVert(a.pos + a.axis * len); glEnd();
             }
+
+        // spin moments: arrow along +-z
+        if (sim->spinOn)
+            for (const auto &a : sim->p) {
+                if (a.spin == 0) continue;
+                const double len = (discRadius(a, showLabels) + 6.0) / pxPerA0(a.pos);
+                const Vec3 tip = a.pos + Vec3(0, 0, a.spin * len);
+                glColor(QColor("#E8EDF5"));
+                glBegin(GL_LINES); glVert(a.pos); glVert(tip); glEnd();
+            }
+
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    void paintGL() override
+    {
+        drawScene();
+
+        // 2D overlay (symbols, HUD, legend, compass) painted in software into
+        // an image and blitted over the GL scene: mixing QPainter and
+        // fixed-function GL in one FBO is fragile across drivers.
+        const qreal dpr = devicePixelRatioF();
+        QImage ov(int(width() * dpr), int(height() * dpr), QImage::Format_ARGB32_Premultiplied);
+        ov.setDevicePixelRatio(dpr);
+        ov.fill(Qt::transparent);
+        {
+            QPainter g(&ov);
+            g.setRenderHint(QPainter::Antialiasing, true);
+            g.setFont(font());
+            drawOverlay(g);
+        }
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);          // premultiplied
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        glWindowPos2i(0, ov.height());
+        glPixelZoom(1.0f, -1.0f);
+        glDrawPixels(ov.width(), ov.height(), GL_BGRA, GL_UNSIGNED_BYTE, ov.constBits());
+        glPixelZoom(1.0f, 1.0f);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    void drawOverlay(QPainter &g)
+    {
+        // ring spacing label at the origin
+        {
+            const double span = std::max(width(), height()) / scale;
+            const double unit = std::pow(10.0, std::floor(std::log10(span))) / 2.0;
+            const QPointF c = toScreen(Vec3());
+            g.setPen(QColor("#5D6675"));
+            g.drawText(int(c.x()) + 4, int(c.y()) - 4, QString("ring = %1 a0").arg(unit, 0, 'g', 3));
+        }
+
+        // symbols and per-body labels over the GL discs
+        for (const Particle *ap : allParticles()) {
+            const Particle &a = *ap;
+            if (toCam(a.pos).z <= 1e-9) continue;
+            const double rad = discRadius(a, showLabels) * pxPerA0(a.pos) / scale;
+            const QPointF c = toScreen(a.pos);
+            if (showLabels) drawSymbol(g, a, c, rad);
             if (sim->quantised && a.level > 0) {
                 g.setPen(QColor("#9AA6B8"));
-                g.drawText(toScreen(a.pos) + QPointF(rad + 3, -rad + 2),
-                           QString("n=%1").arg(a.level));
+                g.drawText(c + QPointF(rad + 3, -rad + 2), QString("n=%1").arg(a.level));
+            }
+            if (a.name && sim->bodySpin) {
+                g.setPen(QColor("#9AA6B8"));
+                g.drawText(c + QPointF(rad + 3, rad + 10), QString::fromUtf8(a.name));
             }
         }
 
         // hud
         g.setPen(QColor("#E8EDF5"));
         double K = sim->kinetic(), U = sim->potential();
-        g.drawText(10, 72, QString("zoom %1 px/a0   centre (%2, %3)   "
-                                   "[wheel = zoom at cursor, drag = pan, "
+        g.drawText(10, 72, QString("zoom %1 px/a0   centre (%2, %3, %4)   yaw %5° pitch %6°   "
+                                   "[wheel = zoom at cursor, drag = orbit, right-drag/shift = pan, "
                                    "double-click = reset]")
                                .arg(scale, 0, 'g', 4)
-                               .arg(pan.x(), 0, 'g', 3).arg(pan.y(), 0, 'g', 3));
+                               .arg(pan.x, 0, 'g', 3).arg(pan.y, 0, 'g', 3).arg(pan.z, 0, 'g', 3)
+                               .arg(yaw, 0, 'f', 0).arg(pitch, 0, 'f', 0));
         g.drawText(10, 18, QString("t = %1 (%2)   N = %3   ETA = %4")
                                .arg(sim->t, 0, 'g', 4).arg(siTime(sim->t))
                                .arg(sim->p.size())
@@ -2184,8 +2536,7 @@ protected:
         }
         for (const auto &ph : sim->photons) {
             const double lam = Sim::C_AU / (Sim::T_AU * ph.eps * Sim::F_UNIT);
-            const QPointF xh = ph.dir, yh(-ph.dir.y(), ph.dir.x());
-            const QPointF zh = xh * -0.45 + yh * -0.55;
+            const Vec3 xh = ph.dir, yh = perpOf(xh), zh = cross(xh, yh);
             const double A = lam / 4.0, L = 4.0 * lam;
             // beam axis and the y^ / z^ directions at the head
             g.setPen(QPen(QColor(232, 237, 245, 60), 1));
@@ -2200,8 +2551,8 @@ protected:
                 if (fp.phId == ph.id) (fp.species == SP_EF ? e : b).push_back(&fp);
             auto byGi = [](const Particle *x, const Particle *y) { return x->gi < y->gi; };
             std::sort(e.begin(), e.end(), byGi); std::sort(b.begin(), b.end(), byGi);
-            const double uh = ph.pos.x() * xh.x() + ph.pos.y() * xh.y();
-            const QPointF base = ph.pos - xh * uh;
+            const double uh = dot(ph.pos, xh);
+            const Vec3 base = ph.pos - xh * uh;
             const double du = lam / 16.0;
             auto drawSet = [&](const std::vector<const Particle *> &v, QColor col) {
                 QPolygonF line;
@@ -2262,10 +2613,9 @@ protected:
           << QString("Eq.28 K e/(2 r_e) = 255.5 kV (a potential): e x 255.5 kV = 255.5 keV = \u00BD m_e c\u00B2")
           << QString("\u03BB = 2 r_e photon: 5.32e22 Hz = 220 MeV;  field at 2 r_e = 4.5e19 V/m > E_S")
           << QString("ambient E = %1 V/m = %2 E_S;  vacuum Schwinger exponent \u03C0 E_S/E = %3")
-                 .arg(std::hypot(sim->extEx, sim->extEy) * 5.14220675e11, 0, 'g', 4)
-                 .arg(std::hypot(sim->extEx, sim->extEy) / Sim::E_SCHW, 0, 'g', 3)
-                 .arg(std::hypot(sim->extEx, sim->extEy) > 0
-                      ? M_PI * Sim::E_SCHW / std::hypot(sim->extEx, sim->extEy) : 0.0, 0, 'g', 3)
+                 .arg(norm(sim->extE) * 5.14220675e11, 0, 'g', 4)
+                 .arg(norm(sim->extE) / Sim::E_SCHW, 0, 'g', 3)
+                 .arg(norm(sim->extE) > 0 ? M_PI * Sim::E_SCHW / norm(sim->extE) : 0.0, 0, 'g', 3)
           << QString("pairs %1   annihilations %2   e- %3   e+ %4   photons %5")
                  .arg(sim->nPairs).arg(sim->nAnnih).arg(ne).arg(np).arg(sim->photons.size());
         QFontMetrics fm(g.font());
@@ -2286,10 +2636,10 @@ protected:
         if (!sim->hasExternal()) return;
         struct F { const char *n; QColor c; double x, y; bool axial; };
         const F fs[4] = {
-            {"E",   QColor("#3FB4CF"), sim->extEx, sim->extEy, false},
-            {"B",   QColor("#B48CFF"), 0, sim->extBz, true},
-            {"g",   QColor("#7FD4A0"), sim->extGx, sim->extGy, false},
-            {"B_g", QColor("#E0A050"), 0, sim->extBgz, true}};
+            {"E",   QColor("#3FB4CF"), sim->extE.x, sim->extE.y, false},
+            {"B",   QColor("#B48CFF"), sim->extB.x, sim->extB.z, true},
+            {"g",   QColor("#7FD4A0"), sim->extG.x, sim->extG.y, false},
+            {"B_g", QColor("#E0A050"), sim->extBg.x, sim->extBg.z, true}};
         const int R = 18, W = 4 * (2 * R + 14) + 10, H = 2 * R + 34;
         const int x0 = width() - W - 10, y0 = height() - H - 10;
         g.save();
@@ -2355,7 +2705,7 @@ protected:
             rows.append({QColor("#C56A00"), 1,
                          QString("crossover  r = S/ETA = %1 a0")
                              .arg(1.0 / sim->eta, 0, 'g', 4)});
-        rows.append({QColor("#1E2D4A"), 2, QString("grid rings, 1 a0 apart")});
+        rows.append({QColor("#1E2D4A"), 2, QString("grid rings in the xy plane; axes x amber, y cyan, z green")});
         if (sim->gravMag)
             rows.append({QColor("#7FD4A0"), -1,
                          QString("+ gravitomagnetic, k = %1  x gravity gain %2")
@@ -2392,6 +2742,15 @@ protected:
                          QString("+ gravity  G = 2.4006e-43  x gain %1   ETA_G = %2")
                              .arg(sim->gravGain, 0, 'g', 3)
                              .arg(sim->etaG, 0, 'g', 4)});
+        if (sim->shadowOn && !sim->shadow.empty())
+            rows.append({QColor("#5DADE2").darker(220), 0,
+                         QString("shadow: Newtonian reference  a = -G M r/r^3, p = m v")});
+        bool named = false;
+        for (const auto &a : sim->p) if (a.name) { named = true; break; }
+        if (sim->bodySpin && named)
+            rows.append({QColor("#5DADE2"), -1,
+                         QString("+ body spin: v_s = sqrt(2 Phi_spin) on the axis%1")
+                             .arg(sim->spinSub ? ",  a = (G M/d - Phi_spin)/d" : "")});
 
         QString routeName =
             (sim->route == Route::Potential)   ? "force  -d(U f^2)/dr   [crossover]"
@@ -2502,6 +2861,8 @@ public:
 
 class Window : public QWidget {
     Q_OBJECT
+public:
+    void selectTab(int k) { tabs->setCurrentIndex(k); }
 
     // add a form row whose label AND field share one tooltip, so hovering
     // either side explains the control
@@ -2536,7 +2897,7 @@ public:
         bool    init = false;
         Sim     sim;
         double  eta = 1, etaG = 7.8e46, dt = 2e-4, box = 5, scale = 40, home = 40;
-        QPointF pan;
+        Vec3    pan; double yaw = 0.0, pitch = 62.0;
         int     etaPreset = 4, route = 0, kin = 3, layout = 2;
         bool    qcd = false, constituent = false;
     } tabState[5];
@@ -2547,7 +2908,9 @@ public:
     QSpinBox       *sbSpecN;
     QPushButton    *btClear, *btRestart;
     QSlider        *slField[4];
-    QGroupBox      *pairBox;
+    QGroupBox      *pairBox, *solarBox;
+    QCheckBox      *chBodySpin, *chSpinSub, *chShadow;
+    QLabel         *lbSpinTable;
     QSlider        *slFreq, *slSpeed;
     QLabel         *lbSpeed;
     QLabel         *lbFreq;
@@ -2744,10 +3107,9 @@ public:
             "Sec. 3 pair splits at 1.31e7 (any direction). Dial: in-plane\n"
             "direction, 0 deg = +x, counter-clockwise. Potential -q E.r is in E.",
             "Uniform MAGNETIC field: a = q (v x B) / m.\n"
-            "Magnitude in atomic units (1 = 2.3505e5 T). The motion is\n"
-            "planar, so only B_z acts: dial = tilt from +z, B_z = |B| cos.\n"
-            "0 deg = out of the screen, 180 = into it, 90/270 = in-plane\n"
-            "(no in-plane effect). Charges gyrate at omega = q B_z / m.",
+            "Magnitude in atomic units (1 = 2.3505e5 T). Dial = tilt of B\n"
+            "from +z in the xz plane: 0 deg = +z (the orbital-plane normal),\n"
+            "90 = +x, 180 = -z. Charges gyrate at omega = q |B| / m about B.",
             "Uniform GRAVITOELECTRIC field g, acting on every mass\n"
             "including neutrons and neutrinos: a = g.\n"
             "Magnitude in atomic units (1 = 9.0e22 m/s^2; Earth's 9.81\n"
@@ -2756,7 +3118,7 @@ public:
             "Magnitude in atomic units (1 = 4.134e16 s^-1). Equivalent to\n"
             "a frame rotating at Omega = B_g/2 (Coriolis); Earth's frame\n"
             "dragging at the surface is ~1e-14 s^-1 = 2.4e-31 a.u.\n"
-            "Dial = tilt from +z, as for B."};
+            "Dial = tilt from +z in the xz plane, as for B."};
         for (int k = 0; k < 4; ++k) {
             auto *nm = new QLabel(QString("<b>%1</b>").arg(fName[k]));
             slField[k] = new QSlider(Qt::Horizontal);
@@ -2948,7 +3310,7 @@ public:
         connect(btFire, &QPushButton::clicked, this, [this] {
             if (curTab != 4) return;
             sim.photonHz = photonHzFromSlider();
-            sim.firePhoton(QPointF(-0.12, 0.0), QPointF(1, 0)); view->update();
+            sim.firePhoton(Vec3(-0.12, 0.0, 0.0), Vec3(1, 0, 0)); view->update();
         });
         connect(btConv, &QPushButton::clicked, this, [this] {
             if (curTab != 4 || sim.photons.empty()) return;
@@ -2957,6 +3319,46 @@ public:
         updFreq();
         pairBox->setEnabled(false);
         form->addRow(pairBox);
+
+        // ---- Solar tab: body spin ----
+        solarBox = new QGroupBox("Body spin (Solar)");
+        auto *sg = new QVBoxLayout(solarBox);
+        chBodySpin = new QCheckBox("spin speed v_s = \u221A(2 \u03A6_spin) on the rotation axis");
+        chSpinSub  = new QCheckBox("lose \u03A6_spin from the Sun's potential (\u03A6_g \u2212 \u03A6_spin)");
+        chBodySpin->setChecked(true);  chSpinSub->setChecked(true);
+        chShadow = new QCheckBox("shadow planets: mainstream (Newtonian) reference"); chShadow->setChecked(true);
+        chShadow->setToolTip(tipHtml(
+            "A darker copy of the Sun and planets integrated in parallel\n"
+            "with mainstream orbital mechanics: a = -G sum m_j r_ij/r^3\n"
+            "(x gravity gain), p = m v, no FT factor, no spin terms, started\n"
+            "from the same positions on the Newtonian circular speed.\n"
+            "The live bodies drift away from their shadows by whatever the\n"
+            "selected route, eta_g, kinematics and spin options change."));
+        sg->addWidget(chShadow);
+        connect(chShadow, &QCheckBox::toggled, this, [this](bool b) { sim.shadowOn = b; view->update(); });
+        lbSpinTable = new QLabel; lbSpinTable->setFont(QFont("monospace", 8));
+        lbSpinTable->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        sg->addWidget(chBodySpin); sg->addWidget(chSpinSub); sg->addWidget(lbSpinTable);
+        chBodySpin->setToolTip(tipHtml(
+            "Each body carries its rotational kinetic POTENTIAL, per unit\n"
+            "mass: Phi_spin = K_spin/m = (1/2) k v_eq^2, k = I/(m R^2), from\n"
+            "the sidereal rotation period and equatorial radius (NASA fact\n"
+            "sheets). The spin speed v_s = sqrt(2 Phi_spin) sits on the\n"
+            "rotation axis (z, out of the orbital plane): the kinematic\n"
+            "factor sees v^2 + v_s^2 and the energy counts m Phi_spin.\n"
+            "Jupiter: v_eq = 12.6 km/s, v_s = 6.3 km/s, Phi_spin/c^2 = 2.2e-10."));
+        chSpinSub->setToolTip(tipHtml(
+            "Keep the net potential: the body loses gravitational potential\n"
+            "by what its spin holds. The Sun's potential at it is\n"
+            "G M/d - Phi_spin and its acceleration (G M/d - Phi_spin)/d,\n"
+            "i.e. Phi_spin/d less inward (per unit mass, no mass in it).\n"
+            "Jupiter: Phi_spin/v_orb^2 = 20/171 (km/s)^2 = 12% less pull,\n"
+            "so a circular start drifts outward; Restart re-circularises.\n"
+            "The same Phi enters f = 1/(1 + Phi/c^2): eta_g (1 - Phi_spin/c^2)."));
+        connect(chBodySpin, &QCheckBox::toggled, this, [this](bool b) { sim.bodySpin = b; sim.computeAcc(); view->update(); });
+        connect(chSpinSub,  &QCheckBox::toggled, this, [this](bool b) { sim.spinSub  = b; sim.computeAcc(); view->update(); });
+        solarBox->setEnabled(false);
+        form->addRow(solarBox);
 
         addRow(form, "add species", cbSpecies,
                "Every particle type is added from this list.\n\n"
@@ -3709,6 +4111,42 @@ private slots:
     }
 
 private:                                  // data and helpers: not slots
+    // B may be a base of W (QCheckBox::setChecked lives in QAbstractButton)
+    template <class W, class B, class V> static void quiet(W *w, void (B::*set)(V), V v)
+    { w->blockSignals(true); (w->*set)(v); w->blockSignals(false); }
+
+    void fillSpinTable()
+    {
+        static constexpr double C2 = 137.035999084 * 137.035999084;
+        // per body: spin numbers, then the polar (spherical, in-plane) offset
+        // of the live body from its Newtonian shadow about the Sun:
+        // dr = r - r_shadow (AU), dtheta = theta - theta_shadow (deg, wrapped)
+        QString t = "body      v_s km/s  Phi/(GM/d)  Phi/c^2    dr AU     dtheta deg  dphi deg\n";
+        const double GM = sim.p.empty() ? 0.0 : Sim::G_UNITS * sim.gravGain * sim.p[0].m;
+        const bool sh = sim.shadow.size() == sim.p.size() && !sim.p.empty();
+        for (size_t i = 0; i < sim.p.size(); ++i) {
+            const Particle &a = sim.p[i];
+            if (!a.name) continue;
+            const double vs = std::sqrt(2.0 * a.spinPot) * 2.18769126e3;      // km/s
+            const Vec3 d  = a.pos - sim.p[0].pos;
+            const double r   = norm(d);
+            const double ratio = (r > 0 && GM > 0 && i > 0) ? a.spinPot * r / GM : 0.0;
+            QString pol = "        -           -           -";
+            if (sh && i > 0) {
+                // spherical offset about the Sun: dr, d(azimuth), d(polar angle)
+                const Vec3 e = sim.shadow[i].pos - sim.shadow[0].pos;
+                const double rs = norm(e);
+                double dth = std::atan2(d.y, d.x) - std::atan2(e.y, e.x);
+                dth = std::remainder(dth, 2.0 * M_PI) * 180.0 / M_PI;
+                const double dph = (std::acos(qBound(-1.0, d.z / std::max(r, 1e-300), 1.0))
+                                  - std::acos(qBound(-1.0, e.z / std::max(rs, 1e-300), 1.0))) * 180.0 / M_PI;
+                pol = QString("%1 %2 %3").arg((r - rs) / Sim::AU_A0, 9, 'e', 2).arg(dth, 11, 'e', 3).arg(dph, 11, 'e', 3);
+            }
+            t += QString("%1 %2 %3 %4 %5\n").arg(a.name, -8).arg(vs, 8, 'f', 3)
+                     .arg(ratio, 10, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
+        }
+        lbSpinTable->setText(t.trimmed());
+    }
     static double sliderMag(int s) { return (s <= -600) ? 0.0 : std::pow(10.0, s / 10.0); }
 
     // read the four slider/dial pairs into the simulation and label them
@@ -3725,10 +4163,11 @@ private:                                  // data and helpers: not slots
                       .arg(m[k], 0, 'g', 3).arg(m[k] * SI[k], 0, 'g', 3)
                       .arg(QString::fromUtf8(U[k])).arg(dlField[k]->value()));
         }
-        sim.extEx  = m[0] * std::cos(th[0]);  sim.extEy = m[0] * std::sin(th[0]);
-        sim.extBz  = m[1] * std::cos(th[1]);
-        sim.extGx  = m[2] * std::cos(th[2]);  sim.extGy = m[2] * std::sin(th[2]);
-        sim.extBgz = m[3] * std::cos(th[3]);
+        // E, g: in-plane direction from +x.  B, B_g: tilt from +z, in the xz plane
+        sim.extE  = Vec3(m[0] * std::cos(th[0]), m[0] * std::sin(th[0]), 0.0);
+        sim.extB  = Vec3(m[1] * std::sin(th[1]), 0.0, m[1] * std::cos(th[1]));
+        sim.extG  = Vec3(m[2] * std::cos(th[2]), m[2] * std::sin(th[2]), 0.0);
+        sim.extBg = Vec3(m[3] * std::sin(th[3]), 0.0, m[3] * std::cos(th[3]));
         sim.computeAcc();
         view->update();
     }
@@ -3738,16 +4177,16 @@ private:                                  // data and helpers: not slots
     {
         auto set = [this](int k, double mag, double deg) {
             const int s = (mag <= 0.0) ? -600
-                        : qBound(-600, int(std::lround(10.0 * std::log10(mag))), 70);
+                        : qBound(-600, int(std::lround(10.0 * std::log10(mag))), 90);
             slField[k]->blockSignals(true); slField[k]->setValue(s); slField[k]->blockSignals(false);
             int d = int(std::lround(deg)) % 360; if (d < 0) d += 360;
             dlField[k]->blockSignals(true); dlField[k]->setValue(d); dlField[k]->blockSignals(false);
         };
         auto deg = [](double y, double x) { return std::atan2(y, x) * 180.0 / M_PI; };
-        set(0, std::hypot(sim.extEx, sim.extEy), deg(sim.extEy, sim.extEx));
-        set(1, std::fabs(sim.extBz),  sim.extBz  < 0 ? 180.0 : 0.0);
-        set(2, std::hypot(sim.extGx, sim.extGy), deg(sim.extGy, sim.extGx));
-        set(3, std::fabs(sim.extBgz), sim.extBgz < 0 ? 180.0 : 0.0);
+        set(0, norm(sim.extE),  deg(sim.extE.y, sim.extE.x));
+        set(1, norm(sim.extB),  deg(std::hypot(sim.extB.x, sim.extB.y), sim.extB.z));
+        set(2, norm(sim.extG),  deg(sim.extG.y, sim.extG.x));
+        set(3, norm(sim.extBg), deg(std::hypot(sim.extBg.x, sim.extBg.y), sim.extBg.z));
         applyFields();
     }
 
@@ -3755,15 +4194,11 @@ private:                                  // data and helpers: not slots
 
     void setZoom(double s)
     {
-        view->homeScale = s; view->scale = s; view->pan = QPointF(0, 0);
+        view->homeScale = s; view->scale = s; view->pan = Vec3(); view->yaw = 0.0; view->pitch = 62.0;
         slZoom->blockSignals(true);
         slZoom->setValue(int(100.0 * (std::log10(s) + 1.0)));
         slZoom->blockSignals(false);
     }
-
-    // B may be a base of W (QCheckBox::setChecked lives in QAbstractButton)
-    template <class W, class B, class V> static void quiet(W *w, void (B::*set)(V), V v)
-    { w->blockSignals(true); (w->*set)(v); w->blockSignals(false); }
 
 private slots:
 
@@ -3782,6 +4217,7 @@ private slots:
         t.eta = sbEta->value(); t.etaG = sbEtaG->value();
         t.dt = sbDt->value();   t.box = sbBox->value();
         t.scale = view->scale;  t.home = view->homeScale;  t.pan = view->pan;
+        t.yaw = view->yaw;      t.pitch = view->pitch;
         t.etaPreset = cbEtaPreset->currentIndex();
         t.route = cbRoute->currentIndex();  t.kin = cbKin->currentIndex();
         t.layout = cbLayout->currentIndex();
@@ -3809,7 +4245,13 @@ private slots:
         quiet(chConstituent, &QCheckBox::setChecked, t.constituent);
         fieldsFromSim();                  // fields travel with the tab's simulation
         pairBox->setEnabled(k == 4);
+        solarBox->setEnabled(k == 1);
+        quiet(chBodySpin, &QCheckBox::setChecked, sim.bodySpin);
+        quiet(chSpinSub,  &QCheckBox::setChecked, sim.spinSub);
+        quiet(chShadow,   &QCheckBox::setChecked, sim.shadowOn);
+        if (k == 1) fillSpinTable();
         view->homeScale = t.home; view->scale = t.scale; view->pan = t.pan;
+        view->yaw = t.yaw;        view->pitch = t.pitch;
         slZoom->blockSignals(true);
         slZoom->setValue(int(100.0 * (std::log10(t.scale) + 1.0)));
         slZoom->blockSignals(false);
@@ -3877,6 +4319,10 @@ private slots:
         }
         if (k != 4) sim.pairMode = false;
         pairBox->setEnabled(k == 4);
+        solarBox->setEnabled(k == 1);
+        if (k == 1) { sim.bodySpin = chBodySpin->isChecked(); sim.spinSub = chSpinSub->isChecked();
+                      sim.shadowOn = chShadow->isChecked();
+                      sim.computeAcc(); fillSpinTable(); }
         if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
                            .arg(names[qBound(0, k, 4)]).arg(profileName));
@@ -3895,7 +4341,7 @@ private slots:
             view->pan = ph.pos - ph.dir * (1.5 * lam);       // train centred on screen
             return;
         }
-        QPointF c; int n = 0;
+        Vec3 c; int n = 0;
         for (const auto &a : sim.p)
             if (a.species == SP_E || a.species == SP_POS) { c += a.pos; ++n; }
         if (n) view->pan = c / n;
@@ -3906,7 +4352,12 @@ private slots:
         const double dt = sbDt->value();
         for (int k = 0; k < stepsPerFrame; ++k) sim.step(dt);
         if (curTab == 4 && chFollow->isChecked()) followTarget();
+        if (curTab == 1) fillSpinTable();
         for (auto &a : sim.p) {
+            a.trail.push_back(a.pos);
+            if (a.trail.size() > 600) a.trail.pop_front();
+        }
+        for (auto &a : sim.shadow) {
             a.trail.push_back(a.pos);
             if (a.trail.size() > 600) a.trail.pop_front();
         }
@@ -3922,9 +4373,25 @@ private slots:
 
 int main(int argc, char **argv)
 {
+    // fixed-function OpenGL 2.1 (compatibility) for the 3D view
+    QSurfaceFormat fmt;
+    fmt.setVersion(2, 1);
+    fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
+    fmt.setDepthBufferSize(24);
+    fmt.setSamples(4);
+    QSurfaceFormat::setDefaultFormat(fmt);
     QApplication app(argc, argv);
     Window w;
     w.resize(1200, 760);
     w.show();
+    // FTSIM_SHOT=<file.png>[:<tab>] : run for a moment, save a screenshot, quit
+    if (const char *shot = std::getenv("FTSIM_SHOT")) {
+        QString spec = QString::fromLocal8Bit(shot), file = spec;
+        int tab = -1;
+        const int c = spec.lastIndexOf(':');
+        if (c > 0) { file = spec.left(c); tab = spec.mid(c + 1).toInt(); }
+        if (tab >= 0) w.selectTab(tab);
+        QTimer::singleShot(1500, &app, [&w, file, &app] { w.grab().save(file); app.quit(); });
+    }
     return app.exec();
 }
