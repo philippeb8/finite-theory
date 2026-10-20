@@ -137,6 +137,61 @@ spin options change: at η_g = c²/G it is 6e-7 AU for Mercury after ten orbits
 live-minus-shadow spherical offset about the Sun — Δr in AU, Δθ (azimuth) and
 Δφ (polar angle) in degrees — refreshed every frame.
 
+## Section 2.8 (perihelion shift) in the simulator
+
+Manuscript Eq. 66 is the GR effective potential with its metric factor
+replaced by f²: `V_eff = −GMm/r + L²f²/(2mr²)`, and Sec. 2.8 quotes the GR
+result `δφ = 6πGM/(c²a(1−e²))` for it. Three readings were integrated (an
+eccentric Mercury, e = 0.2056, G amplified so the angle resolves):
+
+| reading | φ̇ | δφ per orbit | Mercury |
+|---|---|---|---|
+| A — Eq. 66 as written, Newtonian `L = m r² φ̇` | `L/(m r²)` | **6π g** | 42.98″/cy |
+| B — the Lagrangian whose effective potential is Eq. 66: `½mṙ² + ½mr²φ̇²/f² + GMm/r` | `L f²/(m r²)` | **2π g** | 14.3″/cy |
+| C — `1 − 2GM/c²r → f²` everywhere in the Schwarzschild radial equation | `L/(m r²)` | **3π g** | 21.5″/cy |
+
+`g = GM/(c² a(1−e²))`. Reading A reproduces GR, but it pairs the f²-modified
+potential with the unmodified angular momentum, and no Lagrangian does that:
+once `L²f²/(2mr²)` is the centrifugal term, the conserved momentum is
+`m r² φ̇/f²` and the azimuth advances as `L f²/(m r²)` — that costs −4π g and
+leaves 2π g. Reading A is GR's radial equation transcribed, not an equation of
+motion of FT. A pure time reparametrisation `dτ = f·dt` of Kepler motion gives
+no precession at all (the orbit shape does not depend on the clock).
+
+### The velocity-dependent reading
+
+Sec. 2.8 closes by saying the Eq. 66 term "can appear as the result of the
+velocity-dependent correction". Taking that literally — the body's clock runs
+at f, so its own velocity is u = v/f and its mechanics is written in its own
+time, S = ∫ L(u) dτ with dτ = f·dt — gives Lagrangians of the form
+`f·L_kin(v/f) + (gravity)`. Their precession (same integrator, per orbit, in
+units of g):
+
+| Lagrangian (per unit mass) | δφ |
+|---|---|
+| metric `−c²√(f² − v²/c²)` (gravity from f alone, no U) | π |
+| `v²/(2f) + U` | 2π |
+| `v²/(2f²) + U` | 4π |
+| `f·L_41(v/f) + U`, Eq. 41 kinetics `L_41 = −(c²/2) ln(1 − u²/c²)` | 4π |
+| `f·L_½(v/f) + U`, FT ½ kinetics | 3π |
+| `f·L_41(v/f) + U·f²` (the simulator's Potential route) | 0 |
+| **`f·L_41(v/f) + U/f`** | **6π** |
+
+So the velocity-dependent correction with FT's own Eq. 41 momentum does
+produce two thirds of GR by itself, and the full 6π follows if the potential
+term is `U/f` — i.e. `U/f²` in the body's proper time, `S = ∫[L_41(u) + U/f²] dτ`.
+That combination is implemented as the momentum factor **"FT proper time"**
+(use with the Coulomb route): `p = m(v/f)/(1 − v²/f²c²)`, Hamiltonian
+`H = f·K_41(u) − U/f`, forces Newton's plus `−K_41(u)∇f + ∇(U/f − U)`.
+Measured +18.99 g per orbit at g = 2.7·10⁻³ (6π = 18.85, the rest is second
+order), energy conserved to 5·10⁻⁷ and scaling with dt.
+
+The simulator also implements reading B as the momentum factor **"Sec. 2.8
+Lagrangian"** (use with the Coulomb route): `p_r = m v_r`, `p_t = m v_t/f²`
+w.r.t. the heaviest body, with the two extra Hamiltonian forces
+`−(p_t²/2m)·d(f²)/dr` (radial) and `(f²−1) p_r p_t/(m r)` (tangential, keeps
+`L = r p_t`). Measured: +6.28 g per orbit with E conserved to leapfrog order.
+
 ## Energy audit
 
 `E = kinetic() + potential()` is the quantity the integrator conserves, with

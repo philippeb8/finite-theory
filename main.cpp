@@ -623,10 +623,34 @@ public:
     //              -> m = m0/sqrt(1 - v^2/c^2) exactly, so p = gamma m0 v / f^2
     //   F2Lin      p = m v / f^2,  m = m0 (1 + v^2/2c^2)   (K = m0 v^2/2 only)
     //   F2Pos      p = m0 v / f^2  (positional dilation only)
-    enum class Kin { Newtonian, FT, SR, FTHalf, F2SC, F2Lin, F2Pos };
+    // Sec28: manuscript Sec. 2.8, Eq. 66: the GR effective potential with its
+    // metric factor replaced by f^2,  V = -G M m/r + L^2 f^2/(2 m r^2).  The
+    // mechanics that HAS this as its effective potential is the Lagrangian
+    //   (1/2) m r'^2 + (1/2) m r^2 phi'^2 / f^2 + G M m/r,
+    // i.e. Newtonian gravity untouched and the TANGENTIAL momentum
+    // p_t = m v_t / f^2 (radial p_r = m v_r), tangential w.r.t. the heaviest
+    // body; its conserved L is m r^2 phi'/f^2, so phi' = L f^2/(m r^2).
+    // That gives +2 pi G M/(c^2 p) per orbit, ONE THIRD of GR's 6 pi.  The
+    // manuscript's 6 pi needs Eq. 66 together with phi' = L/(m r^2) - the
+    // Newtonian L without the f^2 - which no Lagrangian provides (it is GR's
+    // radial equation transcribed, not an equation of motion of FT).  The
+    // full substitution 1 - 2GM/c^2 r -> f^2 in the Schwarzschild radial
+    // equation gives 3 pi.  See README, "Section 2.8".
+    // FTtau: the velocity-dependent reading of Sec. 2.8.  The planet's clock
+    // runs at f, so its own velocity is u = v/f, and its Eq. 41 mechanics is
+    // written in its own time:  S = int [ L_41(u) + U/f^2 ] dtau,  dtau = f dt,
+    //   L = f L_41(v/f) + U/f,   L_41(u) = -(m c^2/2) ln(1 - u^2/c^2)
+    // (L_41 is the Lagrangian whose momentum is Eq. 41, p = m u/(1 - u^2/c^2)).
+    // Momentum p = m (v/f)/(1 - v^2/f^2 c^2); H = f K_41(u) - U/f with
+    // K_41 = m c^2 (G - 1 - ln G / 2).  Forces: Newton's, plus
+    //   -K_41(u) grad f  +  grad(U/f - U)        (the inertia and potential
+    // gradients), both radial from the heaviest body.  Perihelion advance
+    // +6 pi G M/(c^2 p): the GR value.  With plain U instead of U/f it is 4 pi.
+    enum class Kin { Newtonian, FT, SR, FTHalf, F2SC, F2Lin, F2Pos, Sec28, FTtau };
     Kin    kin = Kin::FTHalf;   // default restored: FT with the 1/2 factor
     bool positionalKin() const
     { return kin == Kin::F2SC || kin == Kin::F2Lin || kin == Kin::F2Pos; }
+    int  heavy = -1;                       // index of the most massive body (Sec28 centre)
     bool   qcd         = false;  // Cornell confinement within each hadron
     bool   constituent = false;  // constituent quark masses
     double qcdGain     = 1.0;    // display damper
@@ -1704,7 +1728,9 @@ public:
     {
         const int n = static_cast<int>(p.size());
         for (int i = 0; i < n; ++i) p[i].acc = Vec3(0, 0);
-        if (positionalKin()) computeDilation();
+        if (positionalKin() || kin == Kin::Sec28 || kin == Kin::FTtau) computeDilation();
+        heavy = -1;
+        for (int i = 0; i < n; ++i) if (heavy < 0 || p[i].m > p[heavy].m) heavy = i;
 
         for (int i = 0; i < n; ++i) {
             for (int j = i + 1; j < n; ++j) {
@@ -1733,6 +1759,92 @@ public:
         }
         if (magnetic || spinOn || gravMag) magneticPass();
         if (hasExternal()) externalPass();
+        if (kin == Kin::Sec28) sec28Pass();
+        if (kin == Kin::FTtau) ftTauPass();
+    }
+
+    // FTtau extra forces, see the Kin comment.  f and U from the heaviest body.
+    void ftTauPass()
+    {
+        if (heavy < 0) return;
+        static constexpr double C2 = 137.035999084 * 137.035999084;
+        const Particle &hb = p[heavy];
+        const double eg = spinEta(hb) / std::max(1.0, gravGain);
+        for (auto &a : p) {
+            if (&a == &hb || a.m <= 0.0) continue;
+            const Vec3 d = a.pos - hb.pos; const double r = norm(d);
+            if (r < 1e-300) continue;
+            const Vec3 rh = d / r;
+            const double f = a.fpos;
+            const double df = f * f * (hb.m / eg) / (r * r);          // df/dr > 0
+            const double u2 = dot(a.vel, a.vel) / (f * f);
+            const double G  = 1.0 / std::max(1e-15, 1.0 - u2 / C2);
+            const double K41 = (G - 1.0 - 0.5 * std::log(G)) * C2;    // per unit mass
+            const double U  = G_UNITS * gravGain * hb.m / r;           // per unit mass, > 0
+            // d/dr [U/f - U] = -U/r (1/f - 1) - U df/f^2
+            const double dUf = -U / r * (1.0 / f - 1.0) - U * df / (f * f);
+            a.acc += rh * (-K41 * df + dUf);
+        }
+    }
+    Vec3 ftTauMomentum(const Particle &a) const
+    {
+        static constexpr double C2 = 137.035999084 * 137.035999084;
+        if (heavy < 0 || &a == &p[heavy]) return a.vel * a.m;
+        const double f = a.fpos, u2 = dot(a.vel, a.vel) / (f * f);
+        return a.vel * (a.m / (f * std::max(1e-15, 1.0 - u2 / C2)));
+    }
+    void ftTauVelocity(Particle &a, const Vec3 &pm) const
+    {
+        static constexpr double C = 137.035999084;
+        if (heavy < 0 || &a == &p[heavy]) { a.vel = pm / a.m; return; }
+        const double f = a.fpos, P = norm(pm) / (a.m * C);              // u/(c(1-u^2/c^2)) = P
+        if (P == 0.0) { a.vel = Vec3(); return; }
+        const double beta = 2.0 * P / (1.0 + std::sqrt(1.0 + 4.0 * P * P));   // Eq. 41 inversion
+        a.vel = pm * (beta * C * f / norm(pm));
+    }
+
+    // Sec. 2.8: H = p_r^2/2m + f^2 p_t^2/2m + V.  Besides Newton's force the
+    // radial equation carries -(p_t^2/2m) d(f^2)/dr, the gradient of the
+    // position-dependent tangential inertia.  With one dominant source
+    // f = eg/(eg + M/r), d(f^2)/dr = 2 f^3 (M/eg)/r^2.
+    void sec28Pass()
+    {
+        if (heavy < 0) return;
+        const Particle &h = p[heavy];
+        const double eg = spinEta(h) / std::max(1.0, gravGain);
+        for (auto &a : p) {
+            if (&a == &h || a.m <= 0.0) continue;
+            const Vec3 d = a.pos - h.pos; const double r = norm(d);
+            if (r < 1e-300) continue;
+            const Vec3 rh = d / r;
+            const double f = a.fpos, f2 = f * f;
+            const double vr = dot(a.vel, rh), vt2 = dot(a.vel, a.vel) - vr * vr;
+            const double df2 = 2.0 * f * f2 * (h.m / eg) / (r * r);
+            // H = p^2/2m + (f^2 - 1) p_t^2/2m.  -dH/dx of the second term:
+            //   radial     -(p_t^2/2m) d(f^2)/dr        (f^2 gradient)
+            //   tangential +(f^2 - 1) p_r p_t/(m r)     (p_t = p - (p.rhat) rhat
+            //              turns with rhat: this keeps L = r p_t conserved)
+            // with p_r = m v_r, p_t = m v_t / f^2
+            a.acc -= rh * (vt2 / (2.0 * f2 * f2) * df2);
+            const Vec3 vt = a.vel - rh * vr;
+            a.acc += vt * ((f2 - 1.0) * vr / (f2 * r));
+        }
+    }
+    Vec3 sec28Momentum(const Particle &a) const
+    {
+        if (heavy < 0 || &a == &p[heavy]) return a.vel * a.m;
+        const Vec3 rh = unit(a.pos - p[heavy].pos);
+        const double f2 = std::max(1e-300, a.fpos * a.fpos);
+        const double vr = dot(a.vel, rh);
+        return (rh * vr + (a.vel - rh * vr) / f2) * a.m;
+    }
+    void sec28Velocity(Particle &a, const Vec3 &pm) const
+    {
+        if (heavy < 0 || &a == &p[heavy]) { a.vel = pm / a.m; return; }
+        const Vec3 rh = unit(a.pos - p[heavy].pos);
+        const double f2 = std::max(1e-300, a.fpos * a.fpos);
+        const double pr = dot(pm, rh);
+        a.vel = (rh * pr + (pm - rh * pr) * f2) / a.m;
     }
 
     // half kick.  The force F = m a changes the momentum p = G(v) m v, and v
@@ -1745,6 +1857,25 @@ public:
     {
         if (kin == Kin::Newtonian) { a.vel += a.acc * h; return; }
         static constexpr double C = 137.035999084;
+
+        if (kin == Kin::FTtau) {
+            const Vec3 pm = ftTauMomentum(a) + a.acc * (h * a.m);
+            ftTauVelocity(a, pm);
+            return;
+        }
+        if (kin == Kin::Sec28) {
+            // p = m (v_r rhat + v_t / f^2), rhat from the heaviest body
+            if (heavy < 0 || &a == &p[heavy]) { a.vel += a.acc * h; return; }
+            const Vec3 rh = unit(a.pos - p[heavy].pos);
+            const double f2 = std::max(1e-300, a.fpos * a.fpos);
+            const double vr = dot(a.vel, rh);
+            const Vec3 vt = a.vel - rh * vr;
+            Vec3 pm = (rh * vr + vt / f2) * a.m + a.acc * (h * a.m);
+            const double pr = dot(pm, rh);
+            const Vec3 pt = pm - rh * pr;
+            a.vel = (rh * pr + pt * f2) / a.m;
+            return;
+        }
 
         if (positionalKin()) {
             // p = (m0 / f^2) g(v) v ;  the force changes p ;  invert for v
@@ -1820,10 +1951,22 @@ public:
         const bool q = quantised;
         auto free = [&](const Particle &a) { return (!q || a.level <= 0) && !isBound(a); };
 
-        for (auto &a : p) {
+        const bool posKin = (kin == Kin::Sec28 || kin == Kin::FTtau);
+        std::vector<Vec3> pm;                      // p is the state, v follows f(r)
+        if (posKin) pm.resize(p.size());
+        for (size_t i = 0; i < p.size(); ++i) {
+            Particle &a = p[i];
             if (!free(a)) continue;
             kick(a, 0.5 * dt);
+            if (posKin) pm[i] = (kin == Kin::Sec28) ? sec28Momentum(a) : ftTauMomentum(a);
             a.pos += a.vel * dt;
+        }
+        if (posKin) {
+            computeDilation();                     // f at the new positions
+            heavy = -1;
+            for (int i = 0; i < int(p.size()); ++i) if (heavy < 0 || p[i].m > p[heavy].m) heavy = i;
+            for (size_t i = 0; i < p.size(); ++i) if (free(p[i]))
+                { if (kin == Kin::Sec28) sec28Velocity(p[i], pm[i]); else ftTauVelocity(p[i], pm[i]); }
         }
         computeAcc();
         for (auto &a : p) {
@@ -1873,6 +2016,22 @@ public:
             const double db  = b2 - bs2;                          // = v^2/c^2
             switch (kin) {
             case Kin::Newtonian: k += 0.5 * a.m * u2; break;
+            case Kin::FTtau: {
+                if (heavy < 0 || &a == &p[heavy]) { k += 0.5 * a.m * u2; break; }
+                const double f = a.fpos, uu = u2 / (f * f);
+                const double G = 1.0 / std::max(1e-15, 1.0 - std::min(1.0 - 1e-15, uu / C2));
+                k += f * (G - 1.0 - 0.5 * std::log(G)) * a.m * C2;      // f K_41(u)
+                break;
+            }
+            case Kin::Sec28: {
+                // H = p_r^2/2m + f^2 p_t^2/2m = m v_r^2/2 + m v_t^2/(2 f^2)
+                if (heavy < 0 || &a == &p[heavy]) { k += 0.5 * a.m * u2; break; }
+                const Vec3 rh = unit(a.pos - p[heavy].pos);
+                const double vr = dot(a.vel, rh), vt2 = v2 - vr * vr;
+                const double f2 = std::max(1e-300, a.fpos * a.fpos);
+                k += 0.5 * a.m * (vr * vr + vt2 / f2 + vs2);
+                break;
+            }
             case Kin::SR: {
                 const double ru = std::sqrt(1.0 - b2), rs = std::sqrt(1.0 - bs2);
                 const double gu_gs = db / (ru * rs * (ru + rs));          // gamma(u) - gamma(v_s)
@@ -1954,6 +2113,14 @@ public:
         // uniform E and g have potentials -q E.r and -m g.r; B and B_g do no work
         for (const auto &a : p)
             u -= a.q * dot(extE, a.pos) + a.m * dot(extG, a.pos);
+        // FTtau: the gravitational term is -U/f, i.e. -U(1/f - 1) beyond Newton
+        if (kin == Kin::FTtau && heavy >= 0 && gravity)
+            for (const auto &a : p) {
+                if (&a == &p[heavy]) continue;
+                const double r = norm(a.pos - p[heavy].pos);
+                if (r < 1e-300) continue;
+                u -= G_UNITS * gravGain * p[heavy].m * a.m / r * (1.0 / a.fpos - 1.0);
+            }
         return u + dipolePotential();
     }
 };
@@ -3055,7 +3222,9 @@ public:
                          "FT 1/2                  p = m v / (1 - v^2/2c^2)",
                          "FT Eq.41                p = m v / (1 - v^2/c^2)",
                          "SR                      p = m v / sqrt(1 - v^2/c^2)",
-                         "Newtonian               p = m v"});
+                         "Newtonian               p = m v",
+                         "Sec. 2.8 Lagrangian     p_t = m v_t / f^2, p_r = m v_r  (Newton gravity)",
+                         "FT proper time          f L41(v/f) + U/f   p = m (v/f)/(1 - v^2/f^2c^2)"});
         cbKin->setCurrentIndex(3);              // default: FT 1/2
         sbQcdGain = new QDoubleSpinBox; sbQcdGain->setDecimals(6);
         sbQcdGain->setRange(1e-9, 10.0); sbQcdGain->setValue(1.0);
@@ -3621,8 +3790,26 @@ public:
                "conserved off circular orbits; the E readout will drift.\n\n"
                "FT 1/2 (DEFAULT), FT Eq.41, SR, Newtonian: velocity-only\n"
                "factors (FT 1/2 limit sqrt2 c, Eq.41 limit c).\n"
-               "QCD confinement needs a speed limit and switches the three\n"
-               "unlimited choices back to the default.");
+               "QCD confinement needs a speed limit and switches the\n"
+               "unlimited choices back to the default.\n\n"
+               "Sec. 2.8 (manuscript Eq. 66): the GR effective potential with\n"
+               "its metric factor replaced by f^2, V = -GMm/r + L^2 f^2/(2mr^2).\n"
+               "The mechanics that has this effective potential is the\n"
+               "Lagrangian with Newtonian gravity untouched and the TANGENTIAL\n"
+               "momentum p_t = m v_t/f^2 (radial p_r = m v_r), f = gravitational\n"
+               "dilation at the body, tangential w.r.t. the heaviest body.\n"
+               "Use with the Coulomb route; exactly Hamiltonian (E conserved).\n"
+               "Perihelion advance +2 pi GM/(c^2 p) per orbit = 1/3 of GR\n"
+               "(Mercury 14.3\"/cy vs 42.98 measured): the manuscript's 6 pi\n"
+               "needs phi' = L/(m r^2) without the f^2, which this Lagrangian\n"
+               "does not give (its L is m r^2 phi'/f^2).\n\n"
+               "FT proper time: the velocity-dependent reading. The body's\n"
+               "clock runs at f, so its own velocity is u = v/f and its Eq. 41\n"
+               "mechanics is written in its own time: S = int [L41(u) + U/f^2] dtau,\n"
+               "L = f L41(v/f) + U/f, L41 = -(mc^2/2) ln(1 - u^2/c^2).\n"
+               "p = m u/(1 - u^2/c^2); forces: Newton's, -K41(u) grad f, grad(U/f).\n"
+               "Use with the Coulomb route. Perihelion advance +6 pi GM/(c^2 p)\n"
+               "= GR (Mercury 42.98\"/cy). With plain U (no 1/f) it is 4 pi.");
         addRow(form, "QCD gain (display)", sbQcdGain,
                "Scales the Cornell term. 1 = alpha_s 0.35, sigma 0.18 GeV^2.\n"
                "Reduce it to run at a larger dt; gain != 1 is not physics.");
@@ -3967,7 +4154,7 @@ public:
             // Newtonian have none
             {
                 const int k = cbKin->currentIndex();
-                if (b && (k == 1 || k == 2 || k == 6)) cbKin->setCurrentIndex(3); // FT 1/2
+                if (b && (k == 1 || k == 2 || k == 6 || k == 7 || k == 8)) cbKin->setCurrentIndex(3); // FT 1/2
             }
             sim.computeAcc(); view->update();
         });
@@ -4090,8 +4277,8 @@ private slots:
         {
             static const Sim::Kin K[] = {Sim::Kin::F2SC, Sim::Kin::F2Lin,
                 Sim::Kin::F2Pos, Sim::Kin::FTHalf, Sim::Kin::FT, Sim::Kin::SR,
-                Sim::Kin::Newtonian};
-            sim.kin = K[qBound(0, cbKin->currentIndex(), 6)];
+                Sim::Kin::Newtonian, Sim::Kin::Sec28, Sim::Kin::FTtau};
+            sim.kin = K[qBound(0, cbKin->currentIndex(), 8)];
         }
         sim.constituent = chConstituent->isChecked();
         sim.qcdGain     = sbQcdGain->value();
