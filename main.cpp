@@ -4059,12 +4059,12 @@ public:
             "1e10 M_sun bulge + 200 tracer stars of 1e3 M_sun on a disk to\n"
             "15 kpc, each started on the circular orbit the current force\n"
             "law gives. The force route is left as the profile set it.\n"
-            "CAUTION: with the symmetric pair scale S = sqrt(M m) the\n"
-            "bulge/tracer crossover sits at 0.0016 kpc, not M/eta_g = 5 kpc,\n"
-            "so the tracers orbit Keplerian (107 km/s at 3.7 kpc, 54 at 15)\n"
-            "whatever eta_g. The paper's Eq. 103 uses S = M alone.\n"
-            "ETA_G preset 'galactic fit': r_c = M/eta_g = 5 kpc, the per-galaxy\n"
-            "fitted value of Sec. 4.4.1 (c^2/G puts r_c at 7e13 m, invisible).\n"
+            "Default ETA_G = 7.4773e36. With the symmetric pair scale\n"
+            "S = sqrt(M m) that puts the bulge/tracer crossover at\n"
+            "sqrt(M m)/eta_g = 1.6 kpc, inside the disk. (With S = M alone,\n"
+            "the paper's Eq. 103, the same eta_g would give 5000 kpc; the\n"
+            "per-galaxy fit of Sec. 4.4.1, r_c = M/eta_g = 5 kpc, is 7.4773e39.\n"
+            "c^2/G puts r_c at 7e13 m, invisible.)\n"
             "dt = 1e30 (~300 steps per orbit at 8 kpc). Ruler reads kpc."));
         tabs->setTabToolTip(1, tipHtml(
             "Sun + eight planets at mean distance, circular, random phases.\n"
@@ -4467,8 +4467,9 @@ private slots:
     // tab only changes what the Presets menu does not.  The force route is
     // never touched: under FT it stays Potential at every scale.  Note for
     // galactic: the symmetric pair scale S = sqrt(M m) (Newton's-third-law
-    // fix) puts the bulge/tracer crossover at sqrt(M m)/eta_g = 0.0016 kpc,
-    // not at M/eta_g = 5 kpc, so tracers orbit Keplerian on either route.
+    // fix) puts the bulge/tracer crossover at sqrt(M m)/eta_g, so the default
+    // ETA_G = 7.4773e36 places it at 1.6 kpc, inside the disk (7.4773e39, the
+    // S = M per-galaxy fit, would leave it at 0.0016 kpc).
     void parkTab(int k)
     {
         if (k < 0 || k > 4) return;
@@ -4529,7 +4530,7 @@ private slots:
     {
         syncSettings();
         switch (k) {
-        case 0:  sbEtaG->setValue(7.4773e39);        // r_c = M_bulge/eta_g = 5 kpc
+        case 0:  sbEtaG->setValue(7.4773e36);        // symmetric S = sqrt(M m): bulge/tracer r_c = 1.6 kpc
                  sbDt->setValue(1e30);  sbBox->setValue(15 * Sim::KPC_A0);
                  setZoom(250.0 / (15 * Sim::KPC_A0)); break;
         case 1:  sbEtaG->setValue(7.822540e46);      // c^2/G
