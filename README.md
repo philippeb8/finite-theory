@@ -1,5 +1,7 @@
 # ftsim — N point charges under Finite Theory's time-dilation factor
 
+![ftsim in action](ftsim.gif)
+
 ## Build
 
 ```sh
@@ -125,13 +127,18 @@ sheets). Two options:
 
 Both effects are ≤ 2e-10 at gain 1 — raise the gravity gain to see them.
 
-- **axial force m·dv_s/dt** (on by default) — a force along the spin axis
-  that acts only while the spin rate changes, zero at steady spin. Per body
-  `a = (dv_s/dt)·axis`, `dv_s/dt = √k·R·dω/dt`. Only Earth has a measured
-  spin-down (tidal braking, +1.7 ms/century on the day): dω/dt = −4.6e-22
-  rad/s², a = −1.7e-15 m/s² along the axis, 3e-13 of the Sun's pull, 23.4° off
-  the orbit normal; the other bodies default to 0. Counted in E as
-  −m·a·(axis·r).
+- **axial force from the CD spin law** (on by default) — the threshold law
+  measured on a spinning 13 g CD (FX-CDLIFT-2026-10 Rev D),
+  `Δm = A·[(n/n0)^(5/2) − 1]` for n ≥ n0, with A = 8.4 g and n0 = 2330 rpm.
+  Per unit mass that is an acceleration along the spin vector,
+  `a = a_A·[(ω/ω0)^(5/2) − 1]` for ω > ω0 and zero below, where
+  a_A = A·g/M_CD = 6.35 m/s² and ω0 = 243.8 rad/s. It replaces the earlier
+  spin-down force `√k·R·dω/dt`. Every solar body spins far below ω0 (Jupiter
+  1.8e-4 rad/s, 7e-7 of ω0), so the force is zero for all of them; the spin
+  table's `a_ax` column shows it per body. Scaling by equatorial speed instead
+  (v0 = ω0 × 60 mm = 14.6 m/s) would give Earth 3.6e4 m/s² (6e6 times the
+  Sun's pull) and push Jupiter past c within 20 minutes, so it is not offered.
+  Counted in E as −m·a·(axis·r).
 
 ### Shadow planets
 

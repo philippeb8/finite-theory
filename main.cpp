@@ -497,7 +497,8 @@ struct Particle {
     // The spin speed sqrt(2 Phi_spin) sits on the rotation axis (z here).
     double  spinPot = 0.0;
     Vec3    axis      = Vec3(0, 0, 1);   // rotation axis (unit) - display, and v_s sits on it
-    double  spinRate  = 0.0;             // d v_s/dt along the axis (sim units): sqrt(k) R domega/dt
+    double  omegaSI   = 0.0;             // |spin rate| (rad/s) of a Sun/planet body, 0 elsewhere
+    double  axialAcc  = 0.0;             // axial acceleration from the spin law (sim units), Sim::updateAxial()
     double  Br        = 0.0;             // remanence (tesla) of a magnetised ball; axis = magnetisation S->N
     Vec3    angVel;                      // rigid-body angular velocity of a magnetised ball (rad per sim time)
     double  tImpact   = -1.0;            // freefall: time the ball reached the floor
@@ -564,14 +565,35 @@ public:
     // for that body: ~2e-10 at Jupiter, so raise the gravity gain to see it.
     bool   bodySpin = true;
     bool   spinSub  = true;
-    // AXIAL FORCE.  A force along the spin axis that acts only while the
-    // spin rate changes: a = (d v_s/dt) axis per body, v_s = sqrt(k) omega R,
-    // so d v_s/dt = sqrt(k) R domega/dt.  Only
-    // Earth has a measured spin-down (tidal braking, +1.7 ms/century on the
-    // day: domega/dt = -4.6e-22 rad/s^2 -> a = -1.7e-15 m/s^2 along the axis);
-    // the other bodies default to 0.  A constant force along a fixed axis
-    // has the potential -m a (axis . r), counted in potential().
+    // AXIAL FORCE from the spinning-CD threshold law (FX-CDLIFT-2026-10 Rev D):
+    //   dm = A [ (n/n0)^(5/2) - 1 ]  for n >= n0,  A = 8.4125 g, n0 = 2328.3 rpm,
+    // measured on a 13 g, 60 mm-radius CD.  Per unit mass that is the axial
+    // acceleration a = a_A [ (omega/omega0)^(5/2) - 1 ] for omega > omega0,
+    // zero below, with a_A = A g / M_CD = 6.35 m/s^2 and omega0 = 243.8 rad/s,
+    // along the spin vector (the CD lifted when spun counterclockwise seen
+    // from above).  Every solar body spins far below omega0 (Jupiter
+    // 1.8e-4 rad/s), so the force is zero for all of them.  Scaling by
+    // equatorial speed instead (v0 = 14.6 m/s) would give Earth 3.6e4 m/s^2
+    // and push Jupiter past c within 20 minutes, so it is not offered.
+    // A constant force along a fixed axis has the potential -m a (axis . r),
+    // counted in potential().
     bool   spinForce = true;
+    static constexpr double CD_A_KG   = 8.4125e-3;   // A (kg)
+    static constexpr double CD_M_KG   = 0.013;       // CD mass (kg)
+    static constexpr double CD_R_M    = 0.06;        // CD radius (m)
+    static constexpr double CD_N0_RPM = 2328.3;      // threshold speed (rpm)
+    static constexpr double CD_EXP    = 2.5;         // exponent
+    static double cdOmega0() { return 2.0 * M_PI * CD_N0_RPM / 60.0; }     // rad/s
+    static double cdAccAmp() { return CD_A_KG * 9.80665 / CD_M_KG; }      // m/s^2
+    static double axialAccSI(double omega)                                // m/s^2
+    {
+        const double x = omega / cdOmega0();
+        return x > 1.0 ? cdAccAmp() * (std::pow(x, CD_EXP) - 1.0) : 0.0;
+    }
+    void updateAxial()
+    {
+        for (auto &a : p) a.axialAcc = (a.omegaSI > 0.0) ? axialAccSI(a.omegaSI) * MPS2_AU : 0.0;
+    }
 
     // FREEFALL TAB.  Two 66 g balls, steel and NdFeB, released together from
     // height h above a floor at z = 0 in Earth's g.  The magnet carries, as
@@ -1391,6 +1413,7 @@ public:
         static const double Rk[8] = {2439.7, 6051.8, 6371.0, 3389.5, 69911, 58232, 25362, 24622};
         static const double Ik[8] = {0.346, 0.337, 0.3307, 0.3644, 0.254, 0.210, 0.225, 0.23};
         p.back().name = "Sun"; p.back().spinPot = spinPotential(25.05 * 24.0, 695700.0, 0.070);
+        p.back().omegaSI = 2.0 * M_PI / (25.05 * 24.0 * 3600.0);
         // orbit inclination to the ecliptic and longitude of the ascending
         // node (deg, J2000), and the obliquity of the spin axis to the orbit
         static const double inc[8] = {7.005, 3.395, 0.0, 1.850, 1.303, 2.489, 0.773, 1.770};
@@ -1411,12 +1434,9 @@ public:
             p.back().spinPot = spinPotential(Th[k], Rk[k], Ik[k]);
             p.back().orbNormal = orient(Vec3(0, 0, 1));
             p.back().axis = orient(Vec3(std::sin(e), 0.0, std::cos(e)));   // tilted from the orbit normal
-            if (k == 2) {                                                   // Earth: measured spin-down
-                const double domega = -4.56e-22;                            // rad/s^2
-                const double a_SI = std::sqrt(Ik[k]) * Rk[k] * 1e3 * domega;          // m/s^2
-                p.back().spinRate = a_SI * MPS2_AU;                          // -> a.u. of acceleration
-            }
+            p.back().omegaSI = 2.0 * M_PI / (std::fabs(Th[k]) * 3600.0);  // retrograde sense is in the axis
         }
+        updateAxial();
         circularize(0);
         buildShadow(0);
     }
@@ -1876,7 +1896,7 @@ public:
         if (kin == Kin::Sec28) sec28Pass();
         if (kin == Kin::FTtau) ftTauPass();
         if (spinForce)
-            for (auto &a : p) if (a.spinRate != 0.0) a.acc += a.axis * a.spinRate;
+            for (auto &a : p) if (a.axialAcc != 0.0) a.acc += a.axis * a.axialAcc;
         if (freefall) freefallPass();
     }
 
@@ -2254,9 +2274,9 @@ public:
                 u += a.m * gEarth * a.pos.z;
                 if (magAcc && a.Br != 0.0) u -= a.m * magAccSI(a.Br) * MPS2_AU * dot(a.axis, a.pos);
             }
-        // axial spin-down force: constant along a fixed axis, potential -m a (axis . r)
+        // axial spin-law force: constant along a fixed axis, potential -m a (axis . r)
         if (spinForce)
-            for (const auto &a : p) if (a.spinRate != 0.0) u -= a.m * a.spinRate * dot(a.axis, a.pos);
+            for (const auto &a : p) if (a.axialAcc != 0.0) u -= a.m * a.axialAcc * dot(a.axis, a.pos);
         // FTtau: the gravitational term is -U/f, i.e. -U(1/f - 1) beyond Newton
         if (kin == Kin::FTtau && heavy >= 0 && gravity)
             for (const auto &a : p) {
@@ -3158,7 +3178,7 @@ protected:
         for (const auto &a : sim->p) if (a.name) { named = true; break; }
         if (sim->spinForce && named)
             rows.append({QColor("#5DADE2"), -1,
-                         QString("+ axial force m dv_s/dt along the spin axis (spin-down bodies)")});
+                         QString("+ axial force a = 6.35 m/s^2 [(omega/243.8 rad/s)^(5/2) - 1] along the spin axis (CD law)")});
         if (sim->bodySpin && named)
             rows.append({QColor("#5DADE2"), -1,
                          QString("+ body spin: v_s = sqrt(2 Phi_spin) on the axis%1")
@@ -3754,17 +3774,18 @@ public:
             "selected route, eta_g, kinematics and spin options change."));
         sg->addWidget(chShadow);
         connect(chShadow, &QCheckBox::toggled, this, [this](bool b) { sim.shadowOn = b; view->update(); });
-        chSpinForce = new QCheckBox("axial force m·dv_s/dt from the spin-down (Earth: −1.7e-15 m/s²)");
+        chSpinForce = new QCheckBox("axial force from the CD spin law  a = a_A[(ω/ω0)^(5/2) − 1]");
         chSpinForce->setChecked(true);
         chSpinForce->setToolTip(tipHtml(
-            "A force along the spin axis that acts only while the spin rate\n"
-            "changes, zero at steady spin. Per body a = (d v_s/dt) axis, v_s = sqrt(k) omega R,\n"
-            "so d v_s/dt = sqrt(k) R domega/dt, along the rotation axis.\n"
-            "Only Earth has a measured spin-down (tidal braking, +1.7 ms per\n"
-            "century on the day): domega/dt = -4.6e-22 rad/s^2 ->\n"
-            "a = -1.7e-15 m/s^2, 3e-13 of the Sun's pull, 23.4 deg off the\n"
-            "orbit normal. The other bodies default to 0. Counted in E as\n"
-            "-m a (axis . r)."));
+            "Threshold law measured on a spinning 13 g CD (FX-CDLIFT-2026-10 Rev D):\n"
+            "dm = A [(n/n0)^(5/2) - 1] for n >= n0, A = 8.4 g, n0 = 2330 rpm.\n"
+            "Per unit mass: a = a_A [(omega/omega0)^(5/2) - 1] for omega > omega0,\n"
+            "zero below, a_A = A g / M_CD = 6.35 m/s^2, omega0 = 243.8 rad/s,\n"
+            "along the spin vector. Every solar body spins far below omega0\n"
+            "(Jupiter 1.8e-4 rad/s), so a = 0 for all of them. Scaling by\n"
+            "equatorial speed instead (v0 = 14.6 m/s) would give Earth 3.6e4 m/s^2\n"
+            "and push Jupiter past c within 20 minutes, so it is not offered.\n"
+            "Counted in E as -m a (axis . r)."));
         sg->addWidget(chSpinForce);
         connect(chSpinForce, &QCheckBox::toggled, this, [this](bool b) { sim.spinForce = b; sim.computeAcc(); view->update(); });
         lbSpinTable = new QLabel; lbSpinTable->setFont(QFont("monospace", 8));
@@ -4657,7 +4678,7 @@ private:                                  // data and helpers: not slots
         // per body: spin numbers, then the polar (spherical, in-plane) offset
         // of the live body from its Newtonian shadow about the Sun:
         // dr = r - r_shadow (AU), dtheta = theta - theta_shadow (deg, wrapped)
-        QString t = "body      v_s km/s  dv_s/dt m/s2  Phi/c^2    dr AU     dtheta deg  dphi deg\n";
+        QString t = "body      v_s km/s  a_ax m/s2     Phi/c^2    dr AU     dtheta deg  dphi deg\n";
         const double GM = sim.p.empty() ? 0.0 : Sim::G_UNITS * sim.gravGain * sim.p[0].m;
         const bool sh = sim.shadow.size() == sim.p.size() && !sim.p.empty();
         for (size_t i = 0; i < sim.p.size(); ++i) {
@@ -4680,7 +4701,7 @@ private:                                  // data and helpers: not slots
             }
             (void)ratio;
             t += QString("%1 %2 %3 %4 %5\n").arg(a.name, -8).arg(vs, 8, 'f', 3)
-                     .arg(a.spinRate / Sim::MPS2_AU, 12, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
+                     .arg(a.axialAcc / Sim::MPS2_AU, 12, 'e', 2).arg(a.spinPot / C2, 9, 'e', 2).arg(pol);
         }
         lbSpinTable->setText(t.trimmed());
     }
@@ -4875,7 +4896,7 @@ private slots:
         ffBox->setVisible(k == 5);
         if (k == 1) { sim.bodySpin = chBodySpin->isChecked(); sim.spinSub = chSpinSub->isChecked();
                       sim.shadowOn = chShadow->isChecked(); sim.spinForce = chSpinForce->isChecked();
-                      sim.computeAcc(); fillSpinTable(); }
+                      sim.updateAxial(); sim.computeAcc(); fillSpinTable(); }
         if (sim.spinOn) { sim.assignSpins(seed++); sim.computeAcc(); }
         setWindowTitle(QString("Finite Theory simulator - %1 scale   [%2]")
                            .arg(names[qBound(0, k, 5)]).arg(profileName));
