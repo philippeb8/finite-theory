@@ -127,12 +127,10 @@ sheets). Two options:
 
 Both effects are ≤ 2e-10 at gain 1 — raise the gravity gain to see them.
 
-- **axial force from the CD spin law** (on by default) — the threshold law
-  measured on a spinning 13 g CD (FX-CDLIFT-2026-10 Rev D),
-  `Δm = A·[(n/n0)^(5/2) − 1]` for n ≥ n0, with A = 8.4 g and n0 = 2330 rpm.
-  Per unit mass that is an acceleration along the spin vector,
-  `a = a_A·[(ω/ω0)^(5/2) − 1]` for ω > ω0 and zero below, where
-  a_A = A·g/M_CD = 6.35 m/s² and ω0 = 243.8 rad/s. It replaces the earlier
+- **axial force from the spin threshold law** (on by default) — the law
+  fitted in FX-CDLIFT-2026-10 Rev D, per unit mass an acceleration along the
+  spin vector, `a = a_A·[(ω/ω0)^(5/2) − 1]` for ω > ω0 and zero below, where
+  a_A = 6.35 m/s² and ω0 = 243.8 rad/s (2330 rpm). It replaces the earlier
   spin-down force `√k·R·dω/dt`. Every solar body spins far below ω0 (Jupiter
   1.8e-4 rad/s, 7e-7 of ω0), so the force is zero for all of them; the spin
   table's `a_ax` column shows it per body. Scaling by equatorial speed instead

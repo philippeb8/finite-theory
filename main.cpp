@@ -565,30 +565,28 @@ public:
     // for that body: ~2e-10 at Jupiter, so raise the gravity gain to see it.
     bool   bodySpin = true;
     bool   spinSub  = true;
-    // AXIAL FORCE from the spinning-CD threshold law (FX-CDLIFT-2026-10 Rev D):
-    //   dm = A [ (n/n0)^(5/2) - 1 ]  for n >= n0,  A = 8.4125 g, n0 = 2328.3 rpm,
-    // measured on a 13 g, 60 mm-radius CD.  Per unit mass that is the axial
-    // acceleration a = a_A [ (omega/omega0)^(5/2) - 1 ] for omega > omega0,
-    // zero below, with a_A = A g / M_CD = 6.35 m/s^2 and omega0 = 243.8 rad/s,
-    // along the spin vector (the CD lifted when spun counterclockwise seen
-    // from above).  Every solar body spins far below omega0 (Jupiter
+    // AXIAL FORCE from the spin threshold law (FX-CDLIFT-2026-10 Rev D):
+    //   dm = A [ (n/n0)^(5/2) - 1 ]  for n >= n0,  A = 8.4125 g on a 13 g
+    // rotor, n0 = 2328.3 rpm.  Per unit mass that is the axial acceleration
+    // a = a_A [ (omega/omega0)^(5/2) - 1 ] for omega > omega0, zero below,
+    // with a_A = A g / M_rotor = 6.35 m/s^2 and omega0 = 243.8 rad/s, along
+    // the spin vector.  Every solar body spins far below omega0 (Jupiter
     // 1.8e-4 rad/s), so the force is zero for all of them.  Scaling by
     // equatorial speed instead (v0 = 14.6 m/s) would give Earth 3.6e4 m/s^2
     // and push Jupiter past c within 20 minutes, so it is not offered.
     // A constant force along a fixed axis has the potential -m a (axis . r),
     // counted in potential().
     bool   spinForce = true;
-    static constexpr double CD_A_KG   = 8.4125e-3;   // A (kg)
-    static constexpr double CD_M_KG   = 0.013;       // CD mass (kg)
-    static constexpr double CD_R_M    = 0.06;        // CD radius (m)
-    static constexpr double CD_N0_RPM = 2328.3;      // threshold speed (rpm)
-    static constexpr double CD_EXP    = 2.5;         // exponent
-    static double cdOmega0() { return 2.0 * M_PI * CD_N0_RPM / 60.0; }     // rad/s
-    static double cdAccAmp() { return CD_A_KG * 9.80665 / CD_M_KG; }      // m/s^2
+    static constexpr double SPIN_A_KG   = 8.4125e-3;   // A (kg)
+    static constexpr double SPIN_M_KG   = 0.013;       // rotor mass (kg)
+    static constexpr double SPIN_N0_RPM = 2328.3;      // threshold speed (rpm)
+    static constexpr double SPIN_EXP    = 2.5;         // exponent
+    static double spinOmega0() { return 2.0 * M_PI * SPIN_N0_RPM / 60.0; }     // rad/s
+    static double spinAccAmp() { return SPIN_A_KG * 9.80665 / SPIN_M_KG; }      // m/s^2
     static double axialAccSI(double omega)                                // m/s^2
     {
-        const double x = omega / cdOmega0();
-        return x > 1.0 ? cdAccAmp() * (std::pow(x, CD_EXP) - 1.0) : 0.0;
+        const double x = omega / spinOmega0();
+        return x > 1.0 ? spinAccAmp() * (std::pow(x, SPIN_EXP) - 1.0) : 0.0;
     }
     void updateAxial()
     {
@@ -3178,7 +3176,7 @@ protected:
         for (const auto &a : sim->p) if (a.name) { named = true; break; }
         if (sim->spinForce && named)
             rows.append({QColor("#5DADE2"), -1,
-                         QString("+ axial force a = 6.35 m/s^2 [(omega/243.8 rad/s)^(5/2) - 1] along the spin axis (CD law)")});
+                         QString("+ axial force a = 6.35 m/s^2 [(omega/243.8 rad/s)^(5/2) - 1] along the spin axis")});
         if (sim->bodySpin && named)
             rows.append({QColor("#5DADE2"), -1,
                          QString("+ body spin: v_s = sqrt(2 Phi_spin) on the axis%1")
@@ -3774,13 +3772,12 @@ public:
             "selected route, eta_g, kinematics and spin options change."));
         sg->addWidget(chShadow);
         connect(chShadow, &QCheckBox::toggled, this, [this](bool b) { sim.shadowOn = b; view->update(); });
-        chSpinForce = new QCheckBox("axial force from the CD spin law  a = a_A[(ω/ω0)^(5/2) − 1]");
+        chSpinForce = new QCheckBox("axial force from the spin threshold law  a = a_A[(ω/ω0)^(5/2) − 1]");
         chSpinForce->setChecked(true);
         chSpinForce->setToolTip(tipHtml(
-            "Threshold law measured on a spinning 13 g CD (FX-CDLIFT-2026-10 Rev D):\n"
-            "dm = A [(n/n0)^(5/2) - 1] for n >= n0, A = 8.4 g, n0 = 2330 rpm.\n"
-            "Per unit mass: a = a_A [(omega/omega0)^(5/2) - 1] for omega > omega0,\n"
-            "zero below, a_A = A g / M_CD = 6.35 m/s^2, omega0 = 243.8 rad/s,\n"
+            "Spin threshold law (FX-CDLIFT-2026-10 Rev D), per unit mass:\n"
+            "a = a_A [(omega/omega0)^(5/2) - 1] for omega > omega0, zero below,\n"
+            "a_A = 6.35 m/s^2, omega0 = 243.8 rad/s (2330 rpm),\n"
             "along the spin vector. Every solar body spins far below omega0\n"
             "(Jupiter 1.8e-4 rad/s), so a = 0 for all of them. Scaling by\n"
             "equatorial speed instead (v0 = 14.6 m/s) would give Earth 3.6e4 m/s^2\n"
