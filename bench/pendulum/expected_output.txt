@@ -1,0 +1,11 @@
+IMG_8754_steel     T = 2.8313 +- 0.0004 s over 17 swings (near 2.8307, far 2.8318)
+IMG_8755_magnets   T = 2.8527 +- 0.0008 s over 20 swings (near 2.8532, far 2.8522)
+magnets longer by 0.758 +- 0.032 %
+measured                 +0.76 +- 0.03 %
+rope mass                -0.24 %
+slower decay (estimate)  -0.10 +- 0.10 %
+centre 3.1 mm higher     +0.08 %
+remaining                +0.50 +- 0.12 %
+twine stretch            -0.02 to -0.09 %
+remaining with stretch   +0.41 to +0.48 % (+- 0.12)
+m_g/m_i of the magnets   0.9905 to 0.9919 (+- 0.0023)

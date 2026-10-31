@@ -1,0 +1,52 @@
+excluded (failed steel track): [(8, 'D', np.float64(6.89))]
+
+block  n   a_magnet        a_steel         ratio
+ 7U   4   8.35 ± 0.37   10.81 ± 0.05   0.772 ± 0.036
+ 7D   4   9.20 ± 0.14   10.78 ± 0.16   0.854 ± 0.010
+ 8U   4   9.00 ± 0.56   10.89 ± 0.09   0.826 ± 0.048
+ 8D   3   9.25 ± 0.18   10.82 ± 0.04   0.855 ± 0.018
+ 9U   4   7.72 ± 0.62   10.67 ± 0.07   0.723 ± 0.057
+ 9D   4   9.04 ± 0.23   10.54 ± 0.04   0.858 ± 0.020
+10U   4   8.80 ± 0.63   10.72 ± 0.02   0.821 ± 0.059
+10D   4   9.34 ± 0.41   10.52 ± 0.05   0.888 ± 0.036
+11U   4   8.81 ± 0.56   10.62 ± 0.12   0.830 ± 0.055
+11D   4   9.31 ± 0.22   10.71 ± 0.12   0.870 ± 0.016
+
+steel 10.705 ± 0.031 m/s2 (9.2% above g)
+ratio 0.8290 ± 0.0135 ; deficit 1.677 ± 0.133 m/s2 (17.1 ± 1.4%)
+sd of ratio: U 0.101, D 0.041 ; Levene p = 0.0003
+odd per day [0.398 0.144 0.659 0.325 0.193]  mean 0.344 ± 0.091 m/s2, t = 3.78, p = 0.019
+even mean -1.670 ± 0.119 m/s2
+
+optics curvature k = -0.0352 ± 0.0126 /m
+lin   dchi2    +0   U 0.478 ± 0.065   D 0.287 ± 0.023
+quad  dchi2   +50   U 0.109 ± 0.017   D 0.060 ± 0.005
+const dchi2   +97   U 7.856 ± 0.230   D 8.531 ± 0.097
+tn4   dchi2  +250   U 0.229 ± 0.037   D 0.127 ± 0.012
+
+lateral U: acceleration 0.24 ± 0.10 m/s2, end offset 0.040 ± 0.023 m
+lateral D: acceleration -0.04 ± 0.05 m/s2, end offset -0.051 ± 0.016 m
+
+LOWER HALF
+height-calibrated (paper)  upper: a 8.30 ± 0.13 (deficit 15.1 ± 1.3%) | odd +0.377 ± 0.080 | even -1.46 ± 0.14
+height-calibrated (paper)  lower: a 7.71 ± 0.41 (deficit 21.1 ± 4.2%) | odd +0.246 ± 0.270 | even -2.06 ± 0.51
+clock-calibrated           upper: a 8.17 ± 0.13 (deficit 16.4 ± 1.3%) | odd +0.384 ± 0.084 | even -1.59 ± 0.12
+clock-calibrated           lower: a 7.35 ± 0.42 (deficit 24.8 ± 4.3%) | odd +0.256 ± 0.255 | even -2.42 ± 0.56
+ratio, same lower half     upper: a 8.32 ± 0.13 (deficit 14.9 ± 1.3%) | odd +0.368 ± 0.079 | even -1.44 ± 0.14
+ratio, same lower half     lower: a 8.02 ± 0.33 (deficit 17.9 ± 3.4%) | odd +0.231 ± 0.219 | even -1.74 ± 0.43
+lower-half lateral acceleration of the magnet relative to the steel sphere, U: -0.89 ± 0.20 m/s2 (+ toward it)
+lower-half lateral acceleration of the magnet relative to the steel sphere, D: -0.42 ± 0.09 m/s2 (+ toward it)
+
+TABLE 3  block  drops  a1 upper (m/s2)   a2 lower (m/s2)
+         7U     4     8.16 +- 0.21      5.00 +- 1.19
+         7D     4     8.88 +- 0.31      6.70 +- 1.55
+         8U     4     8.33 +- 0.38      7.44 +- 1.59
+         8D     3     8.74 +- 0.10      7.61 +- 0.89
+         9U     4     7.10 +- 0.55      7.24 +- 0.68
+         9D     4     8.46 +- 0.04      8.64 +- 1.34
+        10U     4     8.00 +- 0.57      8.36 +- 0.71
+        10D     4     8.57 +- 0.29      8.91 +- 1.83
+        11U     4     8.07 +- 0.46      9.28 +- 1.60
+        11D     4     8.80 +- 0.34      7.91 +- 1.05
+wrote /tmp/claude-0/-home-claude/edc425d8-005b-54ca-a25b-82ca5bade551/scratchpad/bench/freefall/lower_half.json
+wrote /tmp/claude-0/-home-claude/edc425d8-005b-54ca-a25b-82ca5bade551/scratchpad/bench/freefall/per_drop.csv

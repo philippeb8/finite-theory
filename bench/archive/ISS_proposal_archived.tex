@@ -1,0 +1,67 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}\usepackage{amsmath}
+\title{Michelson--Morley Interferometer on the International Space Station\\[2pt]\large Archived proposal from \emph{Finite Theory: Solutions for Physics Anomalies}}
+\author{P. Bouchard, Services Informatiques Fornux}
+\date{Archived 29 October 2026, release bench-v1.0}
+\begin{document}\maketitle
+\section*{Archive note}
+This proposal was removed from the paper and is kept here as a conjecture for a possible future test. It is not reconciled with the paper in four respects, raised in the editorial assessment of 28 October 2026:
+\begin{enumerate}
+\item It assumes that the frequency of a photon is the same in all frames of reference, whereas the Doppler relation of the paper, its Eq.~(64), gives a frequency shift between moving observers.
+\item The speed of the experimenter, $88\,\%$ of $6125.22\,m/s$, uses a frame factor that does not follow from the kinetic time dilation factor of the paper, its Eq.~(17): with the masses and positions used there, the share of the Earth in the gravitational acceleration at 400 km is about $0.9993$, and that share is not itself a clock-rate or velocity factor. The orbit, orientation and physical relative velocity, and the frame used, are not specified.
+\item The quoted wavelength difference checks the substitution only; the response of the complete instrument (source, optical path, local frequency and wavelength references, one-way or round-trip observable, modulation with orientation and orbital phase, null configuration) is not derived.
+\item The prediction is not compared with existing rotating optical-cavity tests, which constrain round-trip observables near $\Delta c/c \approx 10^{-17}$; the round-trip response of the model would have to be derived first.
+\end{enumerate}
+\section*{Proposal as archived}
+
+
+
+
+
+Although gravitons have not been directly detected and might not
+even be possible [Rothman], we hypothesize detecting their
+presence indirectly by observing a variance in both c and the
+wavelength of a photon from the graviton field it is traveling
+through. We reevaluate the absoluteness of the reference frames,
+as is demanded by the hypotheses of the Finite Theory. 
+
+The observer is subject to time dilation relative to the surface of the Earth but the wavelength meter is also subject to the same amount of time dilation so both effects cancel out and what the observer sees is a normally functioning wavelength meter. The wavelength is relative to the spinning surface of the Earth so having an observer moving against it will change what is measured. Also, the frequency (cycles per second) will be the same in all frames of reference. The hypothesis related to time dilation has no effect here and only the hypothesis related to the frames of reference plays a role. Also, for an altitude of $ 400 km $ only, the Earth's kinetic time dilation factor will be up to $ 88\% $, enough to relate the comoving framework of the Earth (Sec.~2.3 of the paper).
+
+By sending the experiment at a speed in the vicinity of the speed of
+sound (in the following, we suppose the speed of the experimenter to be $ 88\% \times 6125.22 \, m/s = 5390.19 \, m/s $), it should be sufficient to detect a change in wavelength
+directly proportionally while energy is conserved:
+
+\begin{equation}\label{E equality}
+E=\frac{h(c-v_1)}{\lambda_1}=\frac{h(c-v_2)}{\lambda_2}
+\end{equation}
+
+Thus, if the stationary observer ($ v_1 = 0\, m/s$) measures $ \lambda_1=6.5\times 10^{-7} \,m$, the experimenter having velocity $ v_2 = 5390.19 \,m/s$ measures
+\begin{equation}\label{lambda 2}
+\lambda_2=\frac{(c-v_2)\lambda_1}{c-v_1}= 6.49988\times 10^{-7}
+\,m
+\end{equation}
+Here, we have accepted $c=299792458 \, m/s$ for the local value of the light speed. 
+
+As the frequency will be the same in all frames of reference, the speed-of-light won't be constant, relative to the moving observer. For the stationary observer, which measures speed-of-light $c_1=c=299792458 \, m/s$ and wavelength $ \lambda_1=6.5\times 10^{-7} \, m$, we have the following frequency:
+\begin{equation}\label{nu 1}
+\nu_1=\frac{c_1}{\lambda_1}= 4.6122\times 10^{14}\,s^{-1}
+\end{equation}
+
+Now we can find the new speed of the light beam in motion, which will be measured by an experimenter having velocity $ v_2 = 5390.19 \, m/s$:
+\begin{equation}\label{c 2}
+c_2=\lambda_2 \nu_2=\lambda_2 \nu_1= 2.9979\times 10^{8}\,m/s\,,
+\end{equation}
+where we have combined results (\ref{lambda 2}) and (\ref{nu 1}).
+
+For a wavelength meter having an accuracy of $\pm 1.5 \,pm$
+we should be able to confirm whether the change in wavelength (and, correspondingly, the change of light speed) occurs
+for the experiment in motion. The predicted difference of $
+\lambda_1 - \lambda_2 = 1.169\times 10^{-11} \, m$ is large enough to be
+detected [HighFinesse].
+
+
+
+\section*{References}
+[Rothman] T. Rothman and S. Boughn, Can gravitons be detected?, Foundations of Physics 36 (2006) 1801--1825.\\
+{[HighFinesse]} HighFinesse GmbH, wavelength meters, product documentation.
+\end{document}

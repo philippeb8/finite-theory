@@ -1,0 +1,7 @@
+run                                toward a0 (mm/s2) steady (mm/s) travel(cm) onset(s)
+IMG_8733_afternoon                 north        0.47          5.2       19.9     -5.0
+IMG_8735_afternoon                 north        2.07          6.9       18.6     20.7
+IMG_8745_Double-South              south        0.19          2.8       12.6     -5.0
+IMG_8746_Double-North              south        0.07          2.4       15.7     19.2
+IMG_8747_Single-South              south        0.21          3.2       18.0      5.0
+IMG_8748_Single-North              south        0.25          2.5       16.2     -0.2
