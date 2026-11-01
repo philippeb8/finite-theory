@@ -2,7 +2,8 @@
 documents it: galaxy list, points, fitted parameters, objective, aggregate, duplicates, and a baseline on the same data.
 Usage: python3 galaxy_fit.py <grc folder>   ->  galaxies.csv, summary.txt"""
 import numpy as np, os, sys, glob, re, json
-GRC=sys.argv[1]; G=6.671e-11; KPC=3.08567758128e19
+GRC=sys.argv[1]; G=6.67408e-11; KPC=3.08567758128e19   # G as in the paper; src/main.cpp of GRC uses 6.671e-11, which changes the
+# mean rms residual by 1 m/s and the Newtonian-limit mean by 13 m/s (release bench-v1.0 used it)
 gal={}; vel={}
 # db/0: SPARC (Lelli et al. 2016); grid centre m0 = Upsilon x L[3.6] from gm.txt (cols 2 and 10), x 1e9 Msun x 2e30 kg
 for l in open(os.path.join(GRC,'db/0/gm.txt')):

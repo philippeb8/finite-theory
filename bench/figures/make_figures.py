@@ -1,5 +1,5 @@
 """Figures 9, 10, 12 and 13 of the paper from the records in this folder.
-Usage: python3 make_figures.py   (after freefall/ff_refit.py and pendulum/periods.py; writes out/*.eps|pdf|png)"""
+Usage: python3 make_figures.py   (after freefall/ff_refit.py, pendulum/periods.py and pendulum/corrections.py; writes out/*.eps|pdf|png)"""
 import numpy as np, json, glob, matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import font_manager as fm
@@ -59,53 +59,63 @@ def suberr(rn,v): return np.sqrt(0.15**2+(0.03*v)**2) if rn=='IMG_8695' else max
 mk={'IMG_8695':'o','IMG_8694':'s','IMG_8693':'^'}; col={'IMG_8695':INK,'IMG_8694':CYAN,'IMG_8693':'#4a5568'}
 fig,a=plt.subplots(figsize=(6.2,3.6))
 a.axhline(0,color=MUTE,lw=0.8,zorder=1)
-a.axhline(2.49*gN,color=MUTE,lw=1,ls='--',zorder=1); a.text(1365,2.49*gN+1.0,'beam stop: largest measurable lightening, 24.4 mN',fontsize=8,color=MUTE)
-_A,_n0=8.4125,2327.6; _nn=np.linspace(_n0,3150,200)
-a.plot(_nn,_A*((_nn/_n0)**2.5-1)*gN,'--',color=CYAN,lw=1.4,zorder=2,label='empirical fit, 7 readings at 2369 rpm and above')
+a.axhline(2.49*gN,color=MUTE,lw=1,ls='--',zorder=1); a.text(1365,2.49*gN-2.6,'beam stop: largest measurable lightening, 24.4 mN',fontsize=7.6,color=MUTE)
+FL=json.load(open(os.path.join(ROOT,'spinning_disc','fit_law.json')))
+_p=FL['principal, 4 readings clear of the stop']; _q=FL['with 2591, 2692 and 2751 rpm, 7 readings']
+_nn=np.linspace(_p['n0'],2520,120)
+a.plot(_nn,_p['A']*((_nn/_p['n0'])**2.5-1)*gN,'--',color=CYAN,lw=1.4,zorder=2,label='descriptive fit, 4 readings clear of the stop')
+_nn=np.linspace(_q['n0'],2780,120)
+a.plot(_nn,_q['A']*((_nn/_q['n0'])**2.5-1)*gN,':',color=CYAN,lw=1.1,zorder=2,label='sensitivity fit with the 3 uncertain readings')
 for rn in ('IMG_8695','IMG_8694','IMG_8693'):
     ii=[i for i,q in enumerate(runs) if q==rn]
     nv=np.r_[n[ii],[q[1] for q in sub if q[0]==rn]]; yv=np.r_[y[ii],[q[2] for q in sub if q[0]==rn]]
     ev=np.r_[s[ii],[suberr(rn,q[2]) for q in sub if q[0]==rn]]; o=np.argsort(nv)
     a.errorbar(nv[o],yv[o]*gN,yerr=ev[o]*gN,fmt=mk[rn]+'-',lw=0.7,ms=5.2,color=col[rn],mec='white',mew=0.8,ecolor=LIGHT,elinewidth=1,capsize=2,zorder=4,label=rn)
+    for nq,yq in zip(nv[o],yv[o]):                                     # readings whose point value is not established
+        if nq in (2591,2692,2751): a.plot([nq],[yq*gN],mk[rn],ms=5.2,mfc='white',mec=col[rn],mew=1.1,zorder=5)
 a.errorbar([1904,2372],[0.1016*kap*gN,0.0328*kap*gN],yerr=[0.10*gN,np.sqrt(0.12**2+(0.03*0.393)**2)*gN],fmt='D-',lw=0.7,ms=5.8,color=AMBER,mec='white',mew=0.8,ecolor=AMBER,capsize=2.5,zorder=5,label='IMG_8699 (calibrated in frame)')
 a.plot([2372,3056],[0.0328*kap*gN,0.194*kap*gN],':',color=AMBER,lw=0.8)
 a.plot([3056],[0.194*kap*gN],'D',ms=5.8,mfc='white',mec=AMBER,mew=1.2,zorder=5)
 a.annotate('',xy=(3056,0.194*kap*gN+11),xytext=(3056,0.194*kap*gN+0.9),arrowprops=dict(arrowstyle='->',color=AMBER,lw=1.4))
 a.text(3150,0.194*kap*gN-9.5,'≥ 22.8 mN\n(held at stop)',ha='right',fontsize=8,color=AMBER)
-a.set_xlim(1350,3180); a.set_ylim(-16,45)
+a.set_xlim(1350,3180); a.set_ylim(-16,52)
 a.set_xlabel('Disc speed $n$ (rpm)'); a.set_ylabel('Apparent axial force (mN), + = pan lighter')
-a.legend(loc='upper left',fontsize=7.8,frameon=False); style(a)
+a.plot([],[],'o',ms=5.2,mfc='white',mec=MUTE,mew=1.1,label='open: near or beyond the stop, point value not established')
+a.legend(loc='upper left',ncol=2,fontsize=6.6,frameon=False,columnspacing=1.0,handlelength=2.2); style(a)
 plt.tight_layout(); save(fig,'CD_Axial_Force'); plt.close(fig)
 
 # ---------------- 3. Pendulum ----------------
 P=json.load(open(os.path.join(ROOT,'pendulum','periods.json')))
 fig,(a,b)=plt.subplots(1,2,figsize=(6.6,3.0),gridspec_kw={'width_ratios':[1.45,1]})
-Tm={}
-for n_,lab,c_,m_ in (('IMG_8754_steel','Steel sphere, 66 g',CYAN,'s'),('IMG_8755_magnets','Two NdFeB blocks, 184 g',AMBER,'o')):
-    allT=[]
-    for side in ('near','far'):
-        tp=np.array(P[n_][side]['turning_times']); d=np.diff(tp); tm=(tp[1:]+tp[:-1])/2
-        a.plot(tm,d,m_,ms=3.6,color=c_,mec='white',mew=0.5,zorder=3,label=lab if side=='near' else None); allT.append(P[n_][side]['period'])
-    Tm[n_]=np.mean(allT); a.plot([0,60],[Tm[n_]]*2,color=c_,lw=1.1,zorder=2)
-    a.text(61,Tm[n_],f'{Tm[n_]:.4f} s',color=c_,fontsize=7.8,va='center')
-a.set_xlim(0,72); a.set_ylim(2.79,2.90)
-a.set_xlabel('Time (s)'); a.set_ylabel('Period of each swing (s)'); style(a)
-a.legend(loc='upper left',fontsize=7.6,frameon=False,ncol=1)
-a.set_title('(a) Same rope, 1.96 m, released at about 21°',loc='left',fontsize=9,color=INK)
+C=json.load(open(os.path.join(ROOT,'pendulum','corrections.json')))
+Tm={n_:P[n_]['mean_period'] for n_ in ('IMG_8754_steel','IMG_8755_magnets')}
+for side,mk,lab_ in (('near','o','near end of the swing'),('far','s','far end of the swing')):
+    ts=np.array(P['IMG_8754_steel'][side]['turning_times']); tmg=np.array(P['IMG_8755_magnets'][side]['turning_times'])
+    k=np.arange(len(ts)); lag=(tmg-tmg[0])-(ts-ts[0])           # extra time the magnets take, from the first turning point
+    a.plot(k,lag,mk,ms=4.0 if mk=='o' else 3.6,color=AMBER if side=='near' else CYAN,mec='white',mew=0.5,zorder=3,label='Turning points, '+lab_)
+dT=Tm['IMG_8755_magnets']-Tm['IMG_8754_steel']
+a.plot([0,20],[0,20*dT],color=INK,lw=1.1,zorder=2,label='Difference of the periods, %.4f s per swing'%dT)
+a.set_xlim(-0.6,21.2); a.set_ylim(-0.12,0.66); a.set_xticks([0,5,10,15,20])
+a.set_xlabel('Swings after the first turning point'); a.set_ylabel('Extra time taken by the magnets (s)'); style(a)
+a.legend(loc='upper left',fontsize=7.2,frameon=False)
+a.text(20.8,0.02,'same 41 turning points\nin both records',fontsize=7.4,color=MUTE,ha='right',va='bottom')
+a.set_title('(a) Same rope, %.2f m, released at about 21°'%C['length_m'],loc='left',fontsize=9,color=INK)
 lab=['measured','rope mass\nremoved','swing decay\nremoved','centre height\nremoved','twine stretch\nremoved']
-val=[0.758,0.521,0.421,0.500]; err=[0.032,0.032,0.105,0.117]
+val=[C[k][0] for k in ('measured','after_rope','after_decay','after_centre')]
+err=[C[k][1] for k in ('measured','after_rope','after_decay','after_centre')]
+lo,hi,ew=C['with_stretch']
 b.barh([4,3,2,1],val,color=INK,height=0.62,xerr=err,ecolor=MUTE,capsize=2,error_kw=dict(lw=0.9))
-b.barh([0],[0.477-0.409],left=[0.409],color=AMBER,height=0.62,xerr=[[0],[0.117]],ecolor=MUTE,capsize=2,error_kw=dict(lw=0.9))
+b.barh([0],[hi-lo],left=[lo],color=AMBER,height=0.62,xerr=[[0],[ew]],ecolor=MUTE,capsize=2,error_kw=dict(lw=0.9))
 b.set_xlim(0,1.0)
 for yy,v,e_ in zip([4,3,2,1],val,err): b.text(v+e_+0.03,yy,f'{v:.2f} %',va='center',fontsize=7.8,color=INK)
-b.text(0.477+0.117+0.03,0,'0.41 to 0.48 %',va='center',fontsize=7.8,color=AMBER)
+b.text(hi+ew+0.03,0,'%.2f to %.2f %%'%(lo,hi),va='center',fontsize=7.8,color=AMBER)
 b.set_yticks([4,3,2,1,0]); b.set_yticklabels(lab,fontsize=7.6)
 b.set_xlabel("Magnets' period longer than steel's (%)"); style(b)
 b.set_title('(b) Period difference',loc='left',fontsize=9,color=INK)
 plt.tight_layout(w_pad=1.2); save(fig,'Pendulum_Periods'); plt.close(fig)
 print('pendulum periods', Tm)
 
-# ---------------- 4. Float at night and in the basement ----------------
+# ---------------- 4. Float at night and on the plastic support ----------------
 fig,(a,b)=plt.subplots(1,2,figsize=(6.6,3.0),gridspec_kw={'width_ratios':[1.2,1]})
 PX=248/15.0
 from scipy.ndimage import median_filter
@@ -120,11 +130,16 @@ for f in sorted(glob.glob(os.path.join(ROOT,'floating_magnet','tracks','IMG_874*
 a.set_xlabel('Time (s)'); a.set_ylabel('Displacement toward south (cm)'); style(a)
 a.legend(loc='upper left',fontsize=7.2,frameon=False)
 a.set_title('(a) 22 h, container on plastic boxes',loc='left',fontsize=9,color=INK)
-U=np.loadtxt(os.path.join(ROOT,'floating_magnet','tracks','IMG_8751_basement_track.csv'),delimiter=','); t,x,c=U.T; PX2=315/15.0
-d=(x-x[t<4].mean())/PX2
-b.plot(t,d,'-',color=INK,lw=1.3)
-b.axhline(0,color=MUTE,lw=0.8,ls='--'); b.annotate('tap',xy=(4.5,0.5),xytext=(1.0,6),fontsize=8,color=AMBER,arrowprops=dict(arrowstyle='->',color=AMBER,lw=1))
-b.set_xlabel('Time (s)'); b.set_ylabel('Displacement from rest position (cm)'); style(b)
-b.set_title('(b) Basement, IMG_8751: return after a tap',loc='left',fontsize=9,color=INK)
+PXP=990/60.0                                                  # plastic support: 60 cm container over 990 pixels
+P1=np.loadtxt(os.path.join(ROOT,'floating_magnet','tracks','IMG_8765_plastic_track.csv'),delimiter=',')
+P2=np.loadtxt(os.path.join(ROOT,'floating_magnet','tracks','IMG_8766_plastic_track.csv'),delimiter=',')
+P2=P2[P2[:,0]<=98]                                            # to the end of the fitted range (fit_drift.py), before the wall
+b.axvspan(0,15,color=GRID,lw=0,zorder=0); b.text(7.5,-3.2,'turn of\nthe two\nblocks',fontsize=7.2,color=MUTE,ha='center',va='top')
+b.axhline(0,color=MUTE,lw=0.8,ls='--')
+b.plot(P1[:,0],(P1[:,1]-P1[0,1])/PXP,'-',color=CYAN,lw=1.5,label='8765, one block: west')
+b.plot(P2[:,0],(P2[:,1]-P2[0,1])/PXP,'-',color=AMBER,lw=1.5,label='8766, two blocks: east')    # left edge of the float
+b.set_xlabel('Time (s)'); b.set_ylabel('Displacement toward west (cm)'); style(b)
+b.legend(loc='upper left',fontsize=7.2,frameon=False)
+b.set_title('(b) Plastic support, no steel below',loc='left',fontsize=9,color=INK)
 plt.tight_layout(w_pad=1.2); save(fig,'Floating_Magnet_Night'); plt.close(fig)
 print('float ok')

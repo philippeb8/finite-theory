@@ -16,3 +16,7 @@ IMG_8694   2692   +3.20 +- 0.82     +31.4 +- 8.0
 IMG_8693   2751   +3.48 +- 0.88     +34.2 +- 8.7
 IMG_8699   3056   >= 2.32 (beam stop)  >= 22.8
 beam stop 2.49 g = 24.4 mN; 2591 rpm at 0.667 W: 38.1 N/kW
+principal, 4 readings clear of the stop    A = 12.85 +- 4.54 g   n0 = 2353 +- 28 rpm   chi2 =  6.09 / 2   line through zero at 2354 rpm (chi2 5.91)
+with 2591 rpm, 5 readings                  A =  9.56 +- 2.42 g   n0 = 2339 +- 34 rpm   chi2 =  8.39 / 3   line through zero at 2342 rpm (chi2 7.86)
+with 2591, 2692 and 2751 rpm, 7 readings   A =  8.41 +- 1.74 g   n0 = 2328 +- 33 rpm   chi2 = 10.47 / 5   line through zero at 2334 rpm (chi2 9.38)
+principal fit at 2372 rpm: 0.27 g (IMG_8699 measured 0.39 +- 0.12 g, not used in the fit)
