@@ -118,7 +118,7 @@ for d in (7,8,9,10,11):
 B2={k:np.mean(v) for k,v in blocks.items()}
 odd=[(B2[f'{d}D']-B2[f'{d}U'])/2 for d in (7,8,9,10,11)]; even=[(B2[f'{d}D']+B2[f'{d}U'])/2-geff for d in (7,8,9,10,11)]
 out=os.path.join(os.path.dirname(os.path.abspath(__file__)),'lower_half.json')
-json.dump({'blocks':blocks,'odd':odd,'even':even,'geff':geff},open(out,'w'),indent=1); print('wrote',out)
+json.dump({'blocks':blocks,'odd':odd,'even':even,'geff':geff},open(out,'w'),indent=1); print('wrote',os.path.relpath(out))
 
 # ---- per-drop calibration and fit record (scale s, curvature k of the steel calibration y = s(Z + kZ^2),
 #      rms of the calibration fit and of the two-half fit, mid-height time tc, number of tracked positions)
@@ -127,4 +127,4 @@ outc=os.path.join(os.path.dirname(os.path.abspath(__file__)),'per_drop.csv')
 with open(outc,'w',newline='') as f:
     w=csv.writer(f); w.writerow(['day','orientation','positions','scale_s','curvature_k_per_m','calibration_rms_m','two_half_fit_rms_m','t_mid_s','a1_upper','a2_lower','lateral_rel_steel'])
     for x in H['A']: w.writerow([x['d'],x['o'],x['n'],'%.5f'%x['s'],'%.4f'%x['k'],'%.3f'%x['cal_rms'],'%.5f'%x['fit_rms'],'%.4f'%x['tc'],'%.3f'%x['a1'],'%.3f'%x['a2'],'%.3f'%x['lat']])
-print('wrote',outc)
+print('wrote',os.path.relpath(outc))

@@ -1,8 +1,12 @@
 curves 497 (SPARC 175, Sofue atlas 322); objects appearing twice 11; galaxies 486
 duplicates: N2403/NGC2403, N2841/NGC2841, N2903/NGC2903, N300/NGC0300, N3198/NGC3198, N5033/NGC5033, N6946/NGC6946, N7331/NGC7331, U406031/Z406031, U476112/Z476112, U9133/UGC09133
 points per curve: median 118, range 4 to 489
-Finite Theory, Eq. (84): mean std of residuals 8031 m/s (median 6526); mean rms 10429 m/s
+Finite Theory, Eq. (91): mean std of residuals 8031 m/s (median 6526); mean rms 10430 m/s
 empirical arctangent curve, same objective and parameter count: mean std 6255 m/s (median 5400)
-Newtonian limit of Eq. (84), lambda_g -> infinity: mean std 67782 m/s
+Newtonian limit of Eq. (91), lambda_g -> infinity: mean std 67795 m/s
 Finite Theory better than the arctangent curve on 138 of 497 curves
 fitted lambda_g: quartiles 7.51e+20 1.70e+21 2.85e+21 kg/m; at the grid bounds 24
+Milky Way, Sofue (2020); mass scale 5e10 Msun; Eq. (91) by the procedure of galaxy_fit.py
+outside the bulge, R >= 2.5 kpc  39 points, 2.56 to 95.6 kpc: lambda_g = 3.50e+21 kg/m (3.15e+21 to 3.85e+21 within 10 % of the minimum), m = 5.53e+11 Msun, omega = 0.26 km/s/kpc, std 6.7 km/s, rms 8.0 km/s
+whole curve                      73 points, 0.10 to 95.6 kpc: lambda_g = 1.80e+21 kg/m (8.51e+20 to 2.85e+21 within 10 % of the minimum), m = 5.33e+10 Msun, omega = 1.25 km/s/kpc, std 32.1 km/s, rms 85.4 km/s
+lambda_g for inner limits of 2 to 5 kpc: 2.0 kpc 3.45e+21, 2.5 kpc 3.50e+21, 3.0 kpc 3.50e+21, 3.5 kpc 3.55e+21, 4.0 kpc 3.60e+21, 5.0 kpc 3.60e+21

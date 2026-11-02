@@ -48,5 +48,5 @@ TABLE 3  block  drops  a1 upper (m/s2)   a2 lower (m/s2)
         10D     4     8.57 +- 0.29      8.91 +- 1.83
         11U     4     8.07 +- 0.46      9.28 +- 1.60
         11D     4     8.80 +- 0.34      7.91 +- 1.05
-wrote /tmp/claude-0/-home-claude/edc425d8-005b-54ca-a25b-82ca5bade551/scratchpad/bench/freefall/lower_half.json
-wrote /tmp/claude-0/-home-claude/edc425d8-005b-54ca-a25b-82ca5bade551/scratchpad/bench/freefall/per_drop.csv
+wrote freefall/lower_half.json
+wrote freefall/per_drop.csv
